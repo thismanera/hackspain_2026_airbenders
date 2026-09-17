@@ -34,6 +34,9 @@ pnpm-debug.log*
 # datos derivados del analisis (se regeneran con analysis/01_panel.py)
 analysis/*.parquet
 
+# tmp files
+tmp/
+
 # vercel
 .vercel
 
