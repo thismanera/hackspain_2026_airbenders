@@ -1,0 +1,12 @@
+// Example model wired end-to-end (see app/tasks, lib/features/tasks) as a
+// living reference for the query-key / prefetch / hook pattern new features
+// should follow. Safe to delete once real domain models replace it.
+model Task {
+  id        String   @id @default(cuid())
+  title     String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tasks")
+}
