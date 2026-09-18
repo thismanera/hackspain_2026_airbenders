@@ -15,6 +15,7 @@ con el calendario, cualquier feature de tendencia mide "cuando se conecto esta
 empresa", no su salud.
 """
 
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -23,6 +24,9 @@ import pandas as pd
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import report
 
 HERE = Path(__file__).resolve().parent
 FIG = HERE / "figures"
@@ -149,3 +153,32 @@ ax[2].set_title("Persistencia de nivel")
 plt.tight_layout()
 plt.savefig(FIG / "trend_vs_noise.png", dpi=130)
 print(f"\nfigura -> {FIG / 'trend_vs_noise.png'}")
+
+acf_comp = {}
+for lag in (1, 2, 3, 4):
+    a = dev.iloc[:, :-lag].stack()
+    b = dev.shift(-lag, axis=1).iloc[:, :-lag].stack()
+    acf_comp[f"lag{lag}"] = float(pd.concat([a, b], axis=1).dropna().corr().iloc[0, 1])
+
+report.emit("trayectoria", {
+    "persistencia": [
+        {"senal": idx, "n": int(r.n), "nivel": float(r.persist_nivel),
+         "tendencia": float(r.persist_tendencia), "nula_p95": float(r.nula_p95)}
+        for idx, r in res.sort_values("persist_nivel", ascending=False).iterrows()
+    ],
+    "indice_compuesto": {"acf": acf_comp, "persist_nivel": float(lv), "persist_tendencia": float(tr)},
+    # Veredicto con matiz en vez de un booleano: cuantas senales superan su
+    # propia nula y por cuanto. Una que la roce no invalida la conclusion.
+    "n_senales": int(len(res)),
+    "n_dentro_de_nula": int((res.persist_tendencia <= res.nula_p95).sum()),
+    "por_encima_de_nula": [
+        {"senal": idx, "tendencia": float(r.persist_tendencia), "nula_p95": float(r.nula_p95)}
+        for idx, r in res[res.persist_tendencia > res.nula_p95].iterrows()
+    ],
+    "onboarding": {
+        "empresas_activas_inicio": int(cal.empresas_activas.iloc[0]),
+        "empresas_activas_pico": int(cal.empresas_activas.max()),
+        "tx_por_empresa_tipico": float(cal.tx_por_empresa.iloc[:-1].median()),
+        "tx_por_empresa_ultimo_mes": float(cal.tx_por_empresa.iloc[-1]),
+    },
+})

@@ -11,15 +11,20 @@ Notas de implementacion que condicionan todo lo demas:
   prediccion, pero ojo: usa flujos futuros, asi que en produccion esto se
   sustituye por el saldo real del mes. Para features solo se usa saldo_t y
   pasado, nunca saldo_final directamente.
-- Los importes se llevan a EUR multiplicando por exchange_rate. El script
-  imprime un diagnostico para verificar que la direccion del cambio es la
-  correcta.
+- Los importes se llevan a EUR con la tabla propia de analysis/fx.py, NO con el
+  campo `exchange_rate` del dataset, que convierte entre `currency` y
+  `accounting_currency` y no sirve para esto. Las transacciones heredan la
+  divisa de su cuenta bancaria, porque transactions.csv no la trae.
 """
 
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from fx import product_currency, to_eur
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "dataset"
@@ -46,29 +51,17 @@ def month_floor(s: pd.Series) -> pd.Series:
     return pd.to_datetime(s, errors="coerce").dt.to_period("M").dt.to_timestamp()
 
 
-def fx_diagnostic() -> None:
-    inv = pd.read_csv(DATA / "invoices.csv", usecols=["currency", "amount", "exchange_rate"], nrows=300_000)
-    eur = inv.loc[inv.currency == "EUR", "amount"].abs().median()
-    for cur in ["USD", "GBP", "CLP", "COP"]:
-        sub = inv.loc[inv.currency == cur]
-        if sub.empty:
-            continue
-        raw = sub.amount.abs().median()
-        mul = (sub.amount * sub.exchange_rate).abs().median()
-        div = (sub.amount / sub.exchange_rate).abs().median()
-        print(f"  {cur}: mediana raw={raw:,.0f}  x_rate={mul:,.0f}  /rate={div:,.0f}   (EUR={eur:,.0f})")
-
-
 def build_transactions() -> pd.DataFrame:
     prod_type = pd.read_csv(DATA / "banking_products.csv", usecols=["product_id", "type"])
     cash_products = set(prod_type.loc[prod_type.type.isin(CASH_TYPES), "product_id"])
+    prod_cur = product_currency(DATA)
 
-    usecols = ["company_id", "product_id", "date", "amount", "exchange_rate", "category", "description"]
+    usecols = ["company_id", "product_id", "date", "amount", "category", "description"]
     parts = []
     reader = pd.read_csv(DATA / "transactions.csv", usecols=usecols, chunksize=400_000, low_memory=False)
     for i, ch in enumerate(reader):
         ch["month"] = month_floor(ch.date)
-        ch["eur"] = ch.amount * ch.exchange_rate.fillna(1.0)
+        ch["eur"] = to_eur(ch.amount, ch.product_id.map(prod_cur))
         ch["is_cash"] = ch.product_id.isin(cash_products)
         ch["unpaid_hit"] = ch.description.fillna("").str.contains(UNPAID_RE, case=False, regex=True)
 
@@ -107,12 +100,16 @@ def build_invoices() -> tuple[pd.DataFrame, pd.DataFrame]:
     inv = pd.read_csv(
         DATA / "invoices.csv",
         usecols=["company_id", "document_type", "issuance_date", "due_date", "payment_date",
-                 "amount", "pending_amount", "status", "exchange_rate", "counterparty_id"],
+                 "amount", "pending_amount", "status", "currency", "counterparty_id"],
         low_memory=False,
     )
     inv = inv[inv.document_type.isin(["invoice", "invoiceGroup"])].copy()
-    inv["eur"] = inv.amount * inv.exchange_rate.fillna(1.0)
-    inv["issued"] = inv.eur > 0  # positivo = emitida (cliente nos debe); negativo = recibida
+    inv = inv[inv.status != "cancel"]
+    inv["eur"] = to_eur(inv.amount, inv.currency)
+    inv["pending_amount"] = to_eur(inv.pending_amount, inv.currency)
+    # Validado en 05_validate.py cruzando counterparty_id con el signo del
+    # movimiento bancario: importe positivo = factura a cliente (94,7% / 89,5%).
+    inv["issued"] = inv.eur > 0
     for c in ["issuance_date", "due_date", "payment_date"]:
         inv[c] = pd.to_datetime(inv[c], errors="coerce")
     inv["m_iss"] = inv.issuance_date.dt.to_period("M").dt.to_timestamp()
@@ -120,6 +117,13 @@ def build_invoices() -> tuple[pd.DataFrame, pd.DataFrame]:
     inv["days_late"] = (inv.payment_date - inv.due_date).dt.days
     inv["days_to_cash"] = (inv.payment_date - inv.issuance_date).dt.days
     inv["terms"] = (inv.due_date - inv.issuance_date).dt.days
+
+    # El 62% de las facturas trae payment_date == due_date (el 96% de las
+    # vencidas), o sea fecha rellenada, no pago observado. Promediar esas filas
+    # aplasta cualquier metrica de retraso contra cero. Las metricas de
+    # comportamiento de pago se calculan solo sobre las informativas, y se
+    # guarda el recuento para poder ponderar la confianza despues.
+    inv["fecha_util"] = inv.payment_date.notna() & (inv.payment_date != inv.due_date)
 
     out = []
     for issued, tag in [(True, "ar"), (False, "ap")]:
@@ -133,15 +137,19 @@ def build_invoices() -> tuple[pd.DataFrame, pd.DataFrame]:
         by_iss.index = by_iss.index.set_names(["company_id", "month"])
         by_pay = sub.groupby(["company_id", "m_pay"], observed=True).agg(
             **{f"{tag}_paid_n": ("eur", "size"),
-               f"{tag}_paid_amount": ("eur", lambda x: x.abs().sum()),
+               f"{tag}_paid_amount": ("eur", lambda x: x.abs().sum())}
+        )
+        by_pay.index = by_pay.index.set_names(["company_id", "month"])
+        util = sub[sub.fecha_util].groupby(["company_id", "m_pay"], observed=True).agg(
+            **{f"{tag}_util_n": ("eur", "size"),
                f"{tag}_days_late": ("days_late", "median"),
                f"{tag}_days_late_w": ("days_late", "mean"),
                f"{tag}_share_late": ("days_late", lambda x: (x > 0).mean()),
                f"{tag}_share_late30": ("days_late", lambda x: (x > 30).mean()),
                f"{tag}_dso": ("days_to_cash", "median")}
         )
-        by_pay.index = by_pay.index.set_names(["company_id", "month"])
-        out.append(by_iss.join(by_pay, how="outer"))
+        util.index = util.index.set_names(["company_id", "month"])
+        out.append(by_iss.join(by_pay, how="outer").join(util, how="outer"))
 
     panel = out[0].join(out[1], how="outer")
 
@@ -161,10 +169,7 @@ def build_invoices() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def main() -> None:
-    print("diagnostico FX (que direccion normaliza a EUR):")
-    fx_diagnostic()
-
-    print("\ntransactions -> panel mensual")
+    print("transactions -> panel mensual")
     tx = build_transactions()
     print("  ", tx.shape)
 
@@ -182,6 +187,7 @@ def main() -> None:
     bal = pd.read_csv(DATA / "balances.csv", usecols=["product_id", "company_id", "balance"])
     prod_type = pd.read_csv(DATA / "banking_products.csv", usecols=["product_id", "type"])
     bal = bal.merge(prod_type, on="product_id", how="left")
+    bal["balance"] = to_eur(bal.balance, bal.product_id.map(product_currency(DATA)))
     cash_final = bal[bal.type.isin(CASH_TYPES)].groupby("company_id").balance.sum()
 
     net = panel.net_cash.fillna(0.0).unstack("month").sort_index(axis=1)
@@ -198,6 +204,8 @@ def main() -> None:
         on="group_id", how="left",
     )
     debt = pd.read_csv(DATA / "debt_products.csv")
+    for c in ["granted", "outstanding", "liquidity"]:
+        debt[c] = to_eur(debt[c], debt.currency)
     sched = pd.read_csv(DATA / "debt_schedule_config.csv", usecols=["company_id"])
     meta["has_debt"] = meta.company_id.isin(debt.company_id)
     meta["has_schedule"] = meta.company_id.isin(sched.company_id)
