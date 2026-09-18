@@ -1,7 +1,7 @@
 # SOURCE — Grifo (Embat · X-Ray)
 
 Source of truth. Corto a propósito. `☐` = pendiente de validar con Pablo; `✅` validado; `⏳` aplazado. Justificaciones en §4.
-Detalle técnico ampliado en [`scoring-engine.md`](./scoring-engine.md).
+Detalle técnico ampliado en [`scoring-engine.md`](./scoring-engine.md) (score) y [`decision-engine.md`](./decision-engine.md) (decisión).
 
 **Producto:** financiación de circulante (anticipar cobros / estirar pagos)
 con límite que se recalcula solo mes a mes. El score dice cuánto, a qué
@@ -155,33 +155,116 @@ si D2 < score_solo (contagio): aval_grupo = w × (D2 − score_solo)            
 
 ---
 
-## 2. Decisión — cuánto, a qué precio, cuándo cerrar
+## 2. Decisión — ¿te puedo prestar? · cuánto · plazo · interés
 
-Entradas: fila del score. Salidas: `limite`, `precio`, `accion`, `motivo`.
+Entrada: fila del score (§1). Salida por empresa-mes: `elegible`, `motivo`,
+`L` (límite), `menu[]` de opciones (plazo, cantidad máx, TAE), `accion`.
+Todo validado 19-09 (decisiones 11, 12, 17-23).
 
 ```text
-capacidad_cuota = max(0, (0,8·cobros_op − 1,1·pagos_op)_media6m / 1,3 − servicio_deuda_media6m)   ✅
-limite_cap      = capacidad_cuota × 12
-limite_op       = 0,8 × media3m(cobros_op) × 3                                                 ✅
-limite          = min(limite_cap, limite_op) × banda(score) × min(1, confianza/0,6)
+0. Elegibilidad   ¿te puedo prestar?        → sí / no + motivo
+1. Cantidad       límite máximo L           → §2.1
+2. Plazo          tenor máximo T_max        → §2.2
+3. Interés        TAE de cada (cantidad, plazo) → §2.3
+Dependencia: región factible (cantidad, plazo) + precio función de ambas → §2.4
 ```
 
-| Banda | score | factor | precio ✅ | acción |
-| --- | --- | --- | --- | --- |
-| A | ≥ 75 | 1,0 | 5 % | ampliar si `limite > 1,15·L_prev` |
-| B | 60-75 | 0,7 | 7 % | mantener |
-| C | 45-60 | 0,4 | 10 % | reducir si `limite < 0,85·L_prev` 2 meses o deterioro estructural |
-| D | < 45 | 0 | — | **cerrar** |
+### 2.0 Elegibilidad ✅
 
-Cerrar también si `racha_deficit ≥ 3`, `B2 ≥ 2` o `C4 > 40 %`. Cambio de
-límite acotado a ±25 %/mes salvo cerrar. Deterioro estructural baja una
-banda. ✅
+Puertas duras, todas deben pasar. La primera que falla es el `motivo`.
 
-**Grupo** ✅: `Σ límites de las empresas del grupo ≤ límite calculado sobre
-flujos consolidados` (el aval no se cuenta dos veces). Si una empresa con
-`D1 ≥ 0,3` pasa a `cerrar`, el resto del grupo baja una banda y su
-`aval_grupo` se recalcula sin ella (si el padre deja de pagar, el aval no
-vale).
+| Puerta | Regla | Por qué |
+| --- | --- | --- |
+| Historia | `confianza ≥ 0,5` (≈ 6 meses con movimientos) | Sin historia no hay opinión |
+| Estado | `score ≥ 45` | Estado riesgo (5) |
+| Fiabilidad | racha B2 < 2 | Dos meses sin pagar = impago real (7) |
+| Caja | `racha_deficit < 3` y `capacidad_cuota_adv > 0` | La caja estresada debe cubrir las cuotas actuales con margen |
+| Clientes | C4 vencido sin cobrar ≤ 40 % | Cobros futuros comprometidos (12) |
+| Grupo | sin cross-default activo | Si cae quien sostiene el grupo, el aval no vale (17) |
+
+### 2.1 Cantidad: límite L ✅
+
+```text
+capacidad_cuota_adv = max(0, (0,8·cobros_op − 1,1·pagos_op)_media6m / 1,3 − servicio_deuda_media6m)
+limite_cap          = capacidad_cuota_adv × 12
+limite_op           = 0,8 × media3m(cobros_op) × 3
+L                   = min(limite_cap, limite_op) × factor_banda × min(1, confianza / 0,6)
+```
+
+| Banda | score | factor_banda | base_TAE |
+| --- | --- | --- | --- |
+| A | ≥ 75 | 1,0 | 5 % |
+| B | 60-75 | 0,7 | 7 % |
+| C | 45-60 | 0,4 | 10 % |
+| D | < 45 | 0 | no presta |
+
+Deterioro estructural baja una banda. Grupo: `Σ L del grupo ≤ L sobre
+flujos consolidados` (el aval no se cuenta dos veces).
+
+### 2.2 Plazo: T_max por banda y tendencia ✅
+
+| Banda | Estable / mejora | Deterioro temporal | Deterioro estructural |
+| --- | --- | --- | --- |
+| A | 180 d | 120 d | 60 d |
+| B | 120 d | 90 d | 30 d |
+| C | 60 d | 30 d | no presta |
+
+Por qué: peor score → menos exposición al futuro y más rotación, es decir
+más veces que re-evaluamos antes de que algo se rompa.
+
+### 2.3 Interés ✅
+
+```text
+TAE = base_TAE(banda) + prima_plazo + prima_confianza + ajuste_tendencia
+prima_plazo      = +0,5 pp por cada 30 días por encima de 30
+prima_confianza  = +1 pp si confianza < 0,7
+ajuste_tendencia = −0,5 pp si mejora · +1 pp si deterioro
+coste_operacion  = cantidad × TAE × plazo / 360
+```
+
+### 2.4 Dependencia cantidad-plazo: región factible ✅
+
+```text
+cantidad ≤ L                                       (paso 1)
+cantidad ≤ capacidad_cuota_adv × plazo_meses       (se devuelve con caja estresada dentro del plazo)
+plazo    ≤ T_max                                   (paso 2)
+```
+
+Plazo corto → cantidad pequeña. Plazo largo → cantidad se acerca a L pero
+el interés sube. El producto enseña el menú, la empresa elige el punto:
+
+| Plazo | Cantidad máx | TAE |
+| --- | --- | --- |
+| 30 d | `min(L, cap_adv × 1)` | base |
+| 60 d | `min(L, cap_adv × 2)` | base + 0,5 |
+| 90 d | `min(L, cap_adv × 3)` | base + 1,0 |
+| … hasta T_max | | |
+
+### 2.5 Un solo límite, dos usos ✅
+
+`L` sirve para **anticipar cobros** (plazo natural = días hasta el cobro
+esperado, C3) o **aplazar pagos** (plazo = días de aplazamiento al
+proveedor). Ambos dentro de `T_max`. Sin sublímites: más simple y el score
+no distingue usos.
+
+### 2.6 Revisión mensual: acción, histéresis, reapertura ✅
+
+| Acción | Regla |
+| --- | --- |
+| `abrir` | `L_prev = 0`, elegible, `L > 0` |
+| `ampliar` | `L > 1,15 · L_prev` y dirección ≠ deterioro |
+| `reducir` | `L < 0,85 · L_prev` dos meses seguidos, o deterioro estructural (inmediato) |
+| `cerrar` | no elegible (§2.0) |
+| `mantener` | resto |
+
+- Cambio de `L` acotado a ±25 %/mes salvo `cerrar`: el grifo no oscila con
+  un mes ruidoso.
+- Cierre no borra lo dispuesto: sin nuevas disposiciones, lo vivo se
+  devuelve a su vencimiento.
+- Reapertura: elegible de nuevo tras 2 meses seguidos pasando todas las
+  puertas.
+- Cross-default: si una empresa con `D1 ≥ 0,3` pasa a `cerrar`, el resto
+  del grupo baja una banda y su `aval_grupo` se recalcula sin ella.
 
 ---
 
@@ -223,4 +306,11 @@ el jurado.
 | 16 | Aval exige capacidad (D3); contagio no | El padre solo avala si tiene dinero. Un grupo débil arrastra siempre: hace barridos de caja. Asimetría deliberada. | ✅ 19-09 |
 | 17 | Techo de grupo y cross-default al 30 % | El aval no se cuenta dos veces entre filiales. Si cae quien sostiene el grupo, el aval desaparece. | ✅ 19-09 |
 
-**Estado 19-09:** todo validado salvo la 2 (categoría `-`), aplazada hasta ver cuántas empresas quedan con confianza baja.
+| 18 | Elegibilidad = 6 puertas duras, primera que falla es el motivo | Sí/no antes de cuánto: sin historia, en riesgo, con impago real, sin caja estresada, con clientes que no pagan o con el grupo cayendo, no se presta. Reglas explícitas y explicables, sin umbral de score compuesto. | ✅ 19-09 |
+| 19 | Región factible: `cantidad ≤ L` y `cantidad ≤ capacidad_cuota_adv × plazo_meses` | La empresa debe poder devolver lo prestado con caja estresada dentro del plazo. Es la dependencia central entre cantidad y plazo: corto → poco, largo → más pero más caro. | ✅ 19-09 |
+| 20 | T_max por banda (180/120/60 d) y recorte por deterioro (temporal un escalón, estructural dos) | Peor score → menos exposición al futuro y más rotación: re-evaluamos más veces antes de que algo se rompa. Estructural en C no presta. | ✅ 19-09 |
+| 21 | TAE = base banda + 0,5 pp/30 d + 1 pp si confianza < 0,7 ± tendencia | Precio sube con plazo (más exposición), con incertidumbre (menos datos) y con deterioro; baja con mejora. Aditivo para poder explicarlo en la ficha componente a componente. | ✅ 19-09 |
+| 22 | Un solo límite para anticipar cobros y aplazar pagos | El score no distingue usos; dos sublímites duplican lógica y pantalla. El uso solo fija el plazo natural. | ✅ 19-09 |
+| 23 | Reapertura tras 2 meses elegible; cierre no borra lo dispuesto | Evita abrir/cerrar mes a mes; lo vivo se devuelve a vencimiento como en cualquier línea. | ✅ 19-09 |
+
+**Estado 19-09:** score (1-17) y decisión (18-23) validados. Solo la 2 (categoría `-`) aplazada hasta ver cuántas empresas quedan con confianza baja.
