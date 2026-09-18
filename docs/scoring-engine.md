@@ -279,6 +279,8 @@ decidir el contenido.
 
 ## 8. Etapa F — Capacidad, límite, precio, acción
 
+> **Sustituido** por [`decision-engine.md`](./decision-engine.md) (19-09). Se conserva como histórico.
+
 Esta etapa es la capa de producto. Sus parámetros son de negocio, no
 estadísticos, y se muestran como supuestos en la demo.
 

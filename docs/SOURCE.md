@@ -1,7 +1,7 @@
 # SOURCE — Grifo (Embat · X-Ray)
 
 Source of truth. Corto a propósito. `☐` = pendiente de validar con Pablo; `✅` validado; `⏳` aplazado. Justificaciones en §4.
-Detalle técnico ampliado en [`scoring-engine.md`](./scoring-engine.md).
+Detalle técnico ampliado en [`scoring-engine.md`](./scoring-engine.md) (score) y [`decision-engine.md`](./decision-engine.md) (decisión).
 
 **Producto:** financiación de circulante (anticipar cobros / estirar pagos)
 con límite que se recalcula solo mes a mes. El score dice cuánto, a qué
