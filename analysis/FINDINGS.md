@@ -45,8 +45,8 @@ Con etiqueta de estrés compuesta (≥2 señales simultáneas entre caja <10 dí
 impagos/devoluciones en el extracto, >50% de facturas pagadas con más de 30
 días de retraso, y comisiones+intereses >2% de la salida):
 
-- 6,3% de empresa-mes en estrés; 34,1% de empresas lo tocan alguna vez
-- etiqueta "estrés en los próximos 12 meses": **17,8% de positivos** sobre
+- 6,3% de empresa-mes en estrés; 33,8% de empresas lo tocan alguna vez
+- etiqueta "estrés en los próximos 12 meses": **17,4% de positivos** sobre
   8.796 empresa-mes entrenables, un **1:5**
 
 Eso se resuelve con pesos de clase y calibración. No hace falta SMOTE.
@@ -79,13 +79,24 @@ El DSCR solo se puede calcular para el 29% de las empresas y con cuadro real
 para 40. El motor de producto tiene que degradarse por niveles según lo que
 exista, no imputar medianas y fingir que sabe.
 
-### Escala y divisa
+### Escala y divisa (resuelto, con una salvedad)
 
-Ratio p90/p10 del outflow mensual: **667x**. Y `exchange_rate` **no** convierte
-a EUR (en las filas en CLP vale 1,0), así que los importes no son comparables
-entre divisas; el 89,3% de empresas es EUR. Hay empresas con outflow mediano de
-1,9·10¹¹, que son barridos intragrupo o ruido del generador. Todo tiene que ser
-ratio o rango, nunca euros absolutos.
+El campo `exchange_rate` **no** convierte a EUR: convierte de `currency` a
+`accounting_currency`, y para la mayoría de filas vale 1,0. Sin normalizar, los
+importes de distintas divisas no son comparables: había facturas por 2,19·10¹¹
+en COP que son unos 33 M EUR.
+
+Hay 44 divisas en el dataset, pero el top 10 cubre el 98,5% de las facturas.
+`analysis/fx.py` tiene la tabla (anclas de medio plazo, una por divisa, en
+unidades por EUR) y convierte el 100% de las filas. Validación: tras convertir,
+la mediana de factura de cada divisa cae en el mismo orden de magnitud que la
+del euro (581 EUR). Las transacciones heredan la divisa de su cuenta bancaria,
+porque `transactions.csv` no la trae.
+
+Salvedad: incluso con todo en euros, el ratio p90/p10 del outflow mensual sigue
+siendo de **582x**, y queda un puñado de empresas con outflow mediano de 2,9·10⁹
+(COMP_1185 la peor), que son barridos de tesorería intragrupo y no operación.
+Todo tiene que ser ratio o rango, nunca euros absolutos.
 
 ### Trampa de calendario
 
@@ -110,15 +121,33 @@ falso en las 1.286 empresas. Hay que excluirlo o tratarlo como parcial.
 4. **Control de artefactos**: "tener deuda" o "tener ERP" predice porque marca
    qué empresas están mejor conectadas a la plataforma, no riesgo. Entrenar con
    y sin esos indicadores y comparar; si la mejora viene de ahí, es humo.
-5. **Calibración**: el 17,8% de prevalencia es artefacto de nuestra definición
-   de estrés. Antes de usar la PD en el precio del producto hay que anclarla a
-   una referencia externa (mora de pyme, orden del 2–4%).
+5. **Calibración a un ancla externa**: el 17,4% de prevalencia es artefacto de
+   nuestra definición de estrés, no la tasa real de impago. Nuestra etiqueta
+   marca "mes con la caja justa y facturas pagadas tarde", que en pymes pasa
+   mucho; que la empresa no devuelva el dinero pasa en el entorno del 2–4%
+   anual. Si se mete el número sin corregir en el precio, una empresa media
+   cotiza al 15% (usura) y la fórmula del límite le ofrece seis veces menos
+   línea de la que le corresponde.
+
+   Se corrige manteniendo el **orden** que da el modelo, que es lo único que
+   mide el leaderboard, y desplazando el nivel con un offset en el logit:
+
+   ```
+   logit(PD_cal) = logit(PD_modelo) + ln[ (π_obj/(1-π_obj)) / (π_mod/(1-π_mod)) ]
+   ```
+
+   Con π_mod = 0,174 y π_obj = 0,03 el offset es **−1,92**. Efecto: 5% → 0,8%,
+   40% → 8,9%, y la media cae al 3% por construcción. En banca esto es
+   calibración a la tendencia central. **No toca el score ni el leaderboard**,
+   solo la capa de producto. El número exacto no hace falta clavarlo; hay que
+   citar la fuente (ratio de dudosos de crédito a empresas del Banco de España)
+   y declararlo como hipótesis en el pitch.
 
 ## 5. Pendiente de cuadrar
 
 `balances.csv` solo tiene foto a 2026-09-01, así que el saldo histórico se
 reconstruye hacia atrás con `saldo_t = saldo_final − flujos posteriores`. Sale
-un **8,9% de meses con caja negativa**, que puede ser descubierto real o error
+un **8,2% de meses con caja negativa**, que puede ser descubierto real o error
 de reconstrucción: `balances.csv` no cubre exactamente los mismos productos que
 tienen movimientos. Hay que cuadrarlo antes de usar `cash_days` en producción.
 
@@ -127,10 +156,14 @@ tienen movimientos. Hay que cuadrarlo antes de usar `cash_days` en producción.
 ```bash
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install pandas pyarrow matplotlib
+.\.venv\Scripts\python.exe analysis\fx.py          # valida la tabla de divisas
 .\.venv\Scripts\python.exe analysis\01_panel.py    # ~90 s, genera panel.parquet
 .\.venv\Scripts\python.exe analysis\02_balance.py
 .\.venv\Scripts\python.exe analysis\03_trend.py
 ```
+
+`00_recon.py` (vocabularios de cada fichero) y `04_currencies.py` (inventario de
+divisas) son independientes y se pueden lanzar en cualquier momento.
 
 Los `.parquet` son datos derivados y están en `.gitignore`: se regeneran con
 `01_panel.py`.

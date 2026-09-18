@@ -89,14 +89,16 @@ print(meta.n_companies_in_sample.value_counts().sort_index().head(12).to_string(
 print(f"empresas que comparten grupo con otra: {(meta.n_companies_in_sample > 1).mean():.1%}")
 
 # ------------------------------------------------------------------- 2. escala
-section("2. ESCALA: dispersion de tamano (solo EUR, el resto no es comparable)")
+section("2. ESCALA: dispersion de tamano (ya normalizado a EUR via analysis/fx.py)")
 
-eur = set(meta.loc[meta.currency == "EUR", "company_id"])
-p_eur = panel[panel.company_id.isin(eur)]
-size = p_eur.groupby("company_id").agg(outflow_m=("outflow", "median"), inflow_m=("inflow", "median"))
+size = panel.groupby("company_id").agg(outflow_m=("outflow", "median"), inflow_m=("inflow", "median"))
 size = size[size.outflow_m > 0]
 dist(size.outflow_m, "outflow mensual mediano (EUR)")
 print(f"ratio p90/p10 de tamano: {size.outflow_m.quantile(0.9) / max(size.outflow_m.quantile(0.1), 1):,.0f}x")
+print("\nmayores por outflow mediano (para ver si quedan outliers absurdos):")
+top = size.outflow_m.nlargest(6)
+print(pd.concat([top.rename("outflow_med"),
+                 meta.set_index("company_id").currency.reindex(top.index)], axis=1).round(0).to_string())
 
 # ------------------------------------------------- 3. features y senales
 section("3. SENALES DE ESTRES: prevalencia")
