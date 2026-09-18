@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+.vercel/
+public/
+generated/
+pnpm-lock.yaml
+
+prisma/migrations/
+
+# Vendored third-party content — keep byte-identical to upstream
+.agents/skills/

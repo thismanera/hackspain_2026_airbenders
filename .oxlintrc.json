@@ -1,0 +1,76 @@
+{
+  "plugins": ["react", "nextjs", "typescript", "import", "jsx-a11y"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "off",
+    "pedantic": "off",
+    "perf": "off",
+    "style": "off",
+    "restriction": "off"
+  },
+  "ignorePatterns": [
+    ".agent/**",
+    ".agents/**",
+    ".claude/**",
+    ".codex/**",
+    ".continue/**",
+    ".cursor/**",
+    ".gemini/**",
+    ".opencode/**",
+    ".pi/**",
+    ".roo/**",
+    ".windsurf/**",
+    "tools/oxlint/anti-slop/**",
+    "node_modules/**",
+    ".next/**",
+    "public/**",
+    "generated/**",
+    "prisma/migrations/**",
+    "components/ui/**"
+  ],
+  "jsPlugins": [
+    {
+      "name": "anti-slop",
+      "specifier": "./tools/oxlint/anti-slop/index.ts"
+    }
+  ],
+  "rules": {
+    "anti-slop/no-chained-type-assertions": "warn",
+    "anti-slop/no-conditional-empty-object-spread": "off",
+    "anti-slop/no-known-value-widening": "warn",
+    "anti-slop/no-module-mocking": "warn",
+    "anti-slop/no-object-parameters": "warn",
+    "anti-slop/no-reflect-apply": "warn",
+    "anti-slop/no-reflect-get": "warn",
+    "anti-slop/no-runtime-typeof": "off",
+    "anti-slop/no-shape-in-symbol-names": "warn",
+    "anti-slop/no-unknown-parameters": "warn",
+    "anti-slop/no-unknown-returns": "warn",
+    "anti-slop/no-unknown-type-aliases": "warn",
+    "anti-slop/no-unsafe-dictionary-type": "warn",
+    "anti-slop/no-widen-then-assert": "warn",
+    "anti-slop/require-safety-comment-for-type-assertion": "off",
+
+    "@typescript-eslint/no-unused-vars": "warn",
+
+    "func-style": "off",
+    "one-var": "off",
+    "no-magic-numbers": "off",
+    "no-continue": "off",
+    "max-statements": "off",
+    "sort-keys": "off",
+    "curly": "off",
+    "no-ternary": "off",
+    "unicorn/no-null": "off",
+    "import/no-named-export": "off",
+    "import/prefer-default-export": "off",
+    "react/react-in-jsx-scope": "off",
+    "id-length": "off",
+    "capitalized-comments": "off",
+    "init-declarations": "off",
+    "no-implicit-coercion": "off",
+    "unicorn/catch-error-name": "off",
+    "unicorn/numeric-separators-style": "off",
+    "sort-imports": "off"
+  }
+}
