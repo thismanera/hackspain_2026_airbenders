@@ -1,0 +1,11 @@
+// Prisma schema lives in this folder (not a single schema.prisma file) so each
+// domain gets its own file as the app grows — see AGENTS.md. This file only
+// holds the generator/datasource block.
+generator client {
+  provider = "prisma-client"
+  output   = "../../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
