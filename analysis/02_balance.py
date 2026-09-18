@@ -11,6 +11,7 @@ Responde cuatro preguntas, en este orden:
    blanco. Si es blanco, un modelo de trayectoria no puede funcionar.
 """
 
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -19,6 +20,9 @@ import pandas as pd
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import report
 
 HERE = Path(__file__).resolve().parent
 FIG = HERE / "figures"
@@ -114,12 +118,15 @@ p["fee_ratio"] = np.where(p.outflow > 0, p[["cat_fee", "cat_interest_charge"]].f
 p["unpaid_rate"] = np.where(p.tx_n.fillna(0) > 0, p.unpaid_n.fillna(0) / p.tx_n, np.nan)
 p["salary_paid"] = p.cat_salary.fillna(0) > 0
 
+# Las senales de retraso exigen un minimo de facturas con fecha de pago
+# informativa: con una sola factura, el ratio es 0 o 1 y no dice nada.
+MIN_FRAS = 3
 flags = {}
 flags["caja < 10 dias"] = p.cash_days < 10
 flags["caja < 0"] = p.cash_eom < 0
 flags["flujo neto negativo"] = p.net < 0
-flags["pagamos >30d tarde (>50% fras)"] = p.ap_share_late30 > 0.5
-flags["nos pagan >30d tarde (>50%)"] = p.ar_share_late30 > 0.5
+flags["pagamos >30d tarde (>50% fras)"] = (p.ap_share_late30 > 0.5) & (p.ap_util_n >= MIN_FRAS)
+flags["nos pagan >30d tarde (>50%)"] = (p.ar_share_late30 > 0.5) & (p.ar_util_n >= MIN_FRAS)
 flags["algun impago/devolucion"] = p.unpaid_n.fillna(0) >= 1
 flags["comisiones+intereses >2% salida"] = p.fee_ratio > 0.02
 for k, v in flags.items():
@@ -135,6 +142,16 @@ for k in flags:
 print("\ndistribuciones de los ratios (celdas activas):")
 for c in ["cash_days", "net_margin", "fee_ratio", "ap_days_late", "ar_days_late", "ar_dso", "ar_hhi"]:
     dist(p.loc[active, c], c)
+
+print("\ncobertura de las metricas de comportamiento de pago:")
+for tag, label in [("ar", "clientes"), ("ap", "proveedores")]:
+    tot = p[f"{tag}_paid_n"].sum()
+    util = p[f"{tag}_util_n"].sum()
+    cells = (p[f"{tag}_util_n"] >= MIN_FRAS).sum()
+    comps = (p.groupby("company_id")[f"{tag}_util_n"].sum() >= 20).sum()
+    print(f"  {label:12s} facturas con fecha de pago util: {util:,.0f} de {tot:,.0f}"
+          f" ({util / tot:.1%})   celdas con >={MIN_FRAS}: {cells:,}"
+          f"   empresas con >=20: {comps}")
 
 # etiqueta compuesta: estres severo en el mes
 severe = (
@@ -233,3 +250,52 @@ print(f"figura -> {FIG / 'trajectory_signal.png'}")
 
 p.to_parquet(HERE / "panel_features.parquet", index=False)
 print(f"panel con features -> {HERE / 'panel_features.parquet'}")
+
+report.emit("cobertura", {
+    "empresas": int(len(meta)),
+    "celdas_empresa_mes": int(len(panel)),
+    "grupos": int(meta.group_id.nunique()),
+    "share_comparte_grupo": float((meta.n_companies_in_sample > 1).mean()),
+    "meses_mediana": float(cov.months_tx.median()),
+    "empresas_7_12_meses": int(((cov.months_tx >= 7) & (cov.months_tx <= 12)).sum()),
+    "share_18_o_mas": float((cov.months_tx >= 18).mean()),
+    "bloques": [
+        {"bloque": "Transacciones", "n": int(len(meta)), "share": 1.0},
+        {"bloque": "Facturas (DSO/DPO)", "n": int((cov.months_inv > 0).sum()),
+         "share": float((cov.months_inv > 0).mean())},
+        {"bloque": "Algún producto de deuda", "n": int(meta.has_debt.sum()),
+         "share": float(meta.has_debt.mean())},
+        {"bloque": "Línea de crédito con `granted`", "n": int(meta.loc_granted.notna().sum()),
+         "share": float(meta.loc_granted.notna().mean())},
+        {"bloque": "Cuadro de amortización", "n": int(meta.has_schedule.sum()),
+         "share": float(meta.has_schedule.mean())},
+        {"bloque": "País informado", "n": int(meta.country.notna().sum()),
+         "share": float(meta.country.notna().mean())},
+        {"bloque": "ERP informado", "n": int(meta.erp.notna().sum()),
+         "share": float(meta.erp.notna().mean())},
+    ],
+})
+
+report.emit("escala", {
+    "p90_p10": float(size.outflow_m.quantile(0.9) / max(size.outflow_m.quantile(0.1), 1)),
+    "outflow_mediano": float(size.outflow_m.median()),
+    "mayor_outflow_mediano": float(size.outflow_m.max()),
+    "empresa_mayor": str(size.outflow_m.idxmax()),
+    "share_cash_negativa": float((p.cash_eom < 0).mean()),
+})
+
+report.emit("senales", {
+    "prevalencia": [{"senal": k, "mes": float(p.loc[active, f"f_{k}"].mean()),
+                     "empresas": float(p[f"f_{k}"].groupby(p.company_id).any().mean())}
+                    for k in flags],
+    "estres_compuesto_mes": float(p.loc[active, "stress_now"].mean()),
+    "estres_compuesto_empresas": float(p.groupby("company_id").stress_now.any().mean()),
+    "etiqueta_fwd12_positivos": float(p.loc[mask, "stress_fwd12"].mean()),
+    "etiqueta_fwd12_n": int(mask.sum()),
+    "cobertura_pago": [
+        {"lado": lado, "utiles": int(p[f"{tag}_util_n"].sum()), "total": int(p[f"{tag}_paid_n"].sum()),
+         "share": float(p[f"{tag}_util_n"].sum() / p[f"{tag}_paid_n"].sum()),
+         "empresas_20_o_mas": int((p.groupby("company_id")[f"{tag}_util_n"].sum() >= 20).sum())}
+        for tag, lado in [("ar", "clientes"), ("ap", "proveedores")]
+    ],
+})

@@ -104,9 +104,12 @@ def build_invoices() -> tuple[pd.DataFrame, pd.DataFrame]:
         low_memory=False,
     )
     inv = inv[inv.document_type.isin(["invoice", "invoiceGroup"])].copy()
+    inv = inv[inv.status != "cancel"]
     inv["eur"] = to_eur(inv.amount, inv.currency)
     inv["pending_amount"] = to_eur(inv.pending_amount, inv.currency)
-    inv["issued"] = inv.eur > 0  # positivo = emitida (cliente nos debe); negativo = recibida
+    # Validado en 05_validate.py cruzando counterparty_id con el signo del
+    # movimiento bancario: importe positivo = factura a cliente (94,7% / 89,5%).
+    inv["issued"] = inv.eur > 0
     for c in ["issuance_date", "due_date", "payment_date"]:
         inv[c] = pd.to_datetime(inv[c], errors="coerce")
     inv["m_iss"] = inv.issuance_date.dt.to_period("M").dt.to_timestamp()
@@ -114,6 +117,13 @@ def build_invoices() -> tuple[pd.DataFrame, pd.DataFrame]:
     inv["days_late"] = (inv.payment_date - inv.due_date).dt.days
     inv["days_to_cash"] = (inv.payment_date - inv.issuance_date).dt.days
     inv["terms"] = (inv.due_date - inv.issuance_date).dt.days
+
+    # El 62% de las facturas trae payment_date == due_date (el 96% de las
+    # vencidas), o sea fecha rellenada, no pago observado. Promediar esas filas
+    # aplasta cualquier metrica de retraso contra cero. Las metricas de
+    # comportamiento de pago se calculan solo sobre las informativas, y se
+    # guarda el recuento para poder ponderar la confianza despues.
+    inv["fecha_util"] = inv.payment_date.notna() & (inv.payment_date != inv.due_date)
 
     out = []
     for issued, tag in [(True, "ar"), (False, "ap")]:
@@ -127,15 +137,19 @@ def build_invoices() -> tuple[pd.DataFrame, pd.DataFrame]:
         by_iss.index = by_iss.index.set_names(["company_id", "month"])
         by_pay = sub.groupby(["company_id", "m_pay"], observed=True).agg(
             **{f"{tag}_paid_n": ("eur", "size"),
-               f"{tag}_paid_amount": ("eur", lambda x: x.abs().sum()),
+               f"{tag}_paid_amount": ("eur", lambda x: x.abs().sum())}
+        )
+        by_pay.index = by_pay.index.set_names(["company_id", "month"])
+        util = sub[sub.fecha_util].groupby(["company_id", "m_pay"], observed=True).agg(
+            **{f"{tag}_util_n": ("eur", "size"),
                f"{tag}_days_late": ("days_late", "median"),
                f"{tag}_days_late_w": ("days_late", "mean"),
                f"{tag}_share_late": ("days_late", lambda x: (x > 0).mean()),
                f"{tag}_share_late30": ("days_late", lambda x: (x > 30).mean()),
                f"{tag}_dso": ("days_to_cash", "median")}
         )
-        by_pay.index = by_pay.index.set_names(["company_id", "month"])
-        out.append(by_iss.join(by_pay, how="outer"))
+        util.index = util.index.set_names(["company_id", "month"])
+        out.append(by_iss.join(by_pay, how="outer").join(util, how="outer"))
 
     panel = out[0].join(out[1], how="outer")
 

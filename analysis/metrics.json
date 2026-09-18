@@ -1,0 +1,241 @@
+{
+  "cobertura": {
+    "empresas": 1286,
+    "celdas_empresa_mes": 32150,
+    "grupos": 250,
+    "share_comparte_grupo": 0.9447900466562986,
+    "meses_mediana": 19.0,
+    "empresas_7_12_meses": 415,
+    "share_18_o_mas": 0.526438569206843,
+    "bloques": [
+      {
+        "bloque": "Transacciones",
+        "n": 1286,
+        "share": 1.0
+      },
+      {
+        "bloque": "Facturas (DSO/DPO)",
+        "n": 784,
+        "share": 0.609642301710731
+      },
+      {
+        "bloque": "Algún producto de deuda",
+        "n": 378,
+        "share": 0.2939346811819596
+      },
+      {
+        "bloque": "Línea de crédito con `granted`",
+        "n": 206,
+        "share": 0.16018662519440124
+      },
+      {
+        "bloque": "Cuadro de amortización",
+        "n": 40,
+        "share": 0.03110419906687403
+      },
+      {
+        "bloque": "País informado",
+        "n": 230,
+        "share": 0.17884914463452567
+      },
+      {
+        "bloque": "ERP informado",
+        "n": 745,
+        "share": 0.5793157076205288
+      }
+    ]
+  },
+  "_meta": {
+    "generado": "2026-09-18T19:44:12+00:00",
+    "commit": "8275edc"
+  },
+  "escala": {
+    "p90_p10": 582.3601175073605,
+    "outflow_mediano": 165955.99,
+    "mayor_outflow_mediano": 2882732869.04,
+    "empresa_mayor": "COMP_1185",
+    "share_cash_negativa": 0.08248833592534992
+  },
+  "senales": {
+    "prevalencia": [
+      {
+        "senal": "caja < 10 dias",
+        "mes": 0.39298435456963793,
+        "empresas": 0.7286158631415242
+      },
+      {
+        "senal": "caja < 0",
+        "mes": 0.07547680238063033,
+        "empresas": 0.21539657853810265
+      },
+      {
+        "senal": "flujo neto negativo",
+        "mes": 0.5246404256278462,
+        "empresas": 0.9961119751166407
+      },
+      {
+        "senal": "pagamos >30d tarde (>50% fras)",
+        "mes": 0.03232787772216962,
+        "empresas": 0.208398133748056
+      },
+      {
+        "senal": "nos pagan >30d tarde (>50%)",
+        "mes": 0.027007529645159834,
+        "empresas": 0.1905132192846034
+      },
+      {
+        "senal": "algun impago/devolucion",
+        "mes": 0.06388926461968529,
+        "empresas": 0.28149300155520995
+      },
+      {
+        "senal": "comisiones+intereses >2% salida",
+        "mes": 0.0733125929933721,
+        "empresas": 0.34447900466562986
+      }
+    ],
+    "estres_compuesto_mes": 0.06785698182965869,
+    "estres_compuesto_empresas": 0.3561430793157076,
+    "etiqueta_fwd12_positivos": 0.17644383810823103,
+    "etiqueta_fwd12_n": 8796,
+    "cobertura_pago": [
+      {
+        "lado": "clientes",
+        "utiles": 116220,
+        "total": 303309,
+        "share": 0.38317359524445366,
+        "empresas_20_o_mas": 370
+      },
+      {
+        "lado": "proveedores",
+        "utiles": 174519,
+        "total": 443630,
+        "share": 0.39338863467303836,
+        "empresas_20_o_mas": 524
+      }
+    ]
+  },
+  "trayectoria": {
+    "persistencia": [
+      {
+        "senal": "inflow",
+        "n": 507,
+        "nivel": 0.853,
+        "tendencia": 0.05,
+        "nula_p95": 0.098
+      },
+      {
+        "senal": "outflow",
+        "n": 507,
+        "nivel": 0.851,
+        "tendencia": -0.02,
+        "nula_p95": 0.09
+      },
+      {
+        "senal": "ar_hhi",
+        "n": 189,
+        "nivel": 0.772,
+        "tendencia": 0.078,
+        "nula_p95": 0.125
+      },
+      {
+        "senal": "cash_days",
+        "n": 501,
+        "nivel": 0.748,
+        "tendencia": -0.08,
+        "nula_p95": 0.107
+      },
+      {
+        "senal": "fee_ratio",
+        "n": 500,
+        "nivel": 0.738,
+        "tendencia": -0.015,
+        "nula_p95": 0.078
+      },
+      {
+        "senal": "ar_dso",
+        "n": 123,
+        "nivel": 0.72,
+        "tendencia": -0.095,
+        "nula_p95": 0.25
+      },
+      {
+        "senal": "ar_days_late",
+        "n": 123,
+        "nivel": 0.64,
+        "tendencia": -0.02,
+        "nula_p95": 0.202
+      },
+      {
+        "senal": "ap_days_late",
+        "n": 155,
+        "nivel": 0.635,
+        "tendencia": -0.004,
+        "nula_p95": 0.174
+      },
+      {
+        "senal": "unpaid_rate",
+        "n": 507,
+        "nivel": 0.615,
+        "tendencia": -0.014,
+        "nula_p95": 0.072
+      },
+      {
+        "senal": "net_margin",
+        "n": 455,
+        "nivel": 0.211,
+        "tendencia": 0.082,
+        "nula_p95": 0.078
+      }
+    ],
+    "indice_compuesto": {
+      "acf": {
+        "lag1": -0.055375039395603794,
+        "lag2": -0.17108495663267645,
+        "lag3": -0.1916017621599528,
+        "lag4": -0.164820379933159
+      },
+      "persist_nivel": 0.6446148113130558,
+      "persist_tendencia": 0.07933998775754085
+    },
+    "n_senales": 10,
+    "n_dentro_de_nula": 9,
+    "por_encima_de_nula": [
+      {
+        "senal": "net_margin",
+        "tendencia": 0.082,
+        "nula_p95": 0.078
+      }
+    ],
+    "onboarding": {
+      "empresas_activas_inicio": 439,
+      "empresas_activas_pico": 1229,
+      "tx_por_empresa_tipico": 110.5,
+      "tx_por_empresa_ultimo_mes": 11.0
+    }
+  },
+  "validaciones": {
+    "direccion_factura": {
+      "pares": 20536,
+      "negativa_es_proveedor": 0.9465813674530188,
+      "positiva_es_cliente": 0.8947651729242363,
+      "n_negativa": 12505,
+      "n_positiva": 7431
+    },
+    "payment_date": {
+      "share_igual_due_date": 0.619895089132903,
+      "share_igual_en_overdue": 0.9619083924696499,
+      "share_overdue_en_fichero": 0.22024565314829478,
+      "facturas_utiles": 294264,
+      "share_utiles": 0.38009716074148037,
+      "retraso_mediano_utiles": 6.0,
+      "retraso_p95_utiles": 123.0,
+      "empresas_con_20_utiles": 561,
+      "empresas_con_facturas": 784
+    },
+    "cartera_viva": {
+      "share_facturas_pendientes": 0.25722150246518577,
+      "empresas": 739
+    }
+  }
+}

@@ -28,6 +28,9 @@ npm/yarn, el lockfile es `pnpm-lock.yaml`).
   único). `main.prisma` solo tiene el bloque `generator`/`datasource`.
 - `components/ui/` — componentes shadcn/ui generados. No los edites a mano
   salvo necesidad real; añade nuevos con `pnpm dlx shadcn add <componente>`.
+- `dataset/` — los nueve ficheros del reto, en Git LFS. Solo lectura.
+- `analysis/` — análisis de datos en Python, independiente del stack de Next.
+  Ver la sección de abajo.
 
 Referencia viva del patrón completo (Prisma + TanStack Query SSR + nuqs +
 Suspense) en modelo `Task`:
@@ -201,6 +204,40 @@ producción del que sale esta plantilla.
 El guardado automático (`formatOnSave`) está desactivado a propósito
 (`.vscode/settings.json`) — corre `pnpm run format`/`pnpm run lint` de forma
 explícita.
+
+## Análisis de datos (`analysis/`, Python)
+
+Vive aparte del stack de Next y no comparte herramientas con él: ni oxlint ni
+Prettier tocan esta carpeta.
+
+```bash
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -r analysis/requirements.txt
+```
+
+Los scripts van numerados por orden de dependencia. `01_panel.py` construye el
+panel empresa-mes (~90 s) del que vive todo lo demás; el resto lee su salida.
+`fx.py` es un módulo, no un script: contiene la tabla de tipos de cambio a
+euros y se importa desde el panel.
+
+Reglas de esta carpeta:
+
+- **Nada de importes sin normalizar.** `exchange_rate` del dataset no convierte
+  a EUR; usa `fx.to_eur`. Las transacciones heredan la divisa de su cuenta
+  bancaria vía `product_id`.
+- **Los `.parquet` y `metrics.json` son artefactos derivados**, no fuentes. Los
+  primeros están en `.gitignore` y se regeneran con `01_panel.py`.
+- **Las cifras de `analysis/FINDINGS.md` se generan**, no se escriben a mano.
+  Los scripts las emiten a `metrics.json` con `report.emit()` y
+  `06_report.py` las inyecta en los bloques `<!-- AUTO:... -->`. Si cambias el
+  pipeline, vuelve a lanzarlo; `06_report.py --check` falla si el documento se
+  ha quedado atrás.
+
+Antes de construir features nuevas, lee
+[`analysis/FINDINGS.md`](./analysis/FINDINGS.md): documenta las trampas del
+dataset (fechas de pago rellenadas, `status` y saldos que son foto final y no
+histórico, mes de septiembre de 2026 truncado, CSV sin aleatorizar) y ahorra
+repetir errores que ya hemos cometido.
 
 ## Linting (oxlint, no ESLint)
 
