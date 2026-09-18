@@ -123,9 +123,38 @@ def bloque_intragrupo(m: dict) -> str:
     return report.table(rows, {"k": "Medida", "v": "Valor"})
 
 
+def bloque_categorias(m: dict) -> str:
+    c = m["categorias"]
+    rows = [
+        {
+            "k": "Sin categoría original",
+            "v": f"{c['sin_categoria_original']:,} "
+                 f"({report.pct(c['share_sin_categoria_original'], 2)})".replace(",", "."),
+        },
+        {
+            "k": "Clasificadas con confianza",
+            "v": f"{c['clasificadas']:,} ({report.pct(c['share_clasificadas'])})".replace(",", "."),
+        },
+        {
+            "k": "Volumen sin categoría recuperado",
+            "v": report.pct(c["share_volumen_clasificado"]),
+        },
+        {
+            "k": "Se mantienen como `unknown`",
+            "v": f"{c['unknown']:,}".replace(",", "."),
+        },
+        {
+            "k": "Categorías nuevas",
+            "v": ", ".join(f"`{name}`" for name in c["new_categories"]),
+        },
+    ]
+    return report.table(rows, {"k": "Medida", "v": "Valor"})
+
+
 BLOQUES = {
     "clave": bloque_clave,
     "intragrupo": bloque_intragrupo,
+    "categorias": bloque_categorias,
     "cobertura": bloque_cobertura,
     "trayectoria": bloque_trayectoria,
     "senales": bloque_senales,
