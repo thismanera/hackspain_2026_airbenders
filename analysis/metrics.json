@@ -46,8 +46,8 @@
     ]
   },
   "_meta": {
-    "generado": "2026-09-18T20:51:45+00:00",
-    "commit": "dadc245"
+    "generado": "2026-09-18T22:42:38+00:00",
+    "commit": "57b9b0f"
   },
   "escala": {
     "p90_p10": 582.3601175073605,
@@ -260,5 +260,261 @@
       "mas_de_50": 90,
       "mas_de_90": 11
     }
+  },
+  "categorias": {
+    "transacciones": 2556437,
+    "sin_categoria_original": 635860,
+    "share_sin_categoria_original": 0.2487289927348102,
+    "clasificadas": 100096,
+    "share_clasificadas": 0.15741829962570378,
+    "volumen_sin_categoria_eur": 21959463489.88077,
+    "volumen_clasificado_eur": 11080827083.258821,
+    "share_volumen_clasificado": 0.5046037253307678,
+    "unknown": 535764,
+    "by_source": [
+      {
+        "source": "unknown",
+        "n": 535764,
+        "volume_eur": 10878636406.621948
+      },
+      {
+        "source": "description_template",
+        "n": 94852,
+        "volume_eur": 5402891321.236055
+      },
+      {
+        "source": "description_rule",
+        "n": 4839,
+        "volume_eur": 301288835.6227676
+      },
+      {
+        "source": "new_category",
+        "n": 405,
+        "volume_eur": 5376646926.4
+      }
+    ],
+    "by_category": [
+      {
+        "category": "collection",
+        "n": 29031,
+        "volume_eur": 651458594.2254559
+      },
+      {
+        "category": "transfer",
+        "n": 18278,
+        "volume_eur": 1452510414.1409082
+      },
+      {
+        "category": "utility",
+        "n": 16665,
+        "volume_eur": 269384751.4448288
+      },
+      {
+        "category": "pos_settlement",
+        "n": 8170,
+        "volume_eur": 9553248.91
+      },
+      {
+        "category": "payment",
+        "n": 6016,
+        "volume_eur": 212326332.14501765
+      },
+      {
+        "category": "interest_charge",
+        "n": 5571,
+        "volume_eur": 1809996.3460475383
+      },
+      {
+        "category": "fee",
+        "n": 4905,
+        "volume_eur": 7066322.059966406
+      },
+      {
+        "category": "salary",
+        "n": 3965,
+        "volume_eur": 40937284.808623396
+      },
+      {
+        "category": "cash_settlement",
+        "n": 1751,
+        "volume_eur": 9685108.285173407
+      },
+      {
+        "category": "tax",
+        "n": 1693,
+        "volume_eur": 33133841.415147528
+      },
+      {
+        "category": "payment_refund",
+        "n": 915,
+        "volume_eur": 3177503.3820338985
+      },
+      {
+        "category": "debt_repayment",
+        "n": 907,
+        "volume_eur": 344664694.70859194
+      },
+      {
+        "category": "cash_withdrawal",
+        "n": 592,
+        "volume_eur": 2645666634.082963
+      },
+      {
+        "category": "pos_withdrawal",
+        "n": 442,
+        "volume_eur": 1580210.9505010894
+      },
+      {
+        "category": "debt_drawdown",
+        "n": 395,
+        "volume_eur": 376404730.70000005
+      },
+      {
+        "category": "social_security",
+        "n": 307,
+        "volume_eur": 713083.1893977273
+      },
+      {
+        "category": "bulk_collection",
+        "n": 287,
+        "volume_eur": 14622927.38
+      },
+      {
+        "category": "bulk_payment",
+        "n": 68,
+        "volume_eur": 4238681.8326847665
+      },
+      {
+        "category": "investment_deployment",
+        "n": 63,
+        "volume_eur": 13140.65148148148
+      },
+      {
+        "category": "investment_return",
+        "n": 55,
+        "volume_eur": 1611156.07
+      },
+      {
+        "category": "balance_adjustment",
+        "n": 10,
+        "volume_eur": 5000242195.7
+      },
+      {
+        "category": "collection_refund",
+        "n": 10,
+        "volume_eur": 26230.83
+      }
+    ],
+    "rule_audit": [
+      {
+        "rule": "collection_refund",
+        "category": "collection_refund",
+        "support": 136,
+        "precision": 0.47058823529411764,
+        "active": false
+      },
+      {
+        "rule": "payment_refund",
+        "category": "payment_refund",
+        "support": 1194,
+        "precision": 0.26549413735343386,
+        "active": false
+      },
+      {
+        "rule": "tax_refund",
+        "category": "tax_refund",
+        "support": 598,
+        "precision": 0.0,
+        "active": false
+      },
+      {
+        "rule": "social_security",
+        "category": "social_security",
+        "support": 3327,
+        "precision": 0.9492034866245868,
+        "active": false
+      },
+      {
+        "rule": "debt_repayment",
+        "category": "debt_repayment",
+        "support": 1457,
+        "precision": 0.9890185312285518,
+        "active": true
+      },
+      {
+        "rule": "salary",
+        "category": "salary",
+        "support": 29361,
+        "precision": 0.956132284322741,
+        "active": true
+      },
+      {
+        "rule": "cash_withdrawal",
+        "category": "cash_withdrawal",
+        "support": 498,
+        "precision": 0.7088353413654619,
+        "active": false
+      },
+      {
+        "rule": "cash_settlement",
+        "category": "cash_settlement",
+        "support": 27,
+        "precision": 0.5925925925925926,
+        "active": false
+      },
+      {
+        "rule": "transfer",
+        "category": "transfer",
+        "support": 522370,
+        "precision": 0.2605184064934816,
+        "active": false
+      },
+      {
+        "rule": "interest_charge",
+        "category": "interest_charge",
+        "support": 5418,
+        "precision": 0.3977482465854559,
+        "active": false
+      },
+      {
+        "rule": "fee",
+        "category": "fee",
+        "support": 111988,
+        "precision": 0.9763278208379469,
+        "active": true
+      },
+      {
+        "rule": "tax",
+        "category": "tax",
+        "support": 15842,
+        "precision": 0.7377225097841181,
+        "active": false
+      },
+      {
+        "rule": "utility",
+        "category": "utility",
+        "support": 17600,
+        "precision": 0.8571590909090909,
+        "active": false
+      },
+      {
+        "rule": "payment",
+        "category": "payment",
+        "support": 188530,
+        "precision": 0.34096960695910467,
+        "active": false
+      },
+      {
+        "rule": "collection",
+        "category": "collection",
+        "support": 92163,
+        "precision": 0.5264911081453512,
+        "active": false
+      }
+    ],
+    "new_categories": [
+      "balance_adjustment",
+      "debt_drawdown"
+    ]
   }
 }
