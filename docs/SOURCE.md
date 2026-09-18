@@ -20,8 +20,8 @@ precio y cuándo cerrar el grifo.
 | Corte | Mes completo `2024-09 … 2026-08`. Fila `t` solo usa eventos ≤ fin(t). Nada de la foto final (`balances`, `outstanding`, `pending_amount`, `status`) para `t < 2026-09`. |
 | Movimientos | `status = booked`; cuentas `checking/saving/wallet` |
 | Divisas ✅ | Score siempre en €. Dos pasos: (1) `importe_empresa = amount / exchange_rate` (`exchange_rate` = unidades de la moneda del producto o factura por 1 unidad de la moneda de la empresa; verificado: USD→EUR 1,16, GBP→EUR 0,86, NOK→EUR 11; misma moneda → 1). (2) `importe_eur = importe_empresa × tasa(moneda_empresa → EUR, mes)`, tabla mensual construida con la mediana de las tasas del propio dataset en pares con EUR; sin dato en el mes → tasa fija versionada en el repo. `exchange_rate` vacío o 0 (0,4 % de facturas) → mediana del par en ese mes; sin par → excluir y bajar confianza. |
-| Sin clasificar | `category` = `-` o vacío (25 % filas) → cobertura, nunca ingreso/gasto ⏳ (decisión 2) |
-| Traspasos | `transfer` emparejado (misma empresa, mismo importe, signo opuesto, ±2 d) → neutral |
+| Sin clasificar ✅ | Se usa la reclasificación de #12 (`analysis/08_categories.py`, `transaction_categories.parquet`) cuando `category_confidence ≥ 0,95`; el resto (`unknown`) → cobertura, nunca ingreso/gasto. `debt_drawdown` → financiación (como `disp_credito`); `balance_adjustment` → neutral. |
+| Traspasos ✅ | Espejos emparejados **sobre todas las categorías**, no solo `transfer`: mismo importe al céntimo, signo opuesto, misma fecha, uno a uno. Misma empresa → neutral. Otra empresa del mismo grupo → intragrupo (D4/D5), fuera de cobros y pagos. |
 | Crédito | Movimientos sobre productos `lineofcredit` → financiación, fuera de operativo |
 | Confianza | Cada variable lleva `conf ∈ [0,1]` = ventana observada × cobertura. Sin dato → nota 50, conf 0. Confianza se muestra aparte del score. |
 | Escalas | Percentiles p5/p95 fijados en empresas de ajuste (split por `group_id`), versionados, no se recalculan en test. |
@@ -289,7 +289,7 @@ el jurado.
 | # | Decisión | Justificación | Estado |
 | --- | --- | --- | --- |
 | 1 | Divisas: todo a € con la regla de §1.0 | Score comparable entre empresas y grupos; `exchange_rate` verificado en datos (USD→EUR 1,16, GBP→EUR 0,86, NOK→EUR 11) como unidades de moneda del producto por unidad de moneda de la empresa. | ✅ 18-09 |
-| 2 | Categoría `-` (25 % de filas) | Opción A: inferir por texto de `description`. Opción B: sin clasificar, baja cobertura/confianza. B evita contaminar todos los indicadores con un clasificador hecho deprisa; A recupera volumen. Se decide cuando veamos cuántas empresas quedan con confianza baja. | ⏳ definir más tarde |
+| 2 | Categoría `-`: usar reclasificación de #12 con `category_confidence ≥ 0,95`; resto sin clasificar | #12 recupera el 50,5 % del volumen sin categoría con solo el 15,7 % de las filas, a 95 % de precisión contra etiquetas originales, y guarda confianza por transacción. Lo ambiguo queda `unknown` y baja la confianza del score en vez de contaminarlo. Sin esto, muchas empresas caen bajo `confianza < 0,5` y el producto no tiene a quién prestar. | ✅ 19-09 |
 | 3 | Pesos de bloque A 45 / B 30 / C 25 | Producto de crédito: primero si la caja aguanta más cuota, segundo si paga lo que ya debe, tercero si el negocio depende de pocos clientes. Juicio de negocio, no estadístico; se revisa en backtest. | ✅ 19-09 |
 | 4 | Pesos intra-bloque iguales | Fácil de explicar y defender; sin datos de impago no hay base para diferenciarlos. Cambiar solo con evidencia del backtest. | ✅ 19-09 |
 | 5 | Umbrales sanos A1-A5 y estados sana ≥ 70 / vigilar 45-70 / riesgo < 45 | Permite decir en la ficha "14 %, sano (umbral 10 %)". Números de sentido común bancario (cobertura 1,3 es estándar de DSCR); se calibran en backtest para que ~20 % de la cartera caiga en riesgo. | ✅ 19-09 |
@@ -312,5 +312,6 @@ el jurado.
 | 21 | TAE = base banda + 0,5 pp/30 d + 1 pp si confianza < 0,7 ± tendencia | Precio sube con plazo (más exposición), con incertidumbre (menos datos) y con deterioro; baja con mejora. Aditivo para poder explicarlo en la ficha componente a componente. | ✅ 19-09 |
 | 22 | Un solo límite para anticipar cobros y aplazar pagos | El score no distingue usos; dos sublímites duplican lógica y pantalla. El uso solo fija el plazo natural. | ✅ 19-09 |
 | 23 | Reapertura tras 2 meses elegible; cierre no borra lo dispuesto | Evita abrir/cerrar mes a mes; lo vivo se devuelve a vencimiento como en cualquier línea. | ✅ 19-09 |
+| 24 | Espejos intragrupo emparejados sobre todas las categorías, no solo `transfer` | Análisis #12/#9: solo un tercio de los traspasos intragrupo va como `transfer`; el resto va como `payment`, `collection` o sin categoría, colado dentro del margen operativo. Sin emparejar por importe/fecha/signo, prestaríamos contra dinero de la matriz. Restringir a ≥ 1.000 € no mueve el volumen: dominado por importes grandes, coincidencia casual improbable. | ✅ 19-09 |
 
-**Estado 19-09:** score (1-17) y decisión (18-23) validados. Solo la 2 (categoría `-`) aplazada hasta ver cuántas empresas quedan con confianza baja.
+**Estado 19-09:** las 24 decisiones validadas. Ninguna abierta.

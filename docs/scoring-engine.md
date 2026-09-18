@@ -1,7 +1,7 @@
 # Motor de scoring — especificación para desarrollo v1.0
 
-> Implementa §1 de [`SOURCE.md`](./SOURCE.md) (decisiones 1, 3-10, 14-16,
-> validadas 18/19-09-2026; la 2 sigue aplazada). Si algo aquí contradice a
+> Implementa §1 de [`SOURCE.md`](./SOURCE.md) (decisiones 1-10, 14-16, 24,
+> validadas 18/19-09-2026). Si algo aquí contradice a
 > `SOURCE.md`, manda `SOURCE.md` y se corrige esto. Determinista, sin LLM.
 > Su salida (`company_month_score`, §10) es la entrada del
 > [`decision-engine.md`](./decision-engine.md). Este motor **no sabe que
@@ -30,7 +30,8 @@ temporal/estructural, por qué, con cuánta antelación (§13).
 | `banking_products.csv` | `product_id`, `company_id`, `type`, `currency` |
 | `debt_products.csv` | `product_id`, `company_id`, `type`, `service`, `currency` |
 | `debt_schedule_config.csv` | `product_id`, `amortising_frequency`, `granted_balance`, `total_periods`, `outstanding_balance`, `annual_interest_rate_or_spread` |
-| `transactions.csv` | `company_id`, `product_id`, `date`, `amount`, `exchange_rate`, `status`, `category`, `counterparty_id` |
+| `transactions.csv` | `company_id`, `product_id`, `transaction_id`, `date`, `amount`, `exchange_rate`, `status`, `counterparty_id` |
+| `analysis/…/transaction_categories.parquet` (#12) | `transaction_id`, `category_final`, `category_confidence` (sustituye a `transactions.category`) |
 | `invoices.csv` | `company_id`, `document_type`, `issuance_date`, `due_date`, `payment_date`, `amount`, `currency`, `accounting_currency`, `exchange_rate`, `status`, `counterparty_id` |
 
 No se usan: `balances.csv`, `debt_products.granted/outstanding/liquidity`,
@@ -46,7 +47,8 @@ Todos los números viven en la tabla de parámetros con `version_parametros`
 | --- | --- | --- | --- |
 | Tiempo | `mes_inicio` / `mes_fin` | `2024-09` / `2026-08` | 1.0 |
 | | `ventana_corta` / `ventana_larga` (meses) | 6 / 12 | 1.1 |
-| | `tolerancia_traspaso_dias` | 2 | 1.0 |
+| Espejos | misma fecha, importe al céntimo, signo opuesto | | 24 |
+| Categorías | `category_confidence_min` | 0,95 | 2 |
 | Pesos | `peso_A` / `peso_B` / `peso_C` | 0,45 / 0,30 / 0,25 | 3 |
 | | pesos intra-bloque | iguales | 4 |
 | Confianza | `n_facturas_ref` | 5 | 1.0 |
@@ -110,14 +112,27 @@ function a_eur(amount, exchange_rate, moneda_empresa, mes, par):
 | `servicio_deuda` | cuenta operativa, `category ∈ {debt_repayment, interest_charge}`, `amount < 0` | `servicio_deuda` (y `obligaciones_rec[debt_repayment]`) |
 | `recibo_devuelto` | `category == collection_refund`, `amount < 0` | `recibos_devueltos` |
 | `disp_credito` / `amort_credito` | producto `lineofcredit`, `amount > 0` / `< 0` | `disp_credito` / `amort_credito` |
-| `traspaso_interno` | `category == transfer` emparejado con otro de la **misma empresa**: mismo `|importe_eur|`, signo opuesto, `|date₁ − date₂| ≤ 2 d` | neutral |
-| `traspaso_intragrupo` | `category == transfer` emparejado con otro de **otra empresa del mismo grupo**, misma regla | `intragrupo_in` / `intragrupo_out` |
+| `traspaso_interno` | **cualquier categoría**, emparejado con otro de la **misma empresa**: mismo `|importe_eur|` al céntimo, signo opuesto, misma `date` | neutral |
+| `traspaso_intragrupo` | **cualquier categoría**, emparejado con otro de **otra empresa del mismo grupo**, misma regla | `intragrupo_in` / `intragrupo_out`; sale de `cobros_op`/`pagos_op` aunque su categoría fuese `collection`/`payment` |
 | `neutral` | `transfer` sin pareja, `cash_withdrawal`, `investment_*`, `tax_refund`, `pos_withdrawal`, `payment_refund`, signo inesperado en las clases anteriores | nada; suma en `importe_neutral` |
-| `sin_clasificar` | `category ∈ {"-", ""}` | nada; suma en `importe_sin_clasificar` (decisión 2, aplazada) |
+| `sin_clasificar` | `category_final == unknown` | nada; suma en `importe_sin_clasificar` |
 
-Emparejamiento de traspasos: greedy por empresa/grupo, ordenado por fecha;
-cada movimiento se empareja como mucho una vez; se prueba primero la pareja
-interna y después la intragrupo.
+Emparejamiento de espejos (decisión 24): **se ejecuta antes de la
+clasificación**, sobre todos los movimientos `booked` sin filtrar por
+categoría. Clave `(|importe_eur| al céntimo, date)`; candidatos = movimientos
+con signo opuesto y misma clave; se prueba primero la pareja dentro de la
+misma empresa, después dentro del grupo; greedy en orden de `transaction_id`,
+cada movimiento se empareja como mucho una vez. Lo emparejado no entra en
+ninguna otra clase. Motivo: solo un tercio de los espejos intragrupo va como
+`transfer`; el resto va como `payment`/`collection`/sin categoría (análisis
+#9/#12).
+
+Categoría de entrada (decisión 2): `category_final` viene de
+`transaction_categories.parquet` (#12): categoría original normalizada si
+existe; si no, la inferida cuando `category_confidence ≥ 0,95`; si no,
+`unknown`. Mapeo de las categorías nuevas: `debt_drawdown` → `disp_credito`
+(financiación, aunque llegue a una cuenta operativa); `balance_adjustment` →
+neutral.
 
 ### 3.4 Facturas
 
@@ -435,7 +450,7 @@ Tests de propiedades (sobre todas las filas del dataset real):
 3. `|aval_grupo| ≤ 20`; grupo de una empresa ⇒ `aval_grupo == 0`.
 4. `NA ⇒ subnota == 50 y conf == 0` (salvo A5 sin línea: conf 0,3).
 5. **No fuga**: recalcular `t = 2026-02` con los CSV truncados a `2026-02-28` ⇒ filas idénticas.
-6. Traspasos emparejados no aparecen en `cobros_op` ni `pagos_op`; movimientos sobre `lineofcredit` tampoco.
+6. Espejos emparejados no aparecen en `cobros_op` ni `pagos_op` sea cual sea su categoría; movimientos sobre `lineofcredit` tampoco.
 7. Ningún `group_id` en ajuste y validación a la vez.
 8. Mismo input ⇒ misma salida (sin aleatoriedad salvo la semilla del split).
 9. Los 8 fixtures dan el resultado esperado; se re-ejecutan cuando cambia un parámetro.
@@ -479,6 +494,6 @@ posteriores.
 
 ## 15. Fuera de alcance v1
 
-Inferir categoría de `-` por texto (decisión 2, aplazada) · tarjetas, TPV y
+Inferir categorías por debajo de 95 % de precisión · tarjetas, TPV y
 plataformas de gastos · ventas intragrupo · pagos parciales de facturas ·
 sector · probabilidad de impago · cualquier límite, plazo o precio.
