@@ -11,7 +11,7 @@ con `python analysis/06_report.py`. Si editas un número dentro de un bloque
 números no cuadran con el pipeline no lo cree nadie, y con razón.
 
 <!-- AUTO:meta -->
-Cifras generadas el 2026-09-18T20:51:45+00:00 desde el commit `dadc245`.
+Cifras generadas el 2026-09-18T22:42:38+00:00 desde el commit `57b9b0f`.
 <!-- /AUTO -->
 
 ## Cifras clave
@@ -280,7 +280,39 @@ donde la coincidencia casual es muy improbable. Se escapan los trasvases con
 fecha valor distinta o con comisión de por medio, así que estas cifras son un
 suelo.
 
-## 6. Receta de entrenamiento
+## 6. Categorías ausentes: recuperar solo lo defendible
+
+El guion `08_categories.py` normaliza el alias `cash_settlements`, conserva las
+etiquetas originales y completa el valor `-` en orden conservador. Primero usa
+plantillas de descripción con al menos cinco ejemplos etiquetados y 95% de
+pureza. Después prueba reglas de texto, pero solo activa las que alcanzan 95% de
+precisión y 25 ejemplos contra las etiquetas originales.
+
+<!-- AUTO:categorias -->
+| Medida | Valor |
+| --- | --- |
+| Sin categoría original | 635.860 (24.87%) |
+| Clasificadas con confianza | 100.096 (15.7%) |
+| Volumen sin categoría recuperado | 50,5% |
+| Se mantienen como `unknown` | 535.764 |
+| Categorías nuevas | `balance_adjustment`, `debt_drawdown` |
+<!-- /AUTO -->
+
+La cobertura por filas es modesta a propósito, pero recupera una parte mucho
+mayor del volumen. Las reglas ambiguas —incluidas las genéricas de transferencia,
+pago y cobro— no se aplican aunque coincida una palabra. Solo se crean
+`debt_drawdown`, porque la taxonomía tiene devolución de deuda pero no
+disposición, y `balance_adjustment`, para ajustes o liberaciones de retención que
+no son una operación. Todo lo demás queda como `unknown`.
+
+El artefacto `transaction_categories.parquet` contiene la reclasificación,
+incluidas las nuevas categorías `debt_drawdown` y `balance_adjustment`, y
+conserva por transacción la categoría original y normalizada,
+`category_source` y `category_confidence`.
+Permite excluir inferencias, auditarlas o exigir un umbral más alto sin volver a
+interpretar el CSV.
+
+## 7. Receta de entrenamiento
 
 1. **Objetivo continuo**: fracción de meses en estrés en el horizonte, y
    entrenar un ranker. Cubre las dos direcciones con un solo modelo, porque la
@@ -316,7 +348,7 @@ suelo.
    tendencia central. **No toca el score ni el leaderboard**, solo la capa de
    producto. Hay que citar la fuente del ancla y declararla como hipótesis.
 
-## 7. Pendiente de cuadrar
+## 8. Pendiente de cuadrar
 
 `balances.csv` solo tiene foto a 2026-09-01, así que el saldo histórico se
 reconstruye hacia atrás con `saldo_t = saldo_final − flujos posteriores`. Queda
@@ -336,6 +368,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe analysis\03_trend.py
 .\.venv\Scripts\python.exe analysis\05_validate.py
 .\.venv\Scripts\python.exe analysis\07_intragroup.py
+.\.venv\Scripts\python.exe analysis\08_categories.py
 .\.venv\Scripts\python.exe analysis\06_report.py   # reescribe las cifras de este doc
 ```
 
