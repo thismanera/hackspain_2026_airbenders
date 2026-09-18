@@ -33,3 +33,6 @@ pnpm-debug.log*
 
 # vercel
 .vercel
+
+# Claude Code local overrides (project skills in .claude/skills are committed)
+.claude/settings.local.json
