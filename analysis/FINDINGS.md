@@ -11,7 +11,7 @@ con `python analysis/06_report.py`. Si editas un número dentro de un bloque
 números no cuadran con el pipeline no lo cree nadie, y con razón.
 
 <!-- AUTO:meta -->
-Cifras generadas el 2026-09-18T19:44:12+00:00 desde el commit `8275edc`.
+Cifras generadas el 2026-09-18T20:51:45+00:00 desde el commit `dadc245`.
 <!-- /AUTO -->
 
 ## Cifras clave
@@ -224,7 +224,63 @@ como feature de un mes anterior es fuga de futuro: una factura emitida en
 `pending_amount > 0`, repartida en 739 empresas. Es la base elegible que
 necesita cualquier producto de circulante.
 
-## 5. Receta de entrenamiento
+## 5. Trasvases de caja: casi la mitad de los euros no son actividad
+
+Hay movimiento de tesorería en dos formas, y las dos son enormes en volumen:
+entre cuentas de la misma empresa, y entre empresas del mismo grupo.
+
+<!-- AUTO:intragrupo -->
+| Medida | Valor |
+| --- | --- |
+| Espejos entre cuentas de la misma empresa | 33.601 pares, 32.532 M€, 25,9% de la salida |
+| Espejos entre empresas del mismo grupo | 54.943 pares, 25.004 M€, 19,9% de la salida |
+| Grupos multiempresa que trasvasan | 158 de 179 |
+| Espejos etiquetados como `transfer` | 36,3% |
+| Espejos colados como `payment` o `collection` | 39,5% |
+| Espejos en la empresa mediana | 7,9% |
+| Empresas con >50% de su salida en espejos | 137 |
+| Empresas con entrada neta del grupo | 476 |
+| …que dependen del grupo en >25% / >50% / >90% de su entrada | 153 / 90 / 11 |
+<!-- /AUTO -->
+
+Las dos cifras se calculan por separado y pueden solaparse en algún movimiento,
+así que el conjunto es "hasta un 46% de los euros que salen", no la suma
+exacta. Y el reparto importa: ese porcentaje está dominado por unas pocas
+empresas que son tuberías de cash pooling, mientras que para la empresa mediana
+los espejos rondan el 8% de su salida.
+
+**No se pueden filtrar por categoría.** Solo un tercio de los movimientos
+espejo intragrupo está etiquetado como `transfer`. El resto va como `payment`,
+como `collection` o sin categoría. Una lista de exclusión por categoría deja
+pasar dos tercios del trasvase, y encima colado dentro de `collection`, que es
+justo lo que alimenta el margen operativo. Hay que detectarlos por
+emparejamiento espejo: mismo importe al céntimo, signo opuesto, misma fecha,
+emparejados uno a uno.
+
+**Resuelve el misterio de los outliers de tamaño.** Las empresas con salidas de
+miles de millones no son empresas grandes, son vehículos: varias tienen entre
+el 96% y el 100% de su salida en espejos.
+
+**Y genera una señal de riesgo de primer orden: la dependencia intragrupo.**
+Hay empresas cuya entrada procede casi íntegramente de sus hermanas; el caso
+extremo ingresa 455.000 € en veinticuatro meses y son todos del grupo. Esas
+empresas no generan caja, y un score de generación de caja les pone una nota
+que no significa nada. Para el producto es peor: darles una línea de circulante
+contra ese flujo es prestar contra el dinero de la matriz. Conviene tratarlo
+como feature explícita, no solo como limpieza — poder decirle a un banco qué
+parte de la caja de una filial se la pone su matriz es justo lo que no se ve en
+unas cuentas anuales.
+
+Esto refuerza además el `GroupKFold`: las filiales no solo comparten generador,
+comparten literalmente los mismos euros.
+
+Fiabilidad del método: restringiendo a importes de 1.000 € o más el volumen
+detectado no se mueve, lo que indica que está dominado por importes grandes,
+donde la coincidencia casual es muy improbable. Se escapan los trasvases con
+fecha valor distinta o con comisión de por medio, así que estas cifras son un
+suelo.
+
+## 6. Receta de entrenamiento
 
 1. **Objetivo continuo**: fracción de meses en estrés en el horizonte, y
    entrenar un ranker. Cubre las dos direcciones con un solo modelo, porque la
@@ -260,7 +316,7 @@ necesita cualquier producto de circulante.
    tendencia central. **No toca el score ni el leaderboard**, solo la capa de
    producto. Hay que citar la fuente del ancla y declararla como hipótesis.
 
-## 6. Pendiente de cuadrar
+## 7. Pendiente de cuadrar
 
 `balances.csv` solo tiene foto a 2026-09-01, así que el saldo histórico se
 reconstruye hacia atrás con `saldo_t = saldo_final − flujos posteriores`. Queda
@@ -279,6 +335,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe analysis\02_balance.py
 .\.venv\Scripts\python.exe analysis\03_trend.py
 .\.venv\Scripts\python.exe analysis\05_validate.py
+.\.venv\Scripts\python.exe analysis\07_intragroup.py
 .\.venv\Scripts\python.exe analysis\06_report.py   # reescribe las cifras de este doc
 ```
 

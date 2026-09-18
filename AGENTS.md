@@ -236,8 +236,9 @@ Reglas de esta carpeta:
 Antes de construir features nuevas, lee
 [`analysis/FINDINGS.md`](./analysis/FINDINGS.md): documenta las trampas del
 dataset (fechas de pago rellenadas, `status` y saldos que son foto final y no
-histórico, mes de septiembre de 2026 truncado, CSV sin aleatorizar) y ahorra
-repetir errores que ya hemos cometido.
+histórico, trasvases de caja dentro del grupo que inflan casi la mitad del
+volumen y que no se pueden filtrar por categoría, mes de septiembre de 2026
+truncado, CSV sin aleatorizar) y ahorra repetir errores que ya hemos cometido.
 
 ## Linting (oxlint, no ESLint)
 

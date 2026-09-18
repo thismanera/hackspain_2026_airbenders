@@ -98,8 +98,34 @@ def bloque_validaciones(m: dict) -> str:
     return report.table(rows, {"k": "Comprobación", "v": "Resultado"})
 
 
+def bloque_intragrupo(m: dict) -> str:
+    g = m["intragrupo"]
+    d = g["dependencia"]
+    mill = lambda x: f"{x / 1e6:,.0f} M€".replace(",", ".")  # noqa: E731
+    rows = [
+        {"k": "Espejos entre cuentas de la misma empresa",
+         "v": f"{g['pares_misma_empresa']:,} pares, {mill(g['volumen_misma_empresa'])}, "
+              f"{report.pct(g['share_misma_empresa'])} de la salida".replace(",", ".", 1)},
+        {"k": "Espejos entre empresas del mismo grupo",
+         "v": f"{g['pares_intragrupo']:,} pares, {mill(g['volumen_intragrupo'])}, "
+              f"{report.pct(g['share_intragrupo'])} de la salida".replace(",", ".", 1)},
+        {"k": "Grupos multiempresa que trasvasan",
+         "v": f"{g['grupos_afectados']} de {g['grupos_multiempresa']}"},
+        {"k": "Espejos etiquetados como `transfer`", "v": report.pct(g["share_categoria_transfer"])},
+        {"k": "Espejos colados como `payment` o `collection`",
+         "v": report.pct(g["share_categorias_operativas"])},
+        {"k": "Espejos en la empresa mediana", "v": report.pct(g["share_espejo_empresa_mediana"])},
+        {"k": "Empresas con >50% de su salida en espejos", "v": str(g["empresas_espejo_mayoritario"])},
+        {"k": "Empresas con entrada neta del grupo", "v": str(d["con_neto_positivo"])},
+        {"k": "…que dependen del grupo en >25% / >50% / >90% de su entrada",
+         "v": f"{d['mas_de_25']} / {d['mas_de_50']} / {d['mas_de_90']}"},
+    ]
+    return report.table(rows, {"k": "Medida", "v": "Valor"})
+
+
 BLOQUES = {
     "clave": bloque_clave,
+    "intragrupo": bloque_intragrupo,
     "cobertura": bloque_cobertura,
     "trayectoria": bloque_trayectoria,
     "senales": bloque_senales,

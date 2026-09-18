@@ -35,6 +35,7 @@ __pycache__/
 
 # datos derivados del analisis (se regeneran con analysis/01_panel.py)
 analysis/*.parquet
+analysis/out_*.txt
 
 # tmp files
 tmp/

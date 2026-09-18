@@ -46,8 +46,8 @@
     ]
   },
   "_meta": {
-    "generado": "2026-09-18T19:44:12+00:00",
-    "commit": "8275edc"
+    "generado": "2026-09-18T20:51:45+00:00",
+    "commit": "dadc245"
   },
   "escala": {
     "p90_p10": 582.3601175073605,
@@ -236,6 +236,29 @@
     "cartera_viva": {
       "share_facturas_pendientes": 0.25722150246518577,
       "empresas": 739
+    }
+  },
+  "intragrupo": {
+    "pares_misma_empresa": 33601,
+    "volumen_misma_empresa": 32532302562.350002,
+    "share_misma_empresa": 0.258791837624226,
+    "empresas_misma_empresa": 671,
+    "pares_intragrupo": 54943,
+    "volumen_intragrupo": 25003867888.76,
+    "share_intragrupo": 0.1989037482435781,
+    "share_intragrupo_estricto": 0.19887413006918317,
+    "grupos_afectados": 158,
+    "grupos_multiempresa": 179,
+    "share_categoria_transfer": 0.36323271042964383,
+    "share_categorias_operativas": 0.39458020550497785,
+    "share_sin_categoria": 0.1325986264175052,
+    "share_espejo_empresa_mediana": 0.07884547034589086,
+    "empresas_espejo_mayoritario": 137,
+    "dependencia": {
+      "con_neto_positivo": 476,
+      "mas_de_25": 153,
+      "mas_de_50": 90,
+      "mas_de_90": 11
     }
   }
 }
