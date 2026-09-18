@@ -31,5 +31,8 @@ pnpm-debug.log*
 # python virtual-env
 .venv
 
+# tmp files
+tmp/
+
 # vercel
 .vercel
