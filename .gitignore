@@ -31,6 +31,9 @@ pnpm-debug.log*
 # python virtual-env
 .venv
 
+# datos derivados del analisis (se regeneran con analysis/01_panel.py)
+analysis/*.parquet
+
 # vercel
 .vercel
 
