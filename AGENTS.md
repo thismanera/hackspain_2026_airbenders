@@ -1,207 +1,226 @@
 # AGENTS.md
 
-Guía de trabajo de este repo para el equipo y para los agentes de IA que
-escriban código en él. Si eres un agente: lee esto entero antes de tocar nada.
+Convenciones de este proyecto para cualquier agente de IA (Claude Code, Cursor,
+Copilot, Gemini...) o humano que vaya a escribir código aquí. Es la fuente de
+verdad tool-agnostic; `CLAUDE.md` solo apunta aquí para evitar duplicar reglas.
 
-La regla que no se salta nadie: **todo cambio sale de una rama creada desde
-`main`**. Nunca se hace push directo a `main`.
+> Antes de pedirle a un agente que "construya el proyecto", rellena
+> [`PRODUCT.md`](./PRODUCT.md) con el problema, los usuarios y el flujo core.
+> Este archivo (`AGENTS.md`) explica **cómo** construir; `PRODUCT.md` explica
+> **qué** construir.
 
-## Flujo de trabajo
+## Stack
 
-Antes de empezar cualquier tarea, por pequeña que sea:
+Next.js 16 (App Router), React 19, TypeScript 7, Prisma 7 (Postgres),
+TanStack Query 5, Tailwind 4, UI con [shadcn/ui](https://ui.shadcn.com),
+autenticación con [Better Auth](https://better-auth.com), estado de query
+params con [nuqs](https://nuqs.dev). Gestor de paquetes: **pnpm** (no uses
+npm/yarn, el lockfile es `pnpm-lock.yaml`).
 
-```bash
-git switch main
-git pull --ff-only
-git switch -c feat/nombre-corto
-```
+## Estructura del proyecto
 
-Prefijos de rama según el tipo de cambio: `feat/` para funcionalidad nueva,
-`fix/` para arreglos, `chore/` para mantenimiento y dependencias, `docs/` para
-documentación.
+- `app/` — rutas, layouts, API routes.
+- `lib/core/` — infraestructura transversal: `db.ts` (singleton de Prisma),
+  `react-query.ts` (`getQueryClient`, patrón SSR), `utils.ts` (`cn` desde `cnfast`).
+- `lib/features/<feature>/` — lógica colocada por feature (`types.ts`,
+  `queries.ts`, `hooks.ts`). Es el patrón por defecto para código nuevo.
+- `prisma/schema/` — un archivo `.prisma` por dominio (no un `schema.prisma`
+  único). `main.prisma` solo tiene el bloque `generator`/`datasource`.
+- `components/ui/` — componentes shadcn/ui generados. No los edites a mano
+  salvo necesidad real; añade nuevos con `pnpm dlx shadcn add <componente>`.
 
-Reglas del resto del ciclo:
+Referencia viva del patrón completo (Prisma + TanStack Query SSR + nuqs +
+Suspense) en modelo `Task`:
+[`prisma/schema/tasks.prisma`](./prisma/schema/tasks.prisma) +
+[`app/api/tasks/route.ts`](./app/api/tasks/route.ts) +
+[`lib/features/tasks/`](./lib/features/tasks/) +
+[`app/tasks/page.tsx`](./app/tasks/page.tsx) +
+[`app/tasks/tasks-client.tsx`](./app/tasks/tasks-client.tsx).
 
-1. PRs pequeños. Es mejor tres PRs de cien líneas que uno de trescientas,
-   sobre todo en hackathon, donde el que revisa tiene dos minutos.
-2. Rellena la plantilla de PR (`.github/REQUEST_TEMPLATE.md`): qué, por qué,
-   cómo se prueba y capturas si hay UI.
-3. Un compañero revisa antes de mezclar. Nadie mezcla su propio PR.
-4. Squash merge, y se borra la rama después.
-5. Nunca se commitean secretos. El `.env` se queda fuera; si añades una
-   variable nueva, documéntala en `.env.example` con un valor de ejemplo.
-6. Antes de abrir el PR: `pnpm run lint` y `pnpm run typecheck` en verde.
-   Todavía no hay workflow de CI en `.github/`, así que de momento esto se
-   comprueba en local; el que lo monte, que actualice este punto.
+## Reglas críticas
 
-Si necesitas trabajar sobre algo que aún está en el PR de otro, sal de su rama
-y no de `main`, pero dilo en el PR para que se mezclen en orden.
+- **Next.js 16 async APIs:** siempre `await` `cookies()`, `headers()`,
+  `draftMode()`, `props.params` y `props.searchParams`.
+- **Estado y datos:** evita `useEffect` (ver sección de rendimiento más abajo).
+  Usa TanStack Query para todo fetching/caching, no `useState` + `useEffect` a mano.
+- **SSR + TanStack Query:** para páginas que necesitan datos al cargar, sigue
+  el patrón de `app/tasks/page.tsx` — `getQueryClient()` +
+  `prefetchQuery` + `<HydrationBoundary>`, con el mismo `queryKey` que el hook
+  cliente usa. Ver la [guía oficial de SSR avanzado](https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr).
+- **UI:** usa solo componentes shadcn/ui (`components/ui`), nunca `@base-ui/react`
+  directamente (es la librería de primitivas que usa el preset `base-nova`, el
+  default actual de shadcn). Prefiere `gap` con flex/grid antes que `space-y`/`space-x`.
+- **`Button` con `render`:** al pasar un elemento que no es un `<button>` real
+  (p. ej. `<Button render={<Link href="..." />}>`), añade también
+  `nativeButton={false}` — si no, Base UI avisa en consola de que rompe la
+  semántica nativa del botón (ver `app/page.tsx`).
+- **CSS de Base UI:** `body` ya tiene `isolation: isolate` (contexto de
+  apilamiento propio para que los popups — Dialog, Popover, Tooltip, Toast —
+  queden siempre por encima, sin pelearse con el `z-index` del resto de la
+  página) y `position: relative` (necesario para los backdrops en iOS 26+
+  Safari) en `app/globals.css`, tal como recomienda la
+  [guía oficial de Base UI](https://base-ui.com/react/overview/quick-start).
+  No los quites.
+- **Toaster:** `<Toaster />` va montado como hermano de `{children}`, no
+  envolviéndolo — es un componente de renderizado (portal), no un context
+  provider que necesite envolver el árbol (ver `app/providers.tsx` y la
+  [doc del componente Toast](https://ui.shadcn.com/docs/components/base/toast)).
+- **Clases condicionales:** usa `cn` de `@/lib/core/utils` (re-exporta
+  `cnfast`), no concatenación manual ni `clsx` directo.
+- **TypeScript:** evita `enum` (usa const maps / union types). Prefiere
+  `function` declarativa en vez de `const fn = () =>` para funciones de nivel
+  superior. Importa siempre con el alias `@/*`.
+- **Prisma:** nunca instancies `PrismaClient` fuera de `lib/core/db.ts` —
+  importa el singleton `prisma` desde ahí. Tipos del cliente generado en
+  `@/generated/prisma/client`. Añade modelos nuevos como archivo propio en
+  `prisma/schema/<dominio>.prisma`, nunca amontonados en `main.prisma`.
+- **Validación:** valida el body de cualquier API route con `zod` (ver
+  `app/api/tasks/route.ts`).
 
-## Puesta en marcha
+## Rendimiento y patrones de React/Next.js
 
-```bash
-corepack enable pnpm   # en Windows, si no tienes pnpm en el PATH
-pnpm install
-cp .env.example .env   # rellena DATABASE_URL con tu Postgres real
-pnpm prisma generate
-pnpm dev
-```
+Guía completa (45 reglas con ejemplos, de Vercel Engineering) vendorizada en
+[`.agents/skills/vercel-react-best-practices/`](./.agents/skills/vercel-react-best-practices/SKILL.md)
+— consúltala antes de escribir fetching de datos, componentes con estado, o
+cualquier código sensible a rendimiento. Resumen de lo más importante:
 
-`BETTER_AUTH_SECRET` se genera con `openssl rand -base64 32`. La app arranca en
-<http://localhost:3000>.
+- **Evita `useEffect`** salvo para sincronizar con un sistema externo real
+  (DOM, `localStorage`, una suscripción externa). Antes de escribir uno, lee
+  ["You Might Not Need an Effect"](https://react.dev/learn/you-might-not-need-an-effect).
+  Fetching de datos → TanStack Query, nunca `useState` + `useEffect` a mano.
+- **Evita re-renders innecesarios:** `useState(() => calcularCaro())` (lazy
+  init) para valores caros de calcular; `setX((prev) => ...)` funcional para
+  callbacks estables; deriva estado en el render (`const isEmpty = items.length === 0`)
+  en vez de guardarlo en otro `useState` sincronizado a mano; no suscribas un
+  componente a estado que solo lees dentro de un callback/evento.
+- **Next.js 16 / Server Components:** paraleliza fetches independientes
+  (`Promise.all`, no `await` en cadena de cosas que no dependen entre sí),
+  usa `React.cache()` para deduplicar dentro del mismo request, streamea
+  secciones lentas con `<Suspense>` en vez de bloquear toda la página con un
+  `await` al principio del Server Component.
+- **Bundle:** `next/dynamic` para componentes pesados que no son above-the-fold;
+  importa símbolos directos (`import { Button } from "lib/x"`, no barrels
+  `index.ts` que reexportan todo); difiere analytics/scripts de terceros a
+  después de la hidratación.
+- **TanStack Query:** sigue el patrón de `lib/features/tasks/` — query key
+  factory tipada, `staleTime`/`gcTime` explícitos por endpoint, e invalidación
+  específica en el `onSuccess` de cada mutación (`invalidateQueries({ queryKey: [...] })`
+  con la key concreta, no una invalidación global sin key).
 
-## Comandos
+## Parámetros de búsqueda en la URL (nuqs)
 
-| Comando              | Qué hace                                  |
-| -------------------- | ----------------------------------------- |
-| `pnpm dev`           | Servidor de desarrollo (Turbopack)        |
-| `pnpm build`         | Build de producción (standalone)          |
-| `pnpm start`         | Sirve el build de producción              |
-| `pnpm test`          | Tests con `node --test` (ver nota abajo)  |
-| `pnpm run lint`      | oxlint (este repo no usa ESLint)          |
-| `pnpm run lint:fix`  | oxlint con `--fix`                        |
-| `pnpm run format`    | Prettier con orden de clases de Tailwind  |
-| `pnpm run typecheck` | `tsc --noEmit`                            |
-| `pnpm run knip`      | Detecta código y dependencias muertas     |
-| `pnpm prisma:seed`   | Seed de desarrollo (`prisma/seed.ts`)     |
-| `pnpm run auth:generate` | Regenera `prisma/schema/auth.prisma`  |
+Para cualquier estado que deba sobrevivir a un refresh o ser compartible por
+URL (filtros, búsqueda, paginación, pestaña activa) usa **nuqs**, no
+`useState`. `<NuqsAdapter>` ya envuelve la app en `app/layout.tsx`.
 
-Ojo con dos scripts heredados de la plantilla: `pnpm test` y
-`pnpm run rename-project` apuntan a `scripts/run-tests.mjs` y
-`scripts/rename-project.mjs`, y esa carpeta no está en el repo. Fallan hasta
-que alguien la traiga o cambie el script.
+- Define los parsers **una sola vez** por feature, en un archivo
+  `search-params.ts` que se importa tanto desde el servidor como desde el
+  cliente (ver [`lib/features/tasks/search-params.ts`](./lib/features/tasks/search-params.ts)):
+  ```ts
+  import { createLoader, parseAsString } from "nuqs/server";
 
-## Convenciones del código
+  export const tasksSearchParams = { q: parseAsString.withDefault("") };
+  export const loadTasksSearchParams = createLoader(tasksSearchParams);
+  ```
+- **Server Component** (`page.tsx`): `await loadTasksSearchParams(searchParams)`
+  y úsalo para el `prefetchQuery` — el `queryKey` de TanStack Query debe
+  incluir el valor (`["tasks", q]`), igual que en `lib/features/tasks/queries.ts`.
+- **Client Component**: `useQueryStates(tasksSearchParams)` de `"nuqs"` (no
+  `"nuqs/server"`) — mismo objeto de parsers, así servidor y cliente nunca se
+  desincronizan.
+- Envuelve en `<Suspense>` el Client Component que lee el estado de nuqs
+  dentro de un Server Component que ya hizo `await` de los `searchParams`
+  (ver `app/tasks/page.tsx`) — es el patrón que documenta la
+  [guía server-side de nuqs](https://nuqs.dev/docs/server-side) para no
+  bloquear el shell estático de la página.
 
-`app/` tiene rutas, layouts y API routes. Las API routes validan la entrada con
-zod antes de tocar la base de datos; mira `app/api/tasks/route.ts` como
-referencia.
+## Autenticación (Better Auth)
 
-`lib/core/` es infraestructura compartida: cliente de Prisma (`db.ts`),
-configuración de TanStack Query (`react-query.ts`), `cn` (`utils.ts`) y Better
-Auth en servidor (`auth.ts`) y cliente (`auth-client.ts`).
+- `lib/core/auth.ts` — instancia servidor (`betterAuth()`), usa el mismo
+  singleton `prisma` de `lib/core/db.ts` vía `prismaAdapter`. Nunca crees una
+  segunda instancia de `betterAuth()`.
+- `lib/core/auth-client.ts` — cliente React (`authClient`, `useSession`,
+  `signIn`, `signUp`, `signOut`), para usar en Client Components.
+- `app/api/auth/[...all]/route.ts` — handler catch-all, no lo muevas de sitio.
+- **Server** (Server Components, Route Handlers, Server Actions): comprueba
+  la sesión con
+  ```ts
+  const session = await auth.api.getSession({ headers: await headers() });
+  ```
+- **Client**: usa el hook `useSession()` de `@/lib/core/auth-client` (ver
+  `app/page.tsx`). Formularios de referencia en `app/sign-in/page.tsx` y
+  `app/sign-up/page.tsx`.
+- **Proteger rutas**: Next.js 16 renombró `middleware.ts` a `proxy.ts`. Si el
+  proyecto necesita rutas protegidas, añade un `proxy.ts` en la raíz que
+  llame a `auth.api.getSession` y redirija si no hay sesión — no hay uno en
+  la plantilla porque qué proteger depende de cada proyecto.
+- **Cambiar el modelo de datos de auth** (añadir campos, proveedores OAuth,
+  plugins con sus propias tablas): edita `lib/core/auth.ts` y regenera con
+  `pnpm run auth:generate` — **no edites `prisma/schema/auth.prisma` a
+  mano**, se sobrescribe. Después `pnpm prisma generate`.
+- Variables de entorno requeridas: `BETTER_AUTH_SECRET` (32+ caracteres,
+  genera una con `openssl rand -base64 32`) y `BETTER_AUTH_URL`.
 
-`lib/features/<feature>/` es el patrón por feature: `queries.ts` con la función
-de fetch y la queryKey, `hooks.ts` con los hooks de cliente, `types.ts` con los
-DTO. La función de fetch se comparte entre el prefetch de servidor y el hook de
-cliente a propósito, para que la queryKey coincida y `HydrationBoundary` pueda
-entregar los datos sin refetch; si las separas, rompes la hidratación.
+## Cómo añadir una feature nueva
 
-`components/ui/` lo genera shadcn. No se edita a mano: si necesitas variar un
-componente, envuélvelo o crea uno propio fuera de esa carpeta.
+1. Modelo(s) en `prisma/schema/<feature>.prisma` → `pnpm prisma generate`.
+2. `app/api/<feature>/route.ts` (valida input con `zod`).
+3. `lib/features/<feature>/{types,queries,hooks}.ts` — y `search-params.ts`
+   si la feature tiene filtros/paginación que deban vivir en la URL.
+4. `app/<feature>/page.tsx` (Server Component: parsea `searchParams` con nuqs
+   si aplica → prefetch + `HydrationBoundary`).
+5. `app/<feature>/<feature>-client.tsx` (Client Component con los hooks,
+   envuelto en `<Suspense>` desde `page.tsx` si lee estado de nuqs).
 
-`prisma/schema/` lleva un fichero `.prisma` por dominio. `auth.prisma` está
-generado por `pnpm run auth:generate` y tampoco se edita a mano.
+## Cómo crecer `lib/` más allá de `core` + `features`
 
-## CLI de hackspain
+`lib/features/<feature>` es el punto de partida para todo. Si un proyecto
+crece lo suficiente, divide **solo cuando aparezca la necesidad real** (no antes):
 
-La organización da una CLI que usa la misma cuenta y los mismos datos que el
-dashboard web: equipo, retos, entrega, feed y watcher. Todo el equipo la tiene
-instalada; esta sección es la referencia para no ir preguntando.
+- `lib/domain/` — reglas de negocio puras, sin I/O.
+- `lib/services/` — capa de acceso a BD/colas/email/etc.
+- `lib/integrations/` — clientes de APIs de terceros.
+- `lib/shared/` — helpers cross-feature (parsers de query params, etc.).
+- `lib/api/` — helpers compartidos de API routes (guards de auth, forma de respuesta).
 
-### Instalación
+No crees estas carpetas vacías de antemano — añádelas la primera vez que
+haga falta, igual que ha ido evolucionando la estructura en el proyecto de
+producción del que sale esta plantilla.
 
-En Windows se descarga `hackspain-windows-x64.exe` de la página de releases, se
-renombra a `hackspain.exe` y se deja en una carpeta que esté en el `PATH`. En
-macOS y Linux:
+## Testing y calidad
 
-```bash
-curl -fsSL https://hackspain.com/install.sh | sh
-hackspain update   # más adelante, para la última versión
-```
+- `pnpm test` — corre `scripts/run-tests.mjs` (`node --test` + `tsx`, sin
+  framework adicional; recoge cualquier `*.test.ts` bajo `app/` o `lib/`).
+- `pnpm run lint` / `pnpm run lint:fix` — [oxlint](https://oxc.rs/docs/guide/usage/linter.html),
+  no ESLint (ver sección siguiente).
+- `pnpm run typecheck` — `tsc --noEmit`.
+- `pnpm run format` — Prettier (con `prettier-plugin-tailwindcss`, ordena
+  clases de Tailwind automáticamente).
+- `pnpm run knip` — detecta código/dependencias muertas.
 
-### Sesión
+El guardado automático (`formatOnSave`) está desactivado a propósito
+(`.vscode/settings.json`) — corre `pnpm run format`/`pnpm run lint` de forma
+explícita.
 
-```bash
-hackspain                      # dónde estás y qué toca hacer (menú interactivo)
-hackspain auth login           # abre /cli-auth para aprobar el dispositivo
-hackspain auth login --email … --code …   # alternativa con código de 8 dígitos
-hackspain auth status
-hackspain auth logout
-hackspain open [feed|teams|perks|…]       # abre el dashboard ya logueado
-```
+## Linting (oxlint, no ESLint)
 
-### Equipo
+Este proyecto usa [oxlint](https://oxc.rs) en vez de ESLint — es lo que usa
+gestanex también, y a diferencia de `typescript-eslint`, funciona sin
+problemas con TypeScript 7.
 
-El dueño comparte un código de invitación de 8 caracteres y el resto se une con
-él.
-
-```bash
-hackspain team create <nombre> [-m github:usuario -m alguien@correo.com]
-hackspain team join <codigo>
-hackspain team show            # o "list" para ver todos los equipos
-hackspain team code [--regenerate]
-hackspain team repo <url>      # vincula el repo público; su actividad va al feed
-hackspain stack set nextjs prisma postgres vercel
-hackspain team leave | transfer [miembro] | dissolve
-```
-
-El repo tiene que ser **público antes** de vincularlo con `team repo`.
-
-### Retos y entrega
-
-Un proyecto por equipo, y te puedes apuntar a tantos retos como quieras. La
-entrega congela todo, así que conviene guardar borradores pronto y a menudo.
-
-```bash
-hackspain track list
-hackspain track register <slug>     # nuestro reto: X Ray, de Embat
-hackspain track unregister <slug>
-hackspain track move <origen> <destino>
-hackspain submit --draft            # borrador, se puede repetir
-hackspain submit                    # entrega definitiva: congela
-hackspain project show              # o "list"
-```
-
-### Feed, perks y milestones
-
-```bash
-hackspain feed [-n 20] [--before …]
-hackspain post "texto" [--image foto.jpg]   # ≤500 caracteres, imagen ≤5 MB
-hackspain perk list                          # reclamar se hace en el dashboard
-hackspain milestone add firstCommit|firstBuild|firstDemo|custom [--label …]
-hackspain milestone list [--all]
-```
-
-### Watcher
-
-Pensado para dejarlo abierto en su propia terminal todo el fin de semana.
-Detecta los harnesses de IA (Claude Code, Codex, Gemini CLI, Cursor y demás),
-enseña el feed y los avisos de la organización, y reporta uso. No envía prompts
-ni rutas completas de tu máquina.
-
-```bash
-hackspain watch [--interval 30] [--no-upload] [--once]
-hackspain telemetry stats
-```
-
-Dentro del watcher: `q` sale, `p` pausa, `↑↓` recorren el feed y `g` vuelve al
-directo.
-
-### Para scripts
-
-Cualquier comando con `--json` imprime un único objeto JSON por stdout y
-desactiva los prompts; el resto va a stderr.
-
-```bash
-hackspain --json team show
-hackspain --json feed -n 5
-```
-
-Códigos de salida: `0` todo bien, `1` error del servidor o genérico, `2` error
-de uso, `3` sin sesión o sesión caducada, `4` aún no elegible (sin equipo, sin
-onboarding o fuera de la ventana de la hackathon), `5` backend inalcanzable,
-`130` interrumpido con Ctrl+C.
-
-### Rutinas del equipo
-
-Cosas que conviene no dejar para el final:
-
-1. Vincular este repo con `hackspain team repo` en cuanto sea público, para que
-   los commits y PRs aparezcan en el feed.
-2. Declarar el stack con `hackspain stack set`.
-3. Tener `hackspain watch` abierto en una terminal durante todo el fin de
-   semana.
-4. Guardar un `hackspain submit --draft` desde el primer día y actualizarlo, en
-   vez de escribir la entrega entera el domingo por la noche.
-5. Registrar los hitos (`firstCommit`, `firstBuild`, `firstDemo`) según pasan.
+- `.oxlintrc.json` — configuración. Solo la categoría `correctness` está en
+  `error`; el resto están apagadas a propósito (`suspicious`, `pedantic`,
+  `perf`, `style`, `restriction`) para evitar ruido de estilo que ya cubre
+  Prettier.
+- `components/ui/**` está en `ignorePatterns` — son componentes generados por
+  shadcn (código vendor, no tuyo); algunos usan patrones ARIA (`role="group"`,
+  etc.) que disparan falsos positivos del plugin `jsx-a11y` al analizarlos
+  fuera de contexto de uso. No los edites para "arreglar" el lint.
+- **`tools/oxlint/anti-slop/`** — un plugin de oxlint propio (vendorizado de
+  gestanex, es genérico y no específico de ningún proyecto) que detecta
+  patrones típicos de código generado por IA de baja calidad: aserciones de
+  tipo encadenadas, parámetros/retornos `unknown` sin parsear en el borde,
+  diccionarios `Record<string, unknown>` sin contrato, `Reflect.apply`/`get`
+  innecesarios, etc. La mayoría son `warn` (avisan, no bloquean el lint) —
+  revísalos con criterio, no los silencies sin más.
+- Extensión de VS Code recomendada: `oxc.oxc-vscode` (ver `.vscode/extensions.json`).

@@ -1,0 +1,6 @@
+{
+  "next": {
+    "entry": ["app/**/*.{ts,tsx}"]
+  },
+  "entry": ["scripts/**/*.{ts,mjs}", "prisma/seed.ts"]
+}
