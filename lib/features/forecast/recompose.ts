@@ -35,7 +35,8 @@ export function d2Pred(me: ScoreRow, hermanas: Hermana[]): number | null {
     peso > 0
       ? sum(hermanas.map((h, i) => deltas[i] * h.row.D1)) / peso
       : sum(deltas) / hermanas.length;
-  return me.D2 + delta;
+  // D2 es un score: scoring lo obtiene como media ponderada de `scoreSolo` y no puede salirse del rango.
+  return clamp(me.D2 + delta, 0, 100);
 }
 
 /**

@@ -54,6 +54,23 @@ test("d2Pred moves D2 by the D1-weighted delta of the siblings' scoreSolo", () =
   assert.ok(Math.abs(simple! - 77) < 1e-9);
 });
 
+test("d2Pred clamps the projected D2 to the score range", () => {
+  const me = rowsFromSeries(
+    "f",
+    "g",
+    { A1: [0.15] },
+    { grupo: () => ({ D1: 0.2, D2: 98, D3: 3, D5: 0.15, confD: 1 }) },
+  ).rows[0];
+  const h1 = rowsFromSeries(
+    "h1",
+    "g",
+    { A1: [0.15] },
+    { grupo: () => ({ D1: 0.6, D2: null, D3: null, D5: 0, confD: 0 }) },
+  ).rows[0];
+  // 98 + 12 = 110 sin recortar: `forecastRowSchema` rechazaría la subnota de `grupo`.
+  assert.equal(d2Pred(me, [{ row: h1, scoreSoloPred: h1.scoreSolo + 12 }]), 100);
+});
+
 test("scorePred = clamp(scoreSolo + aval(D2pred)) and cascada sums to it", () => {
   const me = rowsFromSeries(
     "f",
