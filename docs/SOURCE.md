@@ -35,9 +35,9 @@ precio y cuándo cerrar el grifo.
 
 `scoreSolo` es un índice ordinal de salud autónoma: no es una probabilidad de
 impago ni una tasa de aprobación. Para `sin_datos` la ficha debe mostrar
-"no evaluable". La decisión se calcula después de las puertas de confianza,
-estado, fiabilidad, caja estresada y facturas vencidas; una capacidad teórica
-se conserva solo como simulación (`limiteTeorico`) cuando alguna puerta falla.
+"no evaluable". La decisión se calcula después, sobre `scoreSolo` y sus pilares
+(decisiones 43-47): las puertas de confianza, estado, fiabilidad, caja y clientes.
+El límite ya no usa una capacidad teórica en euros.
 
 ### 1.1 Flujos base mensuales (de `transactions`)
 
@@ -193,9 +193,18 @@ validado 19-09 (decisiones 34-38). Detalle en `forecast-engine.md`.
 
 ## 3. Decisión — ¿te puedo prestar? · cuánto · plazo · interés
 
-Entrada: fila del score (§1). Salida por empresa-mes: `elegible`, `motivo`,
-`L` (límite), `menu[]` de opciones (plazo, cantidad máx, TAE), `accion`.
-Todo validado 19-09 (decisiones 11, 12, 17-23).
+
+Entrada: **el score autónomo y poco más** (decisión 43). El motor de decisión
+lee `scoreSolo` (como `score`), sus tres pilares `A/B/C`, `confianza`,
+`estadoSolo` (como `estado`), la tendencia (`direccion`, `naturaleza`,
+`tend_score_3m`, `tend_3m`), los **tipos** de alerta, lo que define al grupo
+(`D1`, `D5`, `ajusteHolding` como `aval_grupo`) y **una** variable en euros,
+`tamano = media3m(cobros_op)`. Nada más de la fila del score: ni flujos a 6
+meses, ni `capacidad_cuota_adv`, ni `racha_B2`, `racha_deficit`, `C3_dias` o
+`C4`, ni `scoreGrupo` ni los flujos consolidados del grupo. Salida por
+empresa-mes: `elegible`, `motivo`, `L` (límite), `menu[]` de opciones (plazo,
+cantidad máx, TAE), `accion`. Todo validado 19-09 (decisiones 11, 12, 17-23,
+calibración 39-42 y contrato mínimo 43-47).
 
 ```text
 0. Elegibilidad   ¿te puedo prestar?        → sí / no + motivo
@@ -207,35 +216,66 @@ Dependencia: región factible (cantidad, plazo) + precio función de ambas → �
 
 ### 3.0 Elegibilidad ✅
 
-Puertas duras, todas deben pasar. La primera que falla es el `motivo`.
+Seis puertas, todas deben pasar. La primera que falla es el `motivo`. Con la
+decisión 44 tres de ellas se leen del **pilar** del score y de su **alerta**, no
+de la variable cruda: el score ya condensó esos datos y el motor de decisión no
+vuelve a interpretarlos. Con la decisión 42 dos de ellas (confianza y el umbral
+del pilar A de `caja`) piden dos meses seguidos antes de cerrar el grifo.
 
-| Puerta     | Regla                                           | Por qué                                                      |
-| ---------- | ----------------------------------------------- | ------------------------------------------------------------ |
-| Historia   | `confianza ≥ 0,5` (≈ 6 meses con movimientos)   | Sin historia no hay opinión                                  |
-| Estado     | `score ≥ 45`                                    | Estado riesgo (5)                                            |
-| Fiabilidad | racha B2 < 2                                    | Dos meses sin pagar = impago real (7)                        |
-| Caja       | `racha_deficit < 3` y `capacidad_cuota_adv > 0` | La caja estresada debe cubrir las cuotas actuales con margen |
-| Clientes   | C4 vencido sin cobrar ≤ 40 %                    | Cobros futuros comprometidos (12)                            |
-| Grupo      | sin cross-default activo                        | Si cae quien sostiene el grupo, el aval no vale (17)         |
+| Puerta | Regla | Blanda/dura | Por qué |
+| --- | --- | --- | --- |
+| Historia | `confianza ≥ 0,4` (≈ 5 meses con movimientos) | blanda (39, 42) | Sin historia no hay opinión |
+| Estado | `scoreSolo ≥ 45` | dura | Estado riesgo (5) |
+| Fiabilidad | sin alerta `impago_obligaciones` **y** `B ≥ 60` | dura | Dos meses sin pagar = impago real (7) |
+| Caja | sin alerta `deficit_persistente` **y** `A ≥ 50` | alerta dura, pilar blando (42) | La capacidad de deuda tiene que aguantar más cuota |
+| Clientes | sin alerta `vencido_alto` **y** `C ≥ 50` | dura | Cobros futuros comprometidos (12) |
+| Grupo | sin cross-default activo | dura | Si cae quien sostiene el grupo, el aval no vale (17) |
+
+- La confianza de la puerta es 0,4 (decisión 39): 0,4-0,5 son cinco meses de
+  historia con cobertura buena, no "sin datos". Por encima de la puerta la
+  confianza sigue descontando límite (`× min(1, conf/0,6)`) y subiendo precio
+  (`+1 pp` por debajo de 0,7): la puerta solo decide **si opinamos**.
+- **Cierre confirmado** (decisión 42): fallar una puerta blanda con línea viva no
+  cierra el primer mes. La fila sale `accion = "mantener"`, `L = 0`,
+  `L_vigente = L_prev` y `cierre_pendiente = true` (no elegible, con el motivo de
+  la puerta); al segundo mes seguido se cierra. Las puertas duras cierran ya.
+- Las tres alertas reproducen 1:1 las puertas crudas que sustituyen en el run de
+  2026-08 (`impago_obligaciones` 56/56 frente a `racha_B2 ≥ 2`,
+  `deficit_persistente` 280/280 frente a `racha_deficit > 2`, `vencido_alto`
+  242/242 frente a `C4 > 40 %`), así que no se pierde ninguna señal; el pilar
+  añade el matiz continuo que el umbral binario no tenía. La puerta de capacidad
+  en euros desaparece: no medía lo mismo que el pilar A y era la que cerraba a
+  media cartera. Pasan las cinco puertas propias en 2026-08: 153 → 297.
 
 ### 3.1 Cantidad: límite L ✅
 
 ```text
-capacidad_cuota_adv = max(0, (0,8·cobros_op − 1,1·pagos_op)_media6m / 1,3 − servicio_deuda_media6m)
-limite_cap          = capacidad_cuota_adv × 12
-limite_op           = 0,8 × media3m(cobros_op) × 3
-L                   = min(limite_cap, limite_op) × factor_banda × min(1, confianza / 0,6)
+tamano    = media3m(cobros_op)                        (única variable en €)
+limite_op = 0,8 × tamano × 3                          (anticipo bruto, se publica)
+factor_A  = min(1, A / 70)                            (capacidad de deuda, pilar A)
+L         = limite_op × factor_banda × min(1, confianza / 0,6) × factor_A
 ```
 
-| Banda | score | factor_banda | base_TAE  |
-| ----- | ----- | ------------ | --------- |
-| A     | ≥ 75  | 1,0          | 5 %       |
-| B     | 60-75 | 0,7          | 7 %       |
-| C     | 45-60 | 0,4          | 10 %      |
-| D     | < 45  | 0            | no presta |
+**Decisión 45 — sin capacidad de cuota.** El límite ya no pasa por una capacidad
+de cuota adversa calculada con flujos a 6 meses y un escenario de estrés propio
+(decisión 40). El pilar A mide lo mismo —si la caja aguanta más cuota— sobre las
+mismas variables, ya normalizado a 0-100 y con la confianza dentro: repetirlo en
+el motor de decisión era decidir dos veces con dos umbrales distintos y no había
+forma de explicarlo en la ficha. El anticipo sigue atado al circulante real
+(nunca más de lo que la empresa cobra) y el pilar A recorta por encima de la
+puerta: A 35 parte el límite por la mitad, A ≥ 70 no recorta. `L` se redondea
+abajo a 1.000 €.
 
-Deterioro estructural baja una banda. Grupo: `Σ L del grupo ≤ L sobre
-flujos consolidados` (el aval no se cuenta dos veces).
+| Banda | score | factor_banda | base_TAE |
+| --- | --- | --- | --- |
+| A | ≥ 75 | 1,0 | 5 % |
+| B | 60-75 | 0,7 | 7 % |
+| C | 45-60 | 0,4 | 10 % |
+| D | < 45 | 0 | no presta |
+
+Deterioro estructural baja una banda. Grupo: `Σ L del grupo ≤ L_grupo`, la misma
+fórmula aplicada a `Σ tamano` de los miembros del mes (decisión 47); el aval no
+se cuenta dos veces.
 
 ### 3.2 Plazo: T_max por banda y tendencia ✅
 
@@ -264,25 +304,28 @@ coste_operacion  = cantidad × TAE × plazo / 360
 ### 3.4 Dependencia cantidad-plazo: región factible ✅
 
 ```text
-cantidad ≤ L                                       (paso 1)
-cantidad ≤ capacidad_cuota_adv × plazo_meses       (se devuelve con caja estresada dentro del plazo)
+cantidad ≤ L × min(1, plazo / 180)                 (rampa, decisión 46)
 plazo    ≤ T_max                                   (paso 2)
 ```
 
-Plazo corto → cantidad pequeña. Plazo largo → cantidad se acerca a L pero
-el interés sube. El producto enseña el menú, la empresa elige el punto:
+Plazo corto → cantidad pequeña. Plazo largo → cantidad se acerca a L pero el
+interés sube. La rampa es lineal y llega a `L` exactamente en 180 días, el plazo
+máximo del producto: conserva la dependencia cantidad-plazo con un solo número
+explicable, sin volver a meter una capacidad en euros en la cuenta. El producto
+enseña el menú, la empresa elige el punto:
 
-| Plazo         | Cantidad máx          | TAE        |
-| ------------- | --------------------- | ---------- |
-| 30 d          | `min(L, cap_adv × 1)` | base       |
-| 60 d          | `min(L, cap_adv × 2)` | base + 0,5 |
-| 90 d          | `min(L, cap_adv × 3)` | base + 1,0 |
-| … hasta T_max |                       |            |
+| Plazo | Cantidad máx | TAE |
+| --- | --- | --- |
+| 30 d | `L / 6` | base |
+| 60 d | `L / 3` | base + 0,5 |
+| 90 d | `L / 2` | base + 1,0 |
+| … hasta T_max | | |
+| 180 d | `L` | base + 2,5 |
 
 ### 3.5 Un solo límite, dos usos ✅
 
-`L` sirve para **anticipar cobros** (plazo natural = días hasta el cobro
-esperado, C3) o **aplazar pagos** (plazo = días de aplazamiento al
+`L` sirve para **anticipar cobros** (plazo natural = 60 d, el parámetro;
+`C3_dias` sale del contrato con la decisión 43) o **aplazar pagos** (plazo = días de aplazamiento al
 proveedor). Ambos dentro de `T_max`. Sin sublímites: más simple y el score
 no distingue usos.
 
@@ -303,7 +346,19 @@ no distingue usos.
 - Reapertura: elegible de nuevo tras 2 meses seguidos pasando todas las
   puertas.
 - Cross-default: si una empresa con `D1 ≥ 0,3` pasa a `cerrar`, el resto
-  del grupo baja una banda y su `aval_grupo` se recalcula sin ella.
+  del grupo baja una banda y su `ajusteHolding` se recalcula sin ella.
+- Techo de grupo (decisión 47): `L_grupo` es la fórmula de §3.1 aplicada a
+  `Σ tamano` de los miembros presentes ese mes, con score, confianza y pilar A
+  ponderados por tamaño (media simple si `Σ tamano = 0`). Si
+  `Σ L_vigente > L_grupo`, prorrateo redondeado abajo. La regla "techo cero →
+  bajar banda" (decisión 41) queda **sustituida**: desaparece con su causa,
+  porque el techo ya no se mide sobre una caja consolidada estresada que se iba
+  a negativo por falta de dato. `L_grupo = 0` solo puede pasar en banda D o con
+  `Σ tamano = 0`, y en los dos casos el límite individual de cada miembro ya
+  es 0.
+- Cierre confirmado (decisión 42): `cerrar` por una puerta blanda (confianza, o
+  `caja` solo por capacidad) necesita dos meses seguidos; el primero sale
+  `mantener` con `cierre_pendiente`. Coherente con "un mes no es tendencia".
 
 ---
 
@@ -399,8 +454,8 @@ el jurado.
 | 17  | Techo de grupo y cross-default al 30 %                                                                                          | El aval no se cuenta dos veces entre filiales. Si cae quien sostiene el grupo, el aval desaparece.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | ✅ 19-09                          |
 
 | 18 | Elegibilidad = 6 puertas duras, primera que falla es el motivo | Sí/no antes de cuánto: sin historia, en riesgo, con impago real, sin caja estresada, con clientes que no pagan o con el grupo cayendo, no se presta. Reglas explícitas y explicables, sin umbral de score compuesto. | ✅ 19-09 |
-| 19 | Región factible: `cantidad ≤ L` y `cantidad ≤ capacidad_cuota_adv × plazo_meses` | La empresa debe poder devolver lo prestado con caja estresada dentro del plazo. Es la dependencia central entre cantidad y plazo: corto → poco, largo → más pero más caro. | ✅ 19-09 |
-| 20 | T_max por banda (180/120/60 d) y recorte por deterioro (temporal un escalón, estructural dos) | Peor score → menos exposición al futuro y más rotación: re-evaluamos más veces antes de que algo se rompa. Estructural en C no presta. | ✅ 19-09 |
+| 19 | Región factible: `cantidad ≤ L` y `cantidad ≤ capacidad_cuota_adv × plazo_meses` | La empresa debe poder devolver lo prestado con caja estresada dentro del plazo. Es la dependencia central entre cantidad y plazo: corto → poco, largo → más pero más caro. **Sustituida por la 46**: la idea se conserva como rampa lineal sobre `L`, sin la capacidad en euros. | ✅ 19-09 · sustituida |
+| 20 | T_max por banda (180/120/60 d) y recorte por deterioro según la tabla de §3.2 (temporal y estructural acortan el plazo dentro de la misma banda) | Peor score → menos exposición al futuro y más rotación: re-evaluamos más veces antes de que algo se rompa. Estructural en C no presta. | ✅ 19-09 |
 | 21 | TAE = base banda + 0,5 pp/30 d + 1 pp si confianza < 0,7 ± tendencia | Precio sube con plazo (más exposición), con incertidumbre (menos datos) y con deterioro; baja con mejora. Aditivo para poder explicarlo en la ficha componente a componente. | ✅ 19-09 |
 | 22 | Un solo límite para anticipar cobros y aplazar pagos | El score no distingue usos; dos sublímites duplican lógica y pantalla. El uso solo fija el plazo natural. | ✅ 19-09 |
 | 23 | Reapertura tras 2 meses elegible; cierre no borra lo dispuesto | Evita abrir/cerrar mes a mes; lo vivo se devuelve a vencimiento como en cualquier línea. | ✅ 19-09 |
@@ -417,13 +472,28 @@ el jurado.
 | 34 | Previsión a 3 y 6 meses: score, banda, intervalo, drivers, prob. deterioro | El plazo máximo del producto es 180 días; más allá no cambia la decisión de hoy. Motor separado entre scoring y decisión, con su propio contrato. | ✅ 19-09 |
 | 35 | v1 proyección determinista de variables; v2 modelo solo si el backtest lo justifica | Explicable por construcción y se implementa en horas. Un modelo entrenado sin tiempo de validar es ruido con autoridad. Receta v2 ya existe (FINDINGS §7). | ✅ 19-09 |
 | 36 | Intervalo y probabilidad desde residuos y frecuencias del backtest | Sin inventar dispersión. Se declara que no es probabilidad de impago. | ✅ 19-09 |
-| 37 | La previsión solo endurece: plazo, reducción preventiva a 2 meses, ampliar condicionado, +0,5 pp | Coste de una previsión ruidosa = cerrar grifos sanos; por eso exige dos meses y nunca sube. Una previsión buena no sustituye a verlo pasar. | ✅ 19-09 |
+| 37 | La previsión solo endurece: plazo, reducción preventiva a 2 meses, ampliar condicionado, +0,5 pp | Coste de una previsión ruidosa = cerrar grifos sanos; por eso exige dos meses y nunca sube. Una previsión buena no sustituye a verlo pasar. Comparación siempre contra la banda actual (no la efectiva), en plazo, interés y acción. | ✅ 19-09 |
 | 38 | Backtest contra baseline ingenuo; si no lo bate, no se conecta | La previsión tiene que demostrar valor en meses de anticipación, no en sofisticación. | ✅ 19-09 |
+| 39 | Puerta `historia`: confianza ≥ 0,4 (era 0,5) | La mediana de confianza de la cartera en 2026-08 es 0,44: el tramo 0,4-0,5 son cinco meses de historia con cobertura buena, no "sin datos" (eso es 0,3). La confianza sigue descontando por encima de la puerta —límite `× min(1, conf/0,6)` y precio `+1 pp` por debajo de 0,7—, así que la puerta solo decide **si opinamos**, no cuánto. Run 2026-09-19: pasan la puerta 560 → 723 empresas; elegibles 79 → 109 en 2026-08. | ✅ 19-09 |
+| 40 | Estrés de capacidad propio del motor de decisión: −10 % cobros / +5 % pagos, cobertura 1,3 (era −20/+10/1,3) | Los cobros ya están infravalorados —el 25 % de los movimientos no se clasifica—, así que el −20 % penalizaba dos veces lo mismo. La cobertura (DSCR 1,3) se mantiene intacta: escenario adverso moderado sobre datos ya conservadores. El estrés de scoring (0,8/1,1) **no** cambia: sigue alimentando `D3` del aval de grupo, que mide si el padre *puede avalar*; el de decisión mide cuánto *se puede prestar*. Dos escenarios distintos a propósito. Run 2026-09-19: capacidad > 0 en 337 → 417 empresas; elegibles 79 → 115 en 2026-08 (con la 39, 153). **Sustituida por las 43 y 45**: arbitraba entre dos escenarios de estrés que medían lo mismo; con el pilar A como única medida de capacidad el arbitraje sobra. | ✅ 19-09 · sustituida |
+| 41 | Techo de grupo con capacidad consolidada 0: bajar una banda en vez de cerrar (opción i de la 17) | Las hermanas sin datos aportan pagos clasificados y pocos cobros clasificados, así que la caja consolidada estresada se va a negativo por falta de dato, no por riesgo, y el techo cerraba al único miembro solvente: 34 de las 79 empresas que pasaban las puertas en 2026-08, 637 de 1.098 empresa-mes sobre 24 meses. Con capacidad 0 el grupo sigue penalizado (una banda = −30 % de límite y +2 pp) y la ficha lo dice: "grupo sin capacidad consolidada". El prorrateo se mantiene siempre que `L_grupo > 0`. Es la única opción coherente con el aval: una filial puede recibir +10 puntos de aval del padre y no puede a la vez quedar cerrada por el techo de ese mismo padre. **Sustituida por la 47**: el techo pasa a medirse sobre `Σ tamano`, así que la capacidad consolidada 0 —y con ella la regla— desaparece por la raíz en vez de parchearse. | ✅ 19-09 · sustituida |
+| 42 | Cierre confirmado para las puertas blandas (opción i): `historia` y la capacidad de `caja` necesitan dos meses seguidos | 334 de los 1.098 empresa-mes que pasaban las puertas venían justo después de un mes cerrado (parpadeo en el umbral) y 36 de las 79 empresas de 2026-08 estaban esperando reapertura. `estado`, `fiabilidad`, `clientes`, `grupo` y `racha_deficit > 2` cierran el mismo mes: son hechos, no umbrales que tiritan. Coherente con el resto del motor ("dirección a 3 meses, estructural tras 2"). Coste: un mes más de exposición, acotado por el límite operativo. | ✅ 19-09 |
+| 43 | Contrato de entrada mínimo: el motor de decisión solo lee `scoreSolo` (como `score`), `confianza`, `subscores {A,B,C}`, `estadoSolo` (como `estado`), `direccion`, `naturaleza`, `tend_score_3m`, `tend_3m`, los tipos de `alertas`, `D1`/`D5`/`ajusteHolding` (como `aval_grupo`) y **una** variable en euros, `tamano = media3m(cobros_op)` | Scoring ya condensó los datos: tres bloques, 25 variables, confianza por variable, dirección a 3 meses y alertas con su mes de inicio. Que el motor de decisión volviese a leer flujos a 6 meses, `racha_B2`, `racha_deficit`, `C3_dias`, `C4`, `capacidad_cuota_adv` y los flujos consolidados del grupo era decidir **dos veces sobre la misma evidencia**, con dos umbrales distintos (la decisión 40 existía solo para arbitrar entre dos escenarios de estrés que medían lo mismo) y sin forma de explicar en la ficha por qué el score decía una cosa y el grifo otra. Con el contrato mínimo hay una sola cadena de justificación: dato → variable → pilar → score → decisión. Los euros sí necesitan una escala —un límite es un importe, no un percentil—, y por eso se queda `tamano`, que es la base del anticipo. El holding no se aplica dos veces: `proyectar` toma `scoreSolo` y publica `ajusteHolding` como `avalGrupo` para la ficha. Implementación: `proyectar(ScoreRow) → DecisionInput` es el único punto del motor que toca el contrato de scoring, y un test comprueba que coge exactamente esos campos. | ✅ 19-09 |
+| 44 | Puertas por pilar y alerta: `fiabilidad` = sin `impago_obligaciones` y `B ≥ 60` · `caja` = sin `deficit_persistente` y `A ≥ 50` · `clientes` = sin `vencido_alto` y `C ≥ 50`; se cae la puerta de capacidad en euros | Las alertas del score **son** las puertas crudas, medido: en 2026-08 `impago_obligaciones` coincide 56/56 con `racha_B2 ≥ 2`, `deficit_persistente` 280/280 con `racha_deficit > 2` y `vencido_alto` 242/242 con `C4 > 40 %`. No se pierde señal al cambiar de fuente, y se gana el matiz continuo del pilar, que un umbral binario no tenía: una empresa con `C4 = 39 %` y concentración alta ya no pasa de largo. La puerta de capacidad estresada en euros, en cambio, no mapea a ningún pilar y era la que cerraba a media cartera por falta de dato de cobros, no por riesgo. Umbrales 50/60/50 sobre la escala del score: 60 en fiabilidad porque no pagar lo que ya se debe es la peor de las tres señales, 50 en caja y clientes, el corte de "vigilar". Efecto medido en 2026-08: pasan las cinco puertas propias 153 → 297 empresas. | ✅ 19-09 |
+| 45 | Límite sin capacidad de cuota: `L = 0,8 × tamano × 3 × factor_banda × min(1, conf/0,6) × factor_A`, con `factor_A = min(1, A/70)` | El pilar A mide exactamente lo que medía la capacidad de cuota adversa —si la caja aguanta más cuota— sobre las mismas variables, ya normalizado y con la confianza dentro. Mantener las dos era el problema que la decisión 40 intentó arbitrar eligiendo un segundo escenario de estrés; quitar una lo cierra. El límite se queda atado al circulante real por `limite_op` (no se presta más de lo que la empresa cobra, decisión 11) y el pilar A sigue recortando **por encima** de la puerta, que es donde debe actuar un factor continuo: A 35 parte el límite por la mitad, A ≥ 70 no recorta. `limite_op` se publica igual en la ficha; `limite_cap` y `capacidad_cuota_adv` salen del contrato y entra `factor_A`. | ✅ 19-09 |
+| 46 | Menú como rampa: `cantidad_max(plazo) = redondear_abajo(L × min(1, plazo/180), 1.000)` | La región factible de la decisión 19 decía algo cierto —plazo corto, cantidad pequeña; plazo largo, cantidad cerca de `L` y más cara— con una cuenta en euros (`capacidad × plazo_meses`) que ya no existe. La rampa dice lo mismo con un solo número: lineal en el plazo y llega a `L` exactamente en 180 días, que es `T_max` de banda A y el plazo máximo del producto. Es defendible en una frase ante el jurado y no vuelve a introducir una segunda medida de caja. El plazo natural del anticipo pasa a ser el parámetro (60 d) porque `C3_dias` sale del contrato: era una sugerencia de qué fila resaltar, nunca una restricción. | ✅ 19-09 |
+| 47 | Techo de grupo sobre `Σ tamano`, con score, confianza y pilar A ponderados por tamaño; el prorrateo vuelve a ser la única regla de techo | El techo consolidado se medía sobre los flujos de grupo de `ScoreRow`, que salen del contrato con la decisión 43. Sumar tamaños es además la cura del problema que la decisión 41 parcheaba: las hermanas sin datos aportaban pagos clasificados y pocos cobros, así que la caja consolidada estresada se iba a negativo **por falta de dato**; un tamaño desconocido suma 0, no resta. Con eso `L_grupo = 0` solo puede pasar en banda D o con `Σ tamano = 0`, y en los dos casos el límite individual de cada miembro ya es 0: no hay nada que prorratear a cero ni banda que bajar, así que la regla "techo cero → banda −1" (41) se retira entera, junto con `modo: "bajaBanda"`, `afectadas_techo` y su motivo. La ponderación por tamaño mantiene el principio de la 17 —quien mueve el dinero del grupo manda en su banda— y el cross-default no cambia. Efecto medido en 2026-08: filas con `motivo_grupo` 361 → 59. | ✅ 19-09 |
 
-**Estado 19-09:** 38 de 38 decisiones validadas. Ninguna abierta.
+**Estado 19-09:** 47 de 47 decisiones validadas. Ninguna abierta. Tres quedan
+**sustituidas** por el contrato mínimo y se conservan en la tabla porque
+explican de dónde viene cada regla: la 19 por la 46 (región factible → rampa),
+la 40 por las 43 y 45 (estrés propio → pilar A) y la 41 por la 47 (techo cero →
+techo sobre `Σ tamano`).
 
 **Revisitar:** decisión 2, excepción de confianza 0,90 para las
 categorías nuevas de #12. Y la cuota esperada de `debt_repayment`
 (scoring-engine §5.2), que usa `outstanding_balance` de
 `debt_schedule_config.csv` —una foto final— para el término de interés,
 en contra de la regla de «sin foto final»: desviación pequeña y aceptada.
+El techo de grupo (decisión 17) sale de la lista: lo cierran las decisiones 41
+y, definitivamente, 47.

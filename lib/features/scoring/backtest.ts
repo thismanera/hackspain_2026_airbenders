@@ -4,7 +4,8 @@ import { median, monthIndex, percentile } from "@/lib/features/scoring/windows";
 
 type Kind = Extract<AlertTipo, "deterioro" | "recuperacion">;
 export type TargetScore = "scoreSolo" | "scoreGrupo";
-type Event = { company: string; month: string; index: number; kind: Kind };
+/** `index` es la posición dentro de la serie ordenada de su empresa, no en `rows`. */
+export type Event = { company: string; month: string; index: number; kind: Kind };
 type BacktestKind = {
   events: number;
   alerts: number;
@@ -70,6 +71,32 @@ function eventAt(rows: ScoreRow[], index: number, kind: Kind): boolean {
     next.every((r) => r?.deficitMes === false)
   );
 }
+/** Agrupa por empresa y ordena cada serie por mes; el orden es determinista para las mismas filas. */
+function porEmpresa(rows: ScoreRow[]): Map<string, ScoreRow[]> {
+  const companies = new Map<string, ScoreRow[]>();
+  for (const r of rows) {
+    const list = companies.get(r.company) ?? [];
+    list.push(r);
+    companies.set(r.company, list);
+  }
+  for (const list of companies.values())
+    list.sort((a, b) => (a.month < b.month ? -1 : a.month > b.month ? 1 : 0));
+  return companies;
+}
+
+/**
+ * Eventos de deterioro y recuperación de §13 en toda la serie, sin filtro de ventana: son los
+ * mismos que cuenta `backtest` antes de recortar por `options.months`.
+ */
+export function detectEvents(rows: ScoreRow[]): Event[] {
+  const events: Event[] = [];
+  for (const [company, list] of porEmpresa(rows))
+    for (let i = 0; i < list.length; i++)
+      for (const kind of ["deterioro", "recuperacion"] as const)
+        if (eventAt(list, i, kind)) events.push({ company, month: list[i].month, index: i, kind });
+  return events;
+}
+
 function ranks(xs: number[]): number[] {
   const sorted = xs.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]);
   const result = Array(xs.length).fill(0) as number[];
@@ -259,22 +286,14 @@ export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): Backt
   const targetScore = options.targetScore ?? "scoreSolo";
   const enVentana = (month: string) => desde === undefined || (month >= desde && month <= hasta!);
   const iVentana = desde === undefined ? Number.NEGATIVE_INFINITY : monthIndex(desde);
-  const companies = new Map<string, ScoreRow[]>();
-  for (const r of rows) {
-    const list = companies.get(r.company) ?? [];
-    list.push(r);
-    companies.set(r.company, list);
-  }
-  const events: Event[] = [],
-    pairs: [number, number][] = [],
-    stressPairs: { score: number; stress: boolean }[] = [];
-  for (const [company, list] of companies) {
-    list.sort((a, b) => (a.month < b.month ? -1 : a.month > b.month ? 1 : 0));
+  const companies = porEmpresa(rows);
+  // Los eventos se detectan en toda la serie: la ventana filtra los que cuentan (abajo), pero un
+  // evento fuera de ella sigue redimiendo a la alerta que lo anunció.
+  const events = detectEvents(rows);
+  const pairs: [number, number][] = [];
+  const stressPairs: { score: number; stress: boolean }[] = [];
+  for (const list of companies.values()) {
     for (let i = 0; i < list.length; i++) {
-      // Los eventos se detectan en toda la serie: la ventana filtra los que cuentan (abajo), pero
-      // un evento fuera de ella sigue redimiendo a la alerta que lo anunció.
-      for (const kind of ["deterioro", "recuperacion"] as const)
-        if (eventAt(list, i, kind)) events.push({ company, month: list[i].month, index: i, kind });
       if (!enVentana(list[i].month)) continue;
       const current = monthIndex(list[i].month);
       const three = list.find((candidate) => monthIndex(candidate.month) === current + 3);

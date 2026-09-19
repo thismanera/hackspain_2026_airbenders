@@ -56,7 +56,7 @@ export async function completedRun(run?: string) {
 export function invalid(error: z.ZodError): Response {
   return Response.json({ error: z.treeifyError(error) }, { status: 400 });
 }
-/** Una fila de la API es el scoreSolo del motor nuevo más la decisión legacy si se importó. */
+/** Una fila de la API es el scoreSolo del motor nuevo más la decisión v1, si se importó. */
 function merged(row: { data: unknown; decision: { data: unknown } | null }) {
   try {
     return {
@@ -258,14 +258,17 @@ const SCORE_KEYS = [
   "versionParametros",
 ] as const satisfies readonly (keyof ScoreRowDTO)[];
 const DECISION_KEYS = [
-  "banda",
-  "accion",
   "elegible",
-  "puertasFallidas",
-  "limiteTeorico",
-  "limiteRecomendado",
-  "limiteVigente",
-  "precio",
+  "motivo",
+  "banda",
+  "bandaEfectiva",
+  "L",
+  "LVigente",
+  "TMax",
+  "accion",
+  "motivoAccion",
+  "motivoGrupo",
+  "bandaPred3mUsada",
 ] as const satisfies readonly (keyof DecisionRowDTO)[];
 export async function exportScores(request: Request): Promise<Response> {
   const parsed = z
@@ -325,7 +328,7 @@ export async function exportScores(request: Request): Promise<Response> {
         [
           run.id,
           ...SCORE_KEYS.map((k) => scoreSolo[k]),
-          // Una fila sin decisión importada deja las columnas legacy vacías.
+          // Una fila sin decisión importada deja vacías las columnas de decisión.
           ...DECISION_KEYS.map((k) => (decision ? decision[k] : "")),
         ]
           .map(cell)

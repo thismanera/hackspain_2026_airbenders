@@ -61,10 +61,19 @@ existe):
 ```bash
 pnpm scoring:fit        # ingest por grupo, € y percentiles congelados
 pnpm scoring:score      # company_month_score (docs/scoring-engine.md §10)
-pnpm scoring:decide     # decisión legacy sobre las filas del score (docs/decision-engine.md)
-pnpm scoring:backtest   # lead time, recall y falsas alarmas para scoreSolo y scoreGrupo
+pnpm scoring:decide     # motor de decisión v1 (docs/decision-engine.md)
+pnpm scoring:backtest   # lead time, recall y falsas alarmas para scoreSolo y scoreGrupo, más métricas de decisión
 pnpm scoring:import     # Postgres
 ```
+
+`scoring:decide` corre el motor v1 entero sobre `scores.jsonl`: elegibilidad por
+seis puertas, límite y plazo máximo, menú de opciones (plazo, cantidad, TAE),
+estado mes a mes con histéresis y reapertura, y techo de grupo con cross-default
+(decide un grupo completo de una vez). Escribe `decisions.jsonl` y
+`decision-parameters.json` (la versión del motor de decisión) en el directorio de
+la ejecución. `scoring:backtest` añade a `backtest.json` un bloque `decision` con
+las métricas del jurado (§14): exposición evitada, ingresos simulados,
+oscilación, cierres falsos y lead time de cierre.
 
 Los cinco comandos son secuenciales: cada uno lee la salida del anterior en
 `tmp/scoring-v1/`. La primera ejecución (o cualquiera después de tocar los
@@ -80,7 +89,7 @@ Los scripts se ejecutan con **Node 22**. Si usas [fnm](https://github.com/Schniz
 recrea las tablas de score y elimina las columnas antiguas.
 
 Normalmente basta con `pnpm db:setup`. Salida en `/api/scoring/companies`
-(`rows[].score` y `rows[].decision`), `/api/scoring/companies/[companyId]`,
+(`rows[].scoreSolo` y `rows[].decision`), `/api/scoring/companies/[companyId]`,
 `/api/scoring/runs/[runId]` y `/api/scoring/export`. Lógica y decisiones en
 [docs/SOURCE.md](./docs/SOURCE.md),
 [docs/scoring-engine.md](./docs/scoring-engine.md) y

@@ -75,7 +75,8 @@ export function scoreRowFixture(partial: Partial<ScoreRow> = {}): ScoreRow {
     servicioDeudaMedia6m: 5_000,
     amortCreditoMedia6m: 0,
     obligacionesRecMedia6m: 0,
-    capacidadCuotaAdv: 0,
+    // Coherente con los flujos de arriba: max(0, (0,8·100 000 − 1,1·60 000)/1,3 − 5 000) ≈ 5 769,23.
+    capacidadCuotaAdv: 5_769,
     D1: 1,
     D2: null,
     D3: null,
