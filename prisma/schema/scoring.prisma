@@ -31,22 +31,36 @@ model ScoreRun {
 }
 
 model CompanyMonthScore {
-  runId       String
-  companyId   String
-  month       String
-  run         ScoreRun @relation(fields: [runId], references: [id])
-  company     ScoreCompany @relation(fields: [companyId], references: [id])
-  score       Float
-  confidence  Float
-  band        String
-  action      String
-  direction   String
-  recommendedLimit Float
-  appliedLimit Float
-  data        Json
+  runId      String
+  companyId  String
+  month      String
+  run        ScoreRun @relation(fields: [runId], references: [id])
+  company    ScoreCompany @relation(fields: [companyId], references: [id])
+  score      Float
+  confidence Float
+  estado     String
+  direction  String
+  data       Json
+  decision   CompanyMonthDecision?
 
   @@id([runId, companyId, month])
-  @@index([runId, month, band, action, direction])
+  @@index([runId, month, estado, direction])
   @@index([runId, companyId, month])
   @@map("company_month_scores")
+}
+
+model CompanyMonthDecision {
+  runId            String
+  companyId        String
+  month            String
+  score            CompanyMonthScore @relation(fields: [runId, companyId, month], references: [runId, companyId, month])
+  band             String
+  action           String
+  recommendedLimit Float
+  appliedLimit     Float
+  data             Json
+
+  @@id([runId, companyId, month])
+  @@index([runId, month, band, action])
+  @@map("company_month_decisions")
 }

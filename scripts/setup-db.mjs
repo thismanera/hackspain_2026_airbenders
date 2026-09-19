@@ -14,6 +14,7 @@ const requiredDatasetFiles = [
   "debt_products.csv",
   "transactions.csv",
   "invoices.csv",
+  "debt_schedule_config.csv",
 ];
 
 function log(message) {
@@ -122,6 +123,7 @@ async function main() {
   log(force ? "Rebuilding and importing scoring data." : "Building and importing scoring data.");
   run(pnpm, ["scoring:fit"]);
   run(pnpm, ["scoring:score"]);
+  run(pnpm, ["scoring:decide"]);
   run(pnpm, ["scoring:backtest"]);
   run(pnpm, ["scoring:import"]);
 
