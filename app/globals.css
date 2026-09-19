@@ -136,3 +136,29 @@
     @apply font-sans;
   }
 }
+
+@keyframes intro-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes intro-arc {
+  from {
+    stroke-dashoffset: 326.7;
+  }
+}
+
+.intro-rise {
+  opacity: 0;
+  animation: intro-rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.intro-arc {
+  animation: intro-arc 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s both;
+}

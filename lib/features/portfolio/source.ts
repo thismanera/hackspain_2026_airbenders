@@ -8,15 +8,25 @@
  */
 import { CALENDAR, LATEST_MONTH } from "./calendar";
 import { buildPortfolio } from "./fixtures";
+import { INDICATORS } from "./indicators";
 import type {
   Accion,
+  AlertDirection,
+  AlertItem,
+  AlertsResponse,
+  BacktestResponse,
   Banda,
+  BenchmarkResponse,
+  BenchmarkRow,
   CompanyFileResponse,
+  Contribution,
   Direccion,
   Estado,
   GroupFileResponse,
   GroupMember,
   GroupPeer,
+  GroupRow,
+  GroupsResponse,
   MonthScore,
   PortfolioResponse,
   PortfolioRow,
@@ -251,7 +261,10 @@ export function getCompanyFile(
 
 const CROSS_DEFAULT_SHARE = 0.3;
 
-function memberAt(entry: { meta: { id: string }; months: MonthScore[] }, index: number): GroupMember {
+function memberAt(
+  entry: { meta: { id: string }; months: MonthScore[] },
+  index: number,
+): GroupMember {
   const current = entry.months[index];
   const previous = index > 0 ? entry.months[index - 1] : null;
   return {
@@ -277,7 +290,11 @@ function memberAt(entry: { meta: { id: string }; months: MonthScore[] }, index: 
 function weightedScore(members: { score: number; share: number }[]): number {
   const total = members.reduce((sum, member) => sum + member.share, 0);
   if (total === 0) return 0;
-  return Math.round((members.reduce((sum, member) => sum + member.score * member.share, 0) / total) * 100) / 100;
+  return (
+    Math.round(
+      (members.reduce((sum, member) => sum + member.score * member.share, 0) / total) * 100,
+    ) / 100
+  );
 }
 
 /**
@@ -331,8 +348,374 @@ export function getGroupFile(groupId: string, requestedMonth?: string): GroupFil
           10000,
       ) / 10000,
     crossDefault: members
-      .filter((member) => member.action === "cerrar" && member.changed && member.share >= CROSS_DEFAULT_SHARE)
+      .filter(
+        (member) =>
+          member.action === "cerrar" && member.changed && member.share >= CROSS_DEFAULT_SHARE,
+      )
       .map((member) => member.id),
     history,
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Lista de grupos
+ * ------------------------------------------------------------------ */
+
+function monthIndexOf(requestedMonth?: string): { month: string; index: number } {
+  const month = requestedMonth && CALENDAR.includes(requestedMonth) ? requestedMonth : LATEST_MONTH;
+  return { month, index: CALENDAR.indexOf(month) };
+}
+
+function groupEstado(byEstado: Record<Estado, number>, score: number, members: number): Estado {
+  if (byEstado.sin_datos === members) return "sin_datos";
+  if (byEstado.riesgo > 0 && byEstado.riesgo * 2 >= members) return "riesgo";
+  if (score < 45) return "riesgo";
+  if (score < 60 || byEstado.riesgo > 0) return "vigilar";
+  return "sana";
+}
+
+/**
+ * Los grupos, ordenados por "quién me necesita": primero los que tienen una
+ * empresa relevante cerrando, luego los que se mueven, luego por score.
+ */
+export function getGroups(requestedMonth?: string): GroupsResponse {
+  const { month, index } = monthIndexOf(requestedMonth);
+  const byGroup = new Map<string, { meta: { id: string }; months: MonthScore[] }[]>();
+  for (const entry of buildPortfolio().values()) {
+    const list = byGroup.get(entry.meta.groupId) ?? [];
+    list.push(entry);
+    byGroup.set(entry.meta.groupId, list);
+  }
+
+  const groups: GroupRow[] = [...byGroup.entries()].map(([groupId, entries]) => {
+    const members = entries.map((entry) => memberAt(entry, index));
+    const previous = index > 0 ? entries.map((entry) => memberAt(entry, index - 1)) : null;
+    const byEstado: Record<Estado, number> = { sana: 0, vigilar: 0, riesgo: 0, sin_datos: 0 };
+    for (const member of members) byEstado[member.estado] += 1;
+    const totalShare = members.reduce((sum, member) => sum + member.share, 0) || 1;
+    const score = weightedScore(members);
+    return {
+      groupId,
+      members: members.length,
+      score,
+      previousScore: previous ? weightedScore(previous) : null,
+      estado: groupEstado(byEstado, score, members.length),
+      byEstado,
+      exposure: members.reduce((sum, member) => sum + member.limit, 0),
+      previousExposure: members.reduce((sum, member) => sum + member.previousLimit, 0),
+      eligible: members.filter((member) => member.eligible).length,
+      interdependence:
+        Math.round(
+          (members.reduce((sum, member) => sum + member.interdependence * member.share, 0) /
+            totalShare) *
+            10000,
+        ) / 10000,
+      crossDefault: members
+        .filter(
+          (member) =>
+            member.action === "cerrar" && member.changed && member.share >= CROSS_DEFAULT_SHARE,
+        )
+        .map((member) => member.id),
+      moved: members.filter((member) => member.changed).length,
+      alertCount: members.reduce((sum, member) => sum + member.alertCount, 0),
+      topShare: Math.max(...members.map((member) => member.share)),
+    };
+  });
+
+  groups.sort((a, b) => {
+    const byCross = Number(b.crossDefault.length > 0) - Number(a.crossDefault.length > 0);
+    if (byCross !== 0) return byCross;
+    const byMoved = Number(b.moved > 0) - Number(a.moved > 0);
+    if (byMoved !== 0) return byMoved;
+    if (a.score !== b.score) return a.score - b.score;
+    return a.groupId.localeCompare(b.groupId);
+  });
+
+  return { month, months: CALENDAR, groups, totalCompanies: buildPortfolio().size };
+}
+
+/* ------------------------------------------------------------------ *
+ * Alertas en las dos direcciones
+ * ------------------------------------------------------------------ */
+
+function monthsBetween(from: string, to: string): number {
+  const a = CALENDAR.indexOf(from);
+  const b = CALENDAR.indexOf(to);
+  if (a === -1 || b === -1) return 0;
+  return Math.max(0, b - a);
+}
+
+const SEVERITY_ORDER = { critica: 0, aviso: 1 } as const;
+
+/**
+ * Las alertas del mes. Deterioro: las que emite el motor. Mejora: la empresa
+ * sube de banda o el motor amplía o abre línea; la señal que agradece la
+ * empresa y que ningún banco enseña.
+ */
+export function getAlerts(requestedMonth?: string): AlertsResponse {
+  const { month, index } = monthIndexOf(requestedMonth);
+  const items: AlertItem[] = [];
+
+  for (const entry of buildPortfolio().values()) {
+    const current = entry.months[index];
+    const previous = index > 0 ? entry.months[index - 1] : null;
+    if (!current) continue;
+    const base = {
+      company: entry.meta.id,
+      groupId: entry.meta.groupId,
+      score: current.score,
+      estado: current.estado,
+      action: current.decision.action,
+      limit: current.decision.limit,
+      previousLimit: current.decision.previousLimit,
+    };
+
+    for (const alert of current.alerts) {
+      items.push({
+        ...base,
+        id: `${entry.meta.id}:${alert.type}:${month}`,
+        direction: "deterioro",
+        type: alert.type,
+        label: alert.label,
+        indicator: alert.indicator,
+        onsetMonth: alert.onsetMonth,
+        confirmedMonth: alert.confirmedMonth,
+        leadMonths: monthsBetween(alert.onsetMonth, alert.confirmedMonth),
+        severity: alert.severity,
+      });
+    }
+
+    const bandUp =
+      previous !== null &&
+      BAND_RANK[current.decision.band] > BAND_RANK[previous.decision.band] &&
+      current.decision.eligible;
+    const expands =
+      changedOf(current) &&
+      (current.decision.action === "ampliar" || current.decision.action === "abrir");
+    if (bandUp || expands) {
+      const onset = onsetOfImprovement(entry.months, index);
+      items.push({
+        ...base,
+        id: `${entry.meta.id}:mejora:${month}`,
+        direction: "mejora",
+        type: bandUp ? "sube_banda" : current.decision.action,
+        label: bandUp
+          ? `Sube a banda ${current.decision.band}: puede pedir más o pagar menos`
+          : current.decision.action === "abrir"
+            ? `Pasa todas las puertas: primera línea de ${formatK(current.decision.limit)}`
+            : `El motor amplía de ${formatK(current.decision.previousLimit)} a ${formatK(current.decision.limit)}`,
+        indicator: bandUp ? "score" : null,
+        onsetMonth: onset,
+        confirmedMonth: month,
+        leadMonths: monthsBetween(onset, month),
+        severity: "aviso",
+      });
+    }
+  }
+
+  items.sort((a, b) => {
+    const bySeverity = SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity];
+    if (bySeverity !== 0) return bySeverity;
+    if (a.score !== b.score) return a.score - b.score;
+    return a.company.localeCompare(b.company);
+  });
+
+  const byDirection: Record<AlertDirection, number> = { deterioro: 0, mejora: 0 };
+  const bySeverity = { aviso: 0, critica: 0 };
+  for (const item of items) {
+    byDirection[item.direction] += 1;
+    bySeverity[item.severity] += 1;
+  }
+
+  return { month, months: CALENDAR, items, byDirection, bySeverity };
+}
+
+const BAND_RANK: Record<Banda, number> = { D: 0, C: 1, B: 2, A: 3 };
+
+function formatK(value: number): string {
+  return value >= 1_000_000
+    ? `${(value / 1_000_000).toFixed(1).replace(".", ",")} M€`
+    : `${Math.round(value / 1000)} k€`;
+}
+
+/** Desde cuándo viene subiendo el score, para fechar la mejora como se fecha el deterioro. */
+function onsetOfImprovement(months: MonthScore[], index: number): string {
+  let onset = index;
+  while (onset > 0 && months[onset - 1].score < months[onset].score) onset -= 1;
+  return months[onset].month;
+}
+
+/* ------------------------------------------------------------------ *
+ * Backtest de anticipación
+ * ------------------------------------------------------------------ */
+
+const FOLLOW_WINDOW = 6;
+
+/**
+ * Se mide lo que se vende: si el motor avisó antes de cerrar. Un cierre cuenta
+ * si la línea estaba viva el mes anterior. La anticipación es la distancia
+ * entre el cierre y el inicio de la alerta más antigua que seguía viva al
+ * cerrar. Nada aquí toca el score.
+ */
+export function getBacktest(requestedMonth?: string): BacktestResponse {
+  const { month, index } = monthIndexOf(requestedMonth);
+  const leadCounts = new Map<number, number>();
+  const timeline = CALENDAR.slice(0, index + 1).map((past) => ({
+    month: past,
+    closes: 0,
+    anticipated: 0,
+    alerts: 0,
+  }));
+  let closes = 0;
+  let anticipated = 0;
+  let criticalAlerts = 0;
+  let criticalFollowed = 0;
+  let bandChanges = 0;
+  let observedYears = 0;
+  let flipFlops = 0;
+  const leads: number[] = [];
+
+  for (const entry of buildPortfolio().values()) {
+    const months = entry.months.slice(0, index + 1);
+    let flipped = false;
+
+    for (let t = 0; t < months.length; t++) {
+      const current = months[t];
+      const previous = t > 0 ? months[t - 1] : null;
+
+      if (current.alerts.length > 0) timeline[t].alerts += 1;
+
+      if (previous && current.decision.band !== previous.decision.band) bandChanges += 1;
+
+      if (
+        t >= 2 &&
+        months[t - 2].decision.action !== months[t - 1].decision.action &&
+        months[t - 2].decision.action === current.decision.action &&
+        months[t - 1].decision.action !== "mantener"
+      ) {
+        flipped = true;
+      }
+
+      if (current.decision.action === "cerrar" && previous && previous.decision.limit > 0) {
+        closes += 1;
+        timeline[t].closes += 1;
+        const live = [...previous.alerts, ...current.alerts];
+        const onsets = live
+          .map((alert) => CALENDAR.indexOf(alert.onsetMonth))
+          .filter((onset) => onset !== -1 && onset < t);
+        if (onsets.length > 0) {
+          anticipated += 1;
+          timeline[t].anticipated += 1;
+          const lead = t - Math.min(...onsets);
+          leads.push(lead);
+          leadCounts.set(lead, (leadCounts.get(lead) ?? 0) + 1);
+        }
+      }
+
+      const critical = current.alerts.some((alert) => alert.severity === "critica");
+      if (critical && previous && previous.decision.limit > 0 && t + FOLLOW_WINDOW <= index) {
+        criticalAlerts += 1;
+        const followed = months
+          .slice(t, t + 1 + FOLLOW_WINDOW)
+          .some(
+            (later) => later.decision.action === "reducir" || later.decision.action === "cerrar",
+          );
+        if (followed) criticalFollowed += 1;
+      }
+    }
+
+    if (flipped) flipFlops += 1;
+    observedYears += Math.max(1, months.length - 1) / 12;
+  }
+
+  leads.sort((a, b) => a - b);
+  const medianLead =
+    leads.length === 0
+      ? null
+      : leads.length % 2 === 1
+        ? leads[(leads.length - 1) / 2]
+        : (leads[leads.length / 2 - 1] + leads[leads.length / 2]) / 2;
+
+  return {
+    cutoff: month,
+    months: CALENDAR,
+    companies: buildPortfolio().size,
+    closes,
+    anticipated,
+    leadTimes: [...leadCounts.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([lead, count]) => ({ months: lead, count })),
+    medianLead,
+    criticalAlerts,
+    criticalFollowed,
+    bandChangesPerYear:
+      observedYears > 0 ? Math.round((bandChanges / observedYears) * 100) / 100 : 0,
+    flipFlops,
+    timeline,
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Benchmark frente a pares
+ * ------------------------------------------------------------------ */
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/**
+ * Lo único que un tesorero no sabe de su empresa: dónde queda frente al resto.
+ * Percentil sobre la escala 0-100 ya calculada, así "mejor" significa lo mismo
+ * en variables "mejor alto" y "mejor bajo".
+ */
+export function getBenchmark(companyId: string, requestedMonth?: string): BenchmarkResponse | null {
+  const dataset = buildPortfolio().get(companyId);
+  if (!dataset) return null;
+  const { month, index } = monthIndexOf(requestedMonth);
+  const mine = dataset.months[index];
+  if (!mine) return null;
+
+  const cohort = [...buildPortfolio().values()]
+    .map((entry) => entry.months[index])
+    .filter((entry): entry is MonthScore => Boolean(entry) && entry.coverage.observedMonths >= 3);
+
+  const rows: BenchmarkRow[] = INDICATORS.map((meta) => {
+    const own = mine.contributions.find((entry) => entry.indicator === meta.id);
+    const peers = cohort
+      .map((entry) => entry.contributions.find((item) => item.indicator === meta.id))
+      .filter((entry): entry is Contribution => entry !== undefined && entry.raw !== null);
+    if (!own || own.raw === null || peers.length === 0) {
+      return {
+        indicator: meta.id,
+        raw: own?.raw ?? null,
+        subscore: own?.subscore ?? 0,
+        percentile: null,
+        medianRaw: null,
+        gapToMedian: null,
+      };
+    }
+    const worse = peers.filter((entry) => entry.subscore < own.subscore).length;
+    const medianRaw = median(peers.map((entry) => entry.raw as number));
+    return {
+      indicator: meta.id,
+      raw: own.raw,
+      subscore: own.subscore,
+      percentile: Math.round((worse / peers.length) * 100) / 100,
+      medianRaw,
+      gapToMedian: medianRaw === null ? null : Math.round((own.raw - medianRaw) * 10000) / 10000,
+    };
+  });
+
+  const scoresBelow = cohort.filter((entry) => entry.score < mine.score).length;
+
+  return {
+    company: companyId,
+    month,
+    cohort: cohort.length,
+    scorePercentile: cohort.length ? Math.round((scoresBelow / cohort.length) * 100) / 100 : 0,
+    rows,
   };
 }

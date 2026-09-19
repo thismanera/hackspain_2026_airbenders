@@ -22,13 +22,16 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { companyId } = await params;
   return {
-    title: `${companyId} · Grifo`,
+    title: `${companyId} · Embat Flow`,
     description: `Decisión de crédito y score de ${companyId}.`,
   };
 }
 
 export default async function CompanyPage({ params, searchParams }: Props) {
-  const [{ companyId }, { mes }] = await Promise.all([params, loadCompanySearchParams(searchParams)]);
+  const [{ companyId }, { mes }] = await Promise.all([
+    params,
+    loadCompanySearchParams(searchParams),
+  ]);
 
   // Una empresa que no existe merece un 404 de verdad, no un panel de error.
   if (!getCompanyFile(companyId, mes)) notFound();
@@ -37,11 +40,7 @@ export default async function CompanyPage({ params, searchParams }: Props) {
   void queryClient.prefetchQuery({
     queryKey: portfolioKeys.company(companyId, mes),
     queryFn: () =>
-      fetchCompanyFile(
-        companyId,
-        mes,
-        process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-      ),
+      fetchCompanyFile(companyId, mes, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   });
 
   return (

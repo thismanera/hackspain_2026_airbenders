@@ -68,9 +68,9 @@ export function CompanyClient({ companyId, month }: { companyId: string; month: 
           <Info aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
           <span>
             <span className="font-medium">No opinamos sobre esta empresa todavía.</span>{" "}
-            {ESTADO.sin_datos.description} Con {latest.coverage.observedMonths} de 6 meses observados,
-            el score de abajo se calcula igual pero no es defendible: trátalo como una estimación
-            provisional, no como una recomendación.
+            {ESTADO.sin_datos.description} Con {latest.coverage.observedMonths} de 6 meses
+            observados, el score de abajo se calcula igual pero no es defendible: trátalo como una
+            estimación provisional, no como una recomendación.
           </span>
         </p>
       ) : null}

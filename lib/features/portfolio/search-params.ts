@@ -1,4 +1,4 @@
-import { createLoader, parseAsString, parseAsStringLiteral } from "nuqs/server";
+import { createLoader, parseAsArrayOf, parseAsString, parseAsStringLiteral } from "nuqs/server";
 
 import { CALENDAR, LATEST_MONTH } from "./calendar";
 
@@ -11,9 +11,13 @@ import { CALENDAR, LATEST_MONTH } from "./calendar";
 export const portfolioSearchParams = {
   mes: parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH),
   q: parseAsString.withDefault(""),
-  estado: parseAsStringLiteral(["todos", "sana", "vigilar", "riesgo", "sin_datos"] as const).withDefault(
+  estado: parseAsStringLiteral([
     "todos",
-  ),
+    "sana",
+    "vigilar",
+    "riesgo",
+    "sin_datos",
+  ] as const).withDefault("todos"),
   accion: parseAsStringLiteral([
     "todas",
     "abrir",
@@ -69,3 +73,36 @@ export const sheetSearchParams = {
   grupo: parseAsString.withDefault(""),
   pestana: parseAsStringLiteral(SHEET_TABS).withDefault("decision"),
 };
+
+/** Páginas que solo necesitan el mes: grupos, alertas, backtest. */
+export const monthSearchParams = {
+  mes: parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH),
+};
+
+export const loadMonthSearchParams = createLoader(monthSearchParams);
+
+/** El feed de alertas se filtra por dirección; el resto es la lista entera. */
+export const alertsSearchParams = {
+  mes: parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH),
+  direccion: parseAsStringLiteral(["todas", "deterioro", "mejora"] as const).withDefault("todas"),
+};
+
+export const loadAlertsSearchParams = createLoader(alertsSearchParams);
+
+export const COMPARE_SLOTS = 3;
+
+/** Hasta tres empresas en la URL: `?empresas=COMP_0001,COMP_0002`. */
+export const compareSearchParams = {
+  mes: parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH),
+  empresas: parseAsArrayOf(parseAsString).withDefault([]),
+};
+
+export const loadCompareSearchParams = createLoader(compareSearchParams);
+
+/** La vista pyme mira una sola empresa; la primera de la cartera si no se dice cuál. */
+export const pymeSearchParams = {
+  mes: parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH),
+  empresa: parseAsString.withDefault(""),
+};
+
+export const loadPymeSearchParams = createLoader(pymeSearchParams);

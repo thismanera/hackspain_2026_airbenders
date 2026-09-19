@@ -257,3 +257,109 @@ export type CompanyFileResponse = {
   history: MonthScore[];
   peers: GroupPeer[];
 };
+
+/** Fila de la lista de grupos: el techo y la salud del holding sin abrir la ficha. */
+export type GroupRow = {
+  groupId: string;
+  members: number;
+  score: number;
+  previousScore: number | null;
+  estado: Estado;
+  byEstado: Record<Estado, number>;
+  exposure: number;
+  previousExposure: number;
+  eligible: number;
+  interdependence: number;
+  crossDefault: string[];
+  /** Empresas cuya acción es noticia este mes. */
+  moved: number;
+  alertCount: number;
+  /** Peso D1 de la empresa más grande: cuánto depende el grupo de una sola. */
+  topShare: number;
+};
+
+export type GroupsResponse = {
+  month: string;
+  months: string[];
+  groups: GroupRow[];
+  totalCompanies: number;
+};
+
+export type AlertDirection = "deterioro" | "mejora";
+
+/**
+ * Una señal del mes, en cualquiera de las dos direcciones. Las de deterioro son
+ * las alertas del motor; las de mejora salen de la propia decisión (sube de
+ * banda o el motor amplía), porque el reto pide simetría.
+ */
+export type AlertItem = {
+  id: string;
+  company: string;
+  groupId: string;
+  direction: AlertDirection;
+  type: string;
+  label: string;
+  indicator: string | null;
+  onsetMonth: string;
+  confirmedMonth: string;
+  /** Meses entre que la señal apareció y se confirmó. */
+  leadMonths: number;
+  severity: "aviso" | "critica";
+  score: number;
+  estado: Estado;
+  action: Accion;
+  limit: number;
+  previousLimit: number;
+};
+
+export type AlertsResponse = {
+  month: string;
+  months: string[];
+  items: AlertItem[];
+  byDirection: Record<AlertDirection, number>;
+  bySeverity: Record<"aviso" | "critica", number>;
+};
+
+/** Cuánto antes avisó el motor de un cierre, medido sobre los cierres del dataset. */
+export type BacktestResponse = {
+  cutoff: string;
+  months: string[];
+  companies: number;
+  /** Cierres de línea viva hasta el corte. */
+  closes: number;
+  /** Cierres que tenían alguna alerta previa. */
+  anticipated: number;
+  /** Meses de anticipación de los cierres anticipados. */
+  leadTimes: { months: number; count: number }[];
+  medianLead: number | null;
+  /** Alertas críticas emitidas con al menos 6 meses de margen hasta el corte. */
+  criticalAlerts: number;
+  /** De esas, cuántas fueron seguidas de reducir o cerrar en 6 meses. */
+  criticalFollowed: number;
+  /** Cambios de banda por empresa y año, media. */
+  bandChangesPerYear: number;
+  /** Empresas que en algún mes cambiaron de acción y al siguiente volvieron. */
+  flipFlops: number;
+  /** Cierres y alertas por mes, para el gráfico. */
+  timeline: { month: string; closes: number; anticipated: number; alerts: number }[];
+};
+
+/** Dónde queda una variable de la empresa frente al resto de la cartera ese mes. */
+export type BenchmarkRow = {
+  indicator: string;
+  raw: number | null;
+  subscore: number;
+  /** 0-1: proporción de empresas con dato que puntúan peor. */
+  percentile: number | null;
+  medianRaw: number | null;
+  /** Diferencia con la mediana en unidades del indicador. */
+  gapToMedian: number | null;
+};
+
+export type BenchmarkResponse = {
+  company: string;
+  month: string;
+  cohort: number;
+  scorePercentile: number;
+  rows: BenchmarkRow[];
+};

@@ -3,7 +3,13 @@
 import { RotateCw, Unplug } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 export default function CarteraError({ reset }: { error: Error; reset: () => void }) {
   return (
@@ -15,8 +21,8 @@ export default function CarteraError({ reset }: { error: Error; reset: () => voi
           </EmptyMedia>
           <EmptyTitle>No hemos podido cargar la cartera</EmptyTitle>
           <EmptyDescription>
-            El motor de scoring no ha respondido. Los datos no se han perdido: vuelve a intentarlo y,
-            si sigue fallando, avisa al equipo con la hora exacta.
+            El motor de scoring no ha respondido. Los datos no se han perdido: vuelve a intentarlo
+            y, si sigue fallando, avisa al equipo con la hora exacta.
           </EmptyDescription>
         </EmptyHeader>
         <Button variant="outline" size="sm" onClick={reset}>
