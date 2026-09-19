@@ -24,15 +24,15 @@ temporal/estructural, por qué, con cuánta antelación (§13).
 
 ## 1. Entradas
 
-| Fichero | Campos usados |
-| --- | --- |
-| `companies.csv` | `company_id`, `group_id`, `currency` |
-| `banking_products.csv` | `product_id`, `company_id`, `type`, `currency` |
-| `debt_products.csv` | `product_id`, `company_id`, `type`, `service`, `currency` |
-| `debt_schedule_config.csv` | `product_id`, `amortising_frequency`, `granted_balance`, `total_periods`, `outstanding_balance`, `annual_interest_rate_or_spread` |
-| `transactions.csv` | `company_id`, `product_id`, `transaction_id`, `date`, `amount`, `exchange_rate`, `status`, `counterparty_id` |
-| `analysis/…/transaction_categories.parquet` (#12) | `transaction_id`, `category_final`, `category_confidence` (sustituye a `transactions.category`) |
-| `invoices.csv` | `company_id`, `document_type`, `issuance_date`, `due_date`, `payment_date`, `amount`, `currency`, `accounting_currency`, `exchange_rate`, `status`, `counterparty_id` |
+| Fichero                                           | Campos usados                                                                                                                                                         |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `companies.csv`                                   | `company_id`, `group_id`, `currency`                                                                                                                                  |
+| `banking_products.csv`                            | `product_id`, `company_id`, `type`, `currency`                                                                                                                        |
+| `debt_products.csv`                               | `product_id`, `company_id`, `type`, `service`, `currency`                                                                                                             |
+| `debt_schedule_config.csv`                        | `product_id`, `amortising_frequency`, `granted_balance`, `total_periods`, `outstanding_balance`, `annual_interest_rate_or_spread`                                     |
+| `transactions.csv`                                | `company_id`, `product_id`, `transaction_id`, `date`, `amount`, `exchange_rate`, `status`, `counterparty_id`                                                          |
+| `analysis/…/transaction_categories.parquet` (#12) | `transaction_id`, `category_final`, `category_confidence` (sustituye a `transactions.category`)                                                                       |
+| `invoices.csv`                                    | `company_id`, `document_type`, `issuance_date`, `due_date`, `payment_date`, `amount`, `currency`, `accounting_currency`, `exchange_rate`, `status`, `counterparty_id` |
 
 No se usan: `balances.csv`, `debt_products.granted/outstanding/liquidity`,
 `invoices.pending_amount`, `description`, `concept`. Son fotos finales o
@@ -43,29 +43,29 @@ texto libre.
 Todos los números viven en la tabla de parámetros con `version_parametros`
 (hash). Los percentiles p5/p95 por variable forman parte de la versión.
 
-| Grupo | Parámetro | Valor | Decisión |
-| --- | --- | --- | --- |
-| Tiempo | `mes_inicio` / `mes_fin` | `2024-09` / `2026-08` | 1.0 |
-| | `ventana_corta` / `ventana_larga` (meses) | 6 / 12 | 1.1 |
-| Espejos | misma fecha, importe al céntimo, signo opuesto | | 24 |
-| Categorías | `category_confidence_min` | 0,95 | 2 |
-| Pesos | `peso_A` / `peso_B` / `peso_C` | 0,45 / 0,30 / 0,25 | 3 |
-| | pesos intra-bloque | iguales | 4 |
-| Confianza | `n_facturas_ref` | 5 | 1.0 |
-| | `conf_sin_datos` | 0,3 | 5 |
-| | `conf_sana` | 0,5 | 5 |
-| Estados | `score_sana` / `score_riesgo` | 70 / 45 | 5 |
-| Umbrales sanos A | A1 ≥ 0,10 · A2 ≤ 1/6 · A3 ≥ 1,3 · A4 ≤ 0,25 · A5 ≤ 0,20 | | 5 |
-| Fiabilidad | `recurrencia_min` (meses presentes de 6) | 3 | 6 |
-| | `subnota_racha_1` / `decaimiento_meses` | 70 / 3 | 7 |
-| Evolución | `umbral_direccion` (puntos en 3 m) | 6 | 10 |
-| | `persistencia_estructural` (meses) | 2 | 10 |
-| | `min_variables_estructural` | 2 | 10 |
-| | `delta_aportacion_min` (puntos) | 1 | 10 |
-| Grupo | `w_max` / `D5_saturacion` / `aval_max` / `D3_ref` | 0,4 / 0,2 / 20 / 2 | 15, 16 |
-| Estrés (compartido con decisión) | `estres_cobros` / `estres_pagos` / `cobertura_min` | 0,8 / 1,1 / 1,3 | 11 |
-| Escalas | `p5[v]`, `p95[v]` por variable | calibrados §11 | 1.0 |
-| Divisas | tabla mensual `tasa[moneda][mes]` → EUR + tabla fija de respaldo | calibrada §3.2 | 1 |
+| Grupo                            | Parámetro                                                        | Valor                 | Decisión |
+| -------------------------------- | ---------------------------------------------------------------- | --------------------- | -------- |
+| Tiempo                           | `mes_inicio` / `mes_fin`                                         | `2024-09` / `2026-08` | 1.0      |
+|                                  | `ventana_corta` / `ventana_larga` (meses)                        | 6 / 12                | 1.1      |
+| Espejos                          | misma fecha, importe al céntimo, signo opuesto                   |                       | 24       |
+| Categorías                       | `category_confidence_min`                                        | 0,95                  | 2        |
+| Pesos                            | `peso_A` / `peso_B` / `peso_C`                                   | 0,45 / 0,30 / 0,25    | 3        |
+|                                  | pesos intra-bloque                                               | iguales               | 4        |
+| Confianza                        | `n_facturas_ref`                                                 | 5                     | 1.0      |
+|                                  | `conf_sin_datos`                                                 | 0,3                   | 5        |
+|                                  | `conf_sana`                                                      | 0,5                   | 5        |
+| Estados                          | `score_sana` / `score_riesgo`                                    | 70 / 45               | 5        |
+| Umbrales sanos A                 | A1 ≥ 0,10 · A2 ≤ 1/6 · A3 ≥ 1,3 · A4 ≤ 0,25 · A5 ≤ 0,20          |                       | 5        |
+| Fiabilidad                       | `recurrencia_min` (meses presentes de 6)                         | 3                     | 6        |
+|                                  | `subnota_racha_1` / `decaimiento_meses`                          | 70 / 3                | 7        |
+| Evolución                        | `umbral_direccion` (puntos en 3 m)                               | 6                     | 10       |
+|                                  | `persistencia_estructural` (meses)                               | 2                     | 10       |
+|                                  | `min_variables_estructural`                                      | 2                     | 10       |
+|                                  | `delta_aportacion_min` (puntos)                                  | 1                     | 10       |
+| Grupo                            | `w_max` / `D5_saturacion` / `aval_max` / `D3_ref`                | 0,4 / 0,2 / 20 / 2    | 15, 16   |
+| Estrés (compartido con decisión) | `estres_cobros` / `estres_pagos` / `cobertura_min`               | 0,8 / 1,1 / 1,3       | 11       |
+| Escalas                          | `p5[v]`, `p95[v]` por variable                                   | calibrados §11        | 1.0      |
+| Divisas                          | tabla mensual `tasa[moneda][mes]` → EUR + tabla fija de respaldo | calibrada §3.2        | 1        |
 
 ## 3. Etapa A — Carga y normalización
 
@@ -105,17 +105,17 @@ function a_eur(amount, exchange_rate, moneda_empresa, mes, par):
 
 ### 3.3 Clasificación de cada movimiento
 
-| Clase | Condición | Va a |
-| --- | --- | --- |
-| `cobro_op` | cuenta operativa, `category ∈ {collection, bulk_collection, pos_settlement, cash_settlement, cash_settlements}`, `amount > 0` | `cobros_op` |
-| `pago_op` | cuenta operativa, `category ∈ {payment, bulk_payment, utility, salary, social_security, tax, fee}`, `amount < 0` | `pagos_op` (y `obligaciones_rec[cat]` si `cat ∈ {tax, social_security, salary}`) |
-| `servicio_deuda` | cuenta operativa, `category ∈ {debt_repayment, interest_charge}`, `amount < 0` | `servicio_deuda` (y `obligaciones_rec[debt_repayment]`) |
-| `recibo_devuelto` | `category == collection_refund`, `amount < 0` | `recibos_devueltos` |
-| `disp_credito` / `amort_credito` | producto `lineofcredit`, `amount > 0` / `< 0` | `disp_credito` / `amort_credito` |
-| `traspaso_interno` | **cualquier categoría**, emparejado con otro de la **misma empresa**: mismo `|importe_eur|` al céntimo, signo opuesto, misma `date` | neutral |
-| `traspaso_intragrupo` | **cualquier categoría**, emparejado con otro de **otra empresa del mismo grupo**, misma regla | `intragrupo_in` / `intragrupo_out`; sale de `cobros_op`/`pagos_op` aunque su categoría fuese `collection`/`payment` |
-| `neutral` | `transfer` sin pareja, `cash_withdrawal`, `investment_*`, `tax_refund`, `pos_withdrawal`, `payment_refund`, signo inesperado en las clases anteriores | nada; suma en `importe_neutral` |
-| `sin_clasificar` | `category_final == unknown` | nada; suma en `importe_sin_clasificar` |
+| Clase                            | Condición                                                                                                                                             | Va a                                                                                                                |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `cobro_op`                       | cuenta operativa, `category ∈ {collection, bulk_collection, pos_settlement, cash_settlement, cash_settlements}`, `amount > 0`                         | `cobros_op`                                                                                                         |
+| `pago_op`                        | cuenta operativa, `category ∈ {payment, bulk_payment, utility, salary, social_security, tax, fee}`, `amount < 0`                                      | `pagos_op` (y `obligaciones_rec[cat]` si `cat ∈ {tax, social_security, salary}`)                                    |
+| `servicio_deuda`                 | cuenta operativa, `category ∈ {debt_repayment, interest_charge}`, `amount < 0`                                                                        | `servicio_deuda` (y `obligaciones_rec[debt_repayment]`)                                                             |
+| `recibo_devuelto`                | `category == collection_refund`, `amount < 0`                                                                                                         | `recibos_devueltos`                                                                                                 |
+| `disp_credito` / `amort_credito` | producto `lineofcredit`, `amount > 0` / `< 0`                                                                                                         | `disp_credito` / `amort_credito`                                                                                    |
+| `traspaso_interno`               | **cualquier categoría**, emparejado con otro de la **misma empresa**: mismo `                                                                         | importe_eur                                                                                                         | `al céntimo, signo opuesto, misma`date` | neutral |
+| `traspaso_intragrupo`            | **cualquier categoría**, emparejado con otro de **otra empresa del mismo grupo**, misma regla                                                         | `intragrupo_in` / `intragrupo_out`; sale de `cobros_op`/`pagos_op` aunque su categoría fuese `collection`/`payment` |
+| `neutral`                        | `transfer` sin pareja, `cash_withdrawal`, `investment_*`, `tax_refund`, `pos_withdrawal`, `payment_refund`, signo inesperado en las clases anteriores | nada; suma en `importe_neutral`                                                                                     |
+| `sin_clasificar`                 | `category_final == unknown`                                                                                                                           | nada; suma en `importe_sin_clasificar`                                                                              |
 
 Emparejamiento de espejos (decisión 24): **se ejecuta antes de la
 clasificación**, sobre todos los movimientos `booked` sin filtrar por
@@ -147,13 +147,13 @@ con `≥ PARAMS.categoryConfidenceNuevas` (0,90). El resto sigue exigiendo
 
 ### 3.4 Facturas
 
-| Campo derivado | Regla |
-| --- | --- |
-| `direccion` | `amount > 0` → cliente; `amount < 0` → proveedor (verificado 90 % / 92 %) |
-| `importe_eur` | `a_eur(|amount|, exchange_rate, accounting_currency→EUR)` |
-| `pagada_en(t)` | `status == paid` **y** `payment_date ≤ fin(t)` |
-| `vencida_sin_cobro_en(t)` | `due_date ≤ fin(t)` y no `pagada_en(t)` |
-| `retraso_dias` | `payment_date − due_date`, solo si `pagada_en(t)`; descartar si `|retraso| > 365` |
+| Campo derivado            | Regla                                                                     |
+| ------------------------- | ------------------------------------------------------------------------- |
+| `direccion`               | `amount > 0` → cliente; `amount < 0` → proveedor (verificado 90 % / 92 %) |
+| `importe_eur`             | `a_eur(                                                                   | amount  | , exchange_rate, accounting_currency→EUR)` |
+| `pagada_en(t)`            | `status == paid` **y** `payment_date ≤ fin(t)`                            |
+| `vencida_sin_cobro_en(t)` | `due_date ≤ fin(t)` y no `pagada_en(t)`                                   |
+| `retraso_dias`            | `payment_date − due_date`, solo si `pagada_en(t)`; descartar si `         | retraso | > 365`                                     |
 
 `payment_date` de una factura no pagada **no es un pago** (en el 96 % coincide
 con `due_date`).
@@ -335,12 +335,12 @@ aportacion_v = peso_bloque(v) / |X| × nota_ef_v            → Σ_v aportacion_
 
 Estado (para la ficha; decisión usa las puertas de su §3, no este campo):
 
-| Estado | Regla |
-| --- | --- |
-| `sin_datos` | `confianza < 0,3` |
-| `riesgo` | `score < 45` o `B2 ≥ 2` |
-| `sana` | `score ≥ 70` y `confianza ≥ 0,5` |
-| `vigilar` | resto |
+| Estado      | Regla                            |
+| ----------- | -------------------------------- |
+| `sin_datos` | `confianza < 0,3`                |
+| `riesgo`    | `score < 45` o `B2 ≥ 2`          |
+| `sana`      | `score ≥ 70` y `confianza ≥ 0,5` |
+| `vigilar`   | resto                            |
 
 ## 7. Etapa E — Ajuste de grupo
 
@@ -386,16 +386,16 @@ racha_B2      = B2(t)
 
 ## 9. Alertas de señal
 
-| Tipo | Regla | Persistencia |
-| --- | --- | --- |
-| `deterioro` | `direccion == deterioro` | 2 meses seguidos |
-| `deterioro_estructural` | `naturaleza == estructural` y deterioro | inmediata |
-| `recuperacion` | `direccion == mejora` | 2 meses seguidos |
-| `deficit_persistente` | `caja_op < 0` | 3 meses seguidos |
-| `impago_obligaciones` | `B2 ≥ 2` | inmediata |
-| `vencido_alto` | `C4 > 0,40` | 1 mes |
-| `contagio_grupo` | `aval_grupo ≤ −10` | 1 mes |
-| `datos_insuficientes` | `confianza < 0,3` | 1 mes |
+| Tipo                    | Regla                                   | Persistencia     |
+| ----------------------- | --------------------------------------- | ---------------- |
+| `deterioro`             | `direccion == deterioro`                | 2 meses seguidos |
+| `deterioro_estructural` | `naturaleza == estructural` y deterioro | inmediata        |
+| `recuperacion`          | `direccion == mejora`                   | 2 meses seguidos |
+| `deficit_persistente`   | `caja_op < 0`                           | 3 meses seguidos |
+| `impago_obligaciones`   | `B2 ≥ 2`                                | inmediata        |
+| `vencido_alto`          | `C4 > 0,40`                             | 1 mes            |
+| `contagio_grupo`        | `aval_grupo ≤ −10`                      | 1 mes            |
+| `datos_insuficientes`   | `confianza < 0,3`                       | 1 mes            |
 
 Cada alerta guarda `desde_mes` (primer mes en que la regla se cumple sin
 interrupción). Las alertas de **acción** (abrir, reducir, cerrar) no son de
@@ -438,7 +438,7 @@ split:      grupos completos, 70 % ajuste / 30 % validación, semilla fija, por 
 percentiles: p5/p95 de cada variable sobre empresa-mes de ajuste con mes ≤ 2026-02 y conf_v ≥ 0,5
              → congelados en version_parametros
 tasas €:    §3.2, sobre todo el dataset (no hay fuga: son precios de mercado)
-validación: empresas de validación, meses 2026-03 … 2026-08
+validación: empresas de validación (out-of-sample por grupo), meses 2025-09 … 2026-08 (§13.1: 2025-09..2026-02 es in-sample en el tiempo)
 test (60-80 empresas nuevas): mismo pipeline, version_parametros congelada; sin hermanas conocidas → D2 NA → aval_grupo 0
 ```
 
@@ -455,16 +455,16 @@ Percentiles de fixture: A1 [−0,10; 0,30] · A2 [0; 0,67] · A3 [0,5; 4,0] ·
 A4 [0; 0,50] · A5 [0; 0,60] · B1 [0,5; 1,0] · B3 [−10; 60] · C1 [0,2; 0,9] ·
 C2 [0,2; 0,9] · C3 [−5; 60] · C4 [0; 0,6] · C5 [0,05; 0,8] · C6 [0; 0,10].
 
-| Fixture | Flujos (6 meses iguales, €) | Esperado en `t = mes 6` |
-| --- | --- | --- |
-| `sana` | cobros 100 k, pagos 85 k, servicio 5 k, sin línea, tax/SS/nómina presentes y constantes, 10 clientes iguales, facturas cliente pagadas a +5 d | A1 = 0,15 → 62,5 · A2 = 0 → 100 · A3 = 3,0 → 71,4 · A4 = 0,05 → 90 · A5 NA → 50 (conf 0,3) · B1 = 1 → 100 · B2 = 0 → 100 · C1 = 0,3 → 85,7 · subscore_A ≈ 74 (con conf 1 salvo A5) · estado `sana` · direccion `estable` |
-| `salto_un_mes` | como `sana`, pero mes 4 sin `tax` y mes 5 con `tax` doble | mes 4: B2 = 1 (70), B1 = 200 k/210 k = 0,952 (Σ de las cuatro categorías) · mes 5: B1 = 1, B2 = 0 con decaimiento → 80 · mes 6: 90 · nunca `riesgo` |
-| `impago` | como `sana`, meses 5 y 6 sin `social_security` | mes 6: B2 = 2 → 0 · estado `riesgo` · alerta `impago_obligaciones` |
-| `deterioro_estructural` | cobros bajan 100 k → 70 k linealmente desde mes 4, pagos fijos 85 k | mes 6: A1 < 0, A2 ≥ 0,5, racha_deficit ≥ 2 · `tend_score_3m ≤ −6` · con mes 7 igual: `naturaleza = estructural` (A1, A2 mueven, persistencia 2) |
-| `bache` | como `sana`, mes 5 cobros 40 k, mes 6 vuelve a 100 k | mes 5 direccion puede ser `deterioro`; mes 6 `naturaleza = temporal` (no persiste) · nunca `estructural` |
-| `historial_corto` | solo 2 meses de datos | conf_A ≈ 0,33 · `confianza < 0,5` · estado `sin_datos` si < 0,3 |
-| `grupo_aval` | filial: cobros 20 k, pagos 21 k (score_solo ≈ 35) · hermana: cobros 500 k, pagos 350 k, servicio 20 k · traspasos hermana→filial 5 k/mes | D5 ≈ 0,12 → w = 0,24 · D3 ≫ 2 → factor 1 · D2 ≈ 80 → aval = 0,24 × 45 = +10,8 · score ≈ 46 |
-| `grupo_contagio` | invertido: filial sana (score_solo ≈ 78), hermana en déficit (score_solo ≈ 30), traspasos filial→hermana 15 k/mes sobre 100 k cobros | D5 ≈ 0,08 → w = 0,16 · contagio = 0,16 × (30 − 78) = −7,7 · score ≈ 70 · sin filtro de capacidad |
+| Fixture                 | Flujos (6 meses iguales, €)                                                                                                                   | Esperado en `t = mes 6`                                                                                                                                                                                                  |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sana`                  | cobros 100 k, pagos 85 k, servicio 5 k, sin línea, tax/SS/nómina presentes y constantes, 10 clientes iguales, facturas cliente pagadas a +5 d | A1 = 0,15 → 62,5 · A2 = 0 → 100 · A3 = 3,0 → 71,4 · A4 = 0,05 → 90 · A5 NA → 50 (conf 0,3) · B1 = 1 → 100 · B2 = 0 → 100 · C1 = 0,3 → 85,7 · subscore_A ≈ 74 (con conf 1 salvo A5) · estado `sana` · direccion `estable` |
+| `salto_un_mes`          | como `sana`, pero mes 4 sin `tax` y mes 5 con `tax` doble                                                                                     | mes 4: B2 = 1 (70), B1 = 200 k/210 k = 0,952 (Σ de las cuatro categorías) · mes 5: B1 = 1, B2 = 0 con decaimiento → 80 · mes 6: 90 · nunca `riesgo`                                                                      |
+| `impago`                | como `sana`, meses 5 y 6 sin `social_security`                                                                                                | mes 6: B2 = 2 → 0 · estado `riesgo` · alerta `impago_obligaciones`                                                                                                                                                       |
+| `deterioro_estructural` | cobros bajan 100 k → 70 k linealmente desde mes 4, pagos fijos 85 k                                                                           | mes 6: A1 < 0, A2 ≥ 0,5, racha_deficit ≥ 2 · `tend_score_3m ≤ −6` · con mes 7 igual: `naturaleza = estructural` (A1, A2 mueven, persistencia 2)                                                                          |
+| `bache`                 | como `sana`, mes 5 cobros 40 k, mes 6 vuelve a 100 k                                                                                          | mes 5 direccion puede ser `deterioro`; mes 6 `naturaleza = temporal` (no persiste) · nunca `estructural`                                                                                                                 |
+| `historial_corto`       | solo 2 meses de datos                                                                                                                         | conf_A ≈ 0,33 · `confianza < 0,5` · estado `sin_datos` si < 0,3                                                                                                                                                          |
+| `grupo_aval`            | filial: cobros 20 k, pagos 21 k (score_solo ≈ 35) · hermana: cobros 500 k, pagos 350 k, servicio 20 k · traspasos hermana→filial 5 k/mes      | D5 ≈ 0,12 → w = 0,24 · D3 ≫ 2 → factor 1 · D2 ≈ 80 → aval = 0,24 × 45 = +10,8 · score ≈ 46                                                                                                                               |
+| `grupo_contagio`        | invertido: filial sana (score_solo ≈ 78), hermana en déficit (score_solo ≈ 30), traspasos filial→hermana 15 k/mes sobre 100 k cobros          | D5 ≈ 0,08 → w = 0,16 · contagio = 0,16 × (30 − 78) = −7,7 · score ≈ 70 · sin filtro de capacidad                                                                                                                         |
 
 Tests de propiedades (sobre todas las filas del dataset real):
 
@@ -480,7 +480,7 @@ Tests de propiedades (sobre todas las filas del dataset real):
 
 ## 13. Métricas de backtest (para el jurado)
 
-Sobre validación, meses `2026-03 … 2026-08`, eventos definidos sin usar el
+Sobre validación, meses `2025-09 … 2026-08`, eventos definidos sin usar el
 score:
 
 ```text
@@ -488,14 +488,52 @@ evento_deterioro(t)    = 3 meses seguidos con caja_op < 0 desde t, precedidos de
 evento_recuperacion(t) = 3 meses seguidos con caja_op ≥ 0 desde t, precedidos de ≥ 3 meses con ≥ 2 déficits
 ```
 
-| Métrica | Definición |
-| --- | --- |
-| `lead_time` | mediana y p25 de meses entre `desde_mes` de la primera alerta `deterioro` y el evento. **El número de la slide.** |
-| `recall` | eventos con alerta previa en ≤ 6 meses / eventos |
-| `falsas_alarmas` | alertas `deterioro` sin evento en los 6 meses siguientes / alertas |
-| simetría | las tres anteriores para `recuperacion` |
-| `precision_nivel` | Spearman entre `score(t)` y `margen_caja(t+3)` |
-| `estructural_precision` | % de `naturaleza = estructural` seguidos de evento en 6 m, frente a `temporal` |
+### 13.1 Ventana de evaluación y qué es out-of-sample
+
+La validación es **out-of-sample por grupo**: el split de §11 reserva el 30 %
+de los `group_id` y esas empresas no entran en el ajuste de los percentiles ni
+en ningún otro parámetro. Ese es el corte que sostiene las métricas.
+
+La **ventana de meses** es `2025-09 … 2026-08`, no `2026-03 … 2026-08`. El
+calendario tiene 24 meses y un evento necesita 3 meses de seguimiento más su
+historia previa (6 meses para `deterioro`): con la ventana de seis meses solo
+quedaban 4 meses candidatos y 2 eventos de `deterioro` en total, una muestra
+con la que ninguna métrica significa nada. Doce meses dan candidatos
+suficientes.
+
+El precio hay que decirlo claro: los percentiles se ajustaron sobre meses
+`≤ 2026-02` (§11), así que **`2025-09 … 2026-02` es in-sample en el tiempo**
+—aunque out-of-sample por grupo, que es la fuga que de verdad importaría— y
+solo `2026-03 … 2026-08` es out-of-sample en ambas dimensiones. Las métricas
+de §13 mezclan ambos tramos; al presentarlas se dice así, no como "validación
+pura".
+
+### 13.2 Métricas
+
+| Métrica                 | Definición                                                                                                        |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `lead_time`             | mediana y p25 de meses entre `desde_mes` de la primera alerta `deterioro` y el evento. **El número de la slide.** |
+| `recall`                | eventos con alerta previa en ≤ 6 meses / eventos                                                                  |
+| `falsas_alarmas`        | alertas `deterioro` elegibles sin evento en los 6 meses siguientes / alertas elegibles                            |
+| simetría                | las tres anteriores para `recuperacion`                                                                           |
+| `precision_nivel`       | Spearman entre `score(t)` y `margen_caja(t+3)`                                                                    |
+| `estructural_precision` | % de `naturaleza = estructural` seguidos de evento en 6 m, frente a `temporal`                                    |
+
+Cómo interactúa cada métrica con la ventana (implementado en
+`lib/features/scoring/backtest.ts`):
+
+- **Eventos**: cuentan si el mes del evento cae dentro de la ventana y existen
+  sus 3 meses de seguimiento.
+- **`recall` y `lead_time`**: valen las alertas del mismo tipo emitidas en los
+  6 meses previos al evento, aunque se adelanten a la ventana.
+- **Falsas alarmas**: una alerta se _emite_ el primer mes en que aparece, no
+  cada mes que sigue activa. Es elegible si su mes `m` cumple
+  `m + 6 ≤ último mes de la serie` (su seguimiento es observable: contarla si
+  no lo es sería censura por la derecha) y `m + 6 ≥ primer mes de la ventana`
+  (su seguimiento solapa con la ventana). Es falsa si no hay evento de su tipo
+  en `(m, m + 6]`; ese evento vale aunque caiga fuera de la ventana, porque la
+  alerta sí acertó.
+- **`precision_nivel`**: pares con `t` dentro de la ventana y fila en `t + 3`.
 
 ## 14. Orden de ejecución
 
