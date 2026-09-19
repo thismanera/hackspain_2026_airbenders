@@ -4,6 +4,7 @@
 > validadas 18/19-09-2026). Si algo aquí contradice a
 > `SOURCE.md`, manda `SOURCE.md` y se corrige esto. Determinista, sin LLM.
 > Su salida (`company_month_score`, §10) es la entrada del
+> [`forecast-engine.md`](./forecast-engine.md) y del
 > [`decision-engine.md`](./decision-engine.md). Este motor **no sabe que
 > existe el crédito**: no calcula límites, plazos ni precios.
 
