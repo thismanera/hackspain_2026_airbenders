@@ -7,6 +7,7 @@ import type { MouseEvent } from "react";
 import { ActionBadge } from "@/components/grifo/action-badge";
 import { CompanyAvatar } from "@/components/grifo/company-avatar";
 import { StatusBadge } from "@/components/grifo/status-badge";
+import { HotFlame } from "@/components/grifo/hot-list";
 import { Sparkline, TrendDelta } from "@/components/grifo/trend";
 import {
   Table,

@@ -27,10 +27,12 @@ import type {
   GroupPeer,
   GroupRow,
   GroupsResponse,
+  HotSignal,
   MonthScore,
   PortfolioResponse,
   PortfolioRow,
   PortfolioSummary,
+  TrailPoint,
 } from "./types";
 import { deriveEstado } from "./vocabulary";
 
@@ -100,6 +102,40 @@ function changedOf(current: MonthScore): boolean {
   );
 }
 
+const TRAIL_MONTHS = 6;
+const HOT_LIMIT = 8;
+
+/**
+ * La variable que más ha arrastrado el score en la misma ventana que `trend3m`.
+ * Suma los deltas mensuales de cada indicador y se queda con el mayor en valor
+ * absoluto, siempre que vaya en el sentido del movimiento: si el score cae, el
+ * culpable es lo que más ha restado, no lo que más ha sumado.
+ */
+function driverOf(months: MonthScore[], index: number, trend3m: number): HotSignal | null {
+  const window = months.slice(Math.max(0, index - 2), index + 1);
+  const totals = new Map<string, number>();
+  for (const entry of window) {
+    for (const contribution of entry.contributions) {
+      totals.set(
+        contribution.indicator,
+        (totals.get(contribution.indicator) ?? 0) + contribution.delta,
+      );
+    }
+  }
+  let best: { indicator: string; delta: number } | null = null;
+  for (const [indicator, delta] of totals) {
+    if (Math.sign(delta) !== Math.sign(trend3m)) continue;
+    if (!best || Math.abs(delta) > Math.abs(best.delta)) best = { indicator, delta };
+  }
+  const current = months[index]!;
+  return {
+    rank: 0,
+    driver: best ? (INDICATORS.find((item) => item.id === best.indicator)?.label ?? null) : null,
+    driverDelta: best ? Math.round(best.delta * 10) / 10 : 0,
+    hasCritical: current.alerts.some((alert) => alert.severity === "critica"),
+  };
+}
+
 function rowFor(companyId: string, month: string): PortfolioRow | null {
   const dataset = buildPortfolio().get(companyId);
   if (!dataset) return null;
@@ -110,6 +146,17 @@ function rowFor(companyId: string, month: string): PortfolioRow | null {
   const spark = dataset.months
     .slice(Math.max(0, index - 11), index + 1)
     .map((entry) => entry.score);
+  const trail = dataset.months
+    .slice(Math.max(0, index - (TRAIL_MONTHS - 1)), index + 1)
+    .flatMap((entry): TrailPoint[] =>
+      entry.trend3m === null
+        ? []
+        : [{ month: entry.month, score: entry.score, trend3m: entry.trend3m }],
+    );
+  const hot =
+    current.nature === "estructural" && current.trend3m !== null && current.trend3m !== 0
+      ? driverOf(dataset.months, index, current.trend3m)
+      : null;
 
   return {
     company: dataset.meta,
@@ -131,8 +178,40 @@ function rowFor(companyId: string, month: string): PortfolioRow | null {
     reason: current.decision.reason,
     alertCount: current.alerts.length,
     spark,
+    trail,
+    hot,
     share: current.group?.share ?? 1,
   };
+}
+
+/**
+ * Las que más se han movido de verdad: cambio estructural, ordenado por cuánto
+ * se ha movido el score en 3 meses. A igual movimiento, antes la que tiene una
+ * alerta crítica, y después la que ha cambiado de acción este mes. Se calcula
+ * sobre toda la cartera y se anota el rango en la fila, para que la tabla y el
+ * mapa lo señalen aunque estén filtrados.
+ */
+function rankHot(rows: PortfolioRow[]): PortfolioRow[] {
+  const candidates = rows.filter(
+    (row): row is PortfolioRow & { hot: HotSignal; trend3m: number } =>
+      row.hot !== null && row.trend3m !== null,
+  );
+  candidates.sort((a, b) => {
+    const byMove = Math.abs(b.trend3m) - Math.abs(a.trend3m);
+    if (byMove !== 0) return byMove;
+    if (a.hot.hasCritical !== b.hot.hasCritical) return a.hot.hasCritical ? -1 : 1;
+    if (a.changed !== b.changed) return a.changed ? -1 : 1;
+    return a.company.id.localeCompare(b.company.id);
+  });
+  const top = candidates.slice(0, HOT_LIMIT);
+  const ranked = new Set(top.map((row) => row.company.id));
+  for (const row of rows) {
+    if (!ranked.has(row.company.id)) row.hot = null;
+  }
+  top.forEach((row, index) => {
+    row.hot.rank = index + 1;
+  });
+  return top;
 }
 
 function summarise(month: string, rows: PortfolioRow[]): PortfolioSummary {
@@ -192,6 +271,7 @@ export function getPortfolio(filters: PortfolioFilters = {}): PortfolioResponse 
   const keep = matches(filters);
 
   const all = rowsFor(month);
+  const hot = rankHot(all);
   const rows = all.filter(keep);
 
   // La historia arrastra el mismo filtro que la tabla: lo que se dibuja es lo que
@@ -219,6 +299,7 @@ export function getPortfolio(filters: PortfolioFilters = {}): PortfolioResponse 
     previous,
     history,
     rows,
+    hot,
     totalUnfiltered: all.length,
   };
 }

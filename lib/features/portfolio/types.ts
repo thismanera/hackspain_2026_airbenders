@@ -126,6 +126,27 @@ export type CompanyMeta = {
   groupSize: number;
 };
 
+/** Dónde estaba la empresa un mes: hoy (score) y hacia dónde iba (trend3m). */
+export type TrailPoint = {
+  month: string;
+  score: number;
+  trend3m: number;
+};
+
+/**
+ * Por qué una empresa está entre las que más se mueven de verdad. Solo lo llevan
+ * los cambios estructurales a 3 meses: un bache de un mes no es noticia.
+ */
+export type HotSignal = {
+  /** 1 = la que más se ha movido. */
+  rank: number;
+  /** La variable que más ha arrastrado el score en 3 meses, o `null` si no hay una clara. */
+  driver: string | null;
+  /** Puntos que esa variable ha sumado o restado en 3 meses. */
+  driverDelta: number;
+  hasCritical: boolean;
+};
+
 /** Fila de la tabla de cartera: lo justo para triar sin abrir la ficha. */
 export type PortfolioRow = {
   company: CompanyMeta;
@@ -158,6 +179,9 @@ export type PortfolioRow = {
   alertCount: number;
   /** Últimos 12 scores, para la sparkline. */
   spark: number[];
+  /** Últimos 6 meses con trend3m, el actual incluido, para la estela del mapa. */
+  trail: TrailPoint[];
+  hot: HotSignal | null;
   /** D1: peso de la empresa dentro de su grupo. 1 si va sola. */
   share: number;
 };
@@ -186,6 +210,8 @@ export type PortfolioResponse = {
   /** Mismo filtro, cada mes del calendario hasta el seleccionado, en orden. */
   history: PortfolioSummary[];
   rows: PortfolioRow[];
+  /** Las que más se han movido de verdad este mes, sin filtros, por rango. */
+  hot: PortfolioRow[];
   /** Filas antes de aplicar filtros, para distinguir "cartera vacía" de "filtro vacío". */
   totalUnfiltered: number;
 };
