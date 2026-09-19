@@ -11,14 +11,18 @@ import { clamp } from "@/lib/features/scoring/windows";
 /** Banda de incertidumbre del score previsto, en los mismos puntos que `Residuos`. */
 export type Intervalo = { p10: number; p90: number };
 
-/** §4: `[score_pred + p10[h][b], score_pred + p90[h][b]]` acotado a [0, 100]; `b` es la banda en `t`. */
+/**
+ * §4: `[score_pred + p10[h][b], score_pred + p90[h][b]]` acotado a [0, 100]; `b` es la banda en `t`.
+ * Sin celda en la tabla (parámetros incompletos) el intervalo colapsa al propio `score_pred`.
+ */
 export function intervalo(
   scorePred: number,
   h: Horizonte,
   b: Banda,
   residuos: Residuos,
 ): Intervalo {
-  const r = residuos[h][b];
+  const r = residuos[h]?.[b];
+  if (!r) return { p10: clamp(scorePred, 0, 100), p90: clamp(scorePred, 0, 100) };
   return { p10: clamp(scorePred + r.p10, 0, 100), p90: clamp(scorePred + r.p90, 0, 100) };
 }
 

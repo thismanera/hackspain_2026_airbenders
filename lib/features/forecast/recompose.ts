@@ -38,7 +38,9 @@ export function d2Pred(me: ScoreRow, hermanas: Hermana[]): number | null {
   return me.D2 + delta;
 }
 
-/** scoring §7 con el D2 previsto; D3 y D5 constantes (§3.2). */
+/**
+ * scoring §7 con el D2 previsto; D3 y D5 constantes (§3.2), igual que `confD` (que usa `cascada`).
+ */
 export function scorePred(scoreSoloPred: number, me: ScoreRow, D2pred: number | null): number {
   return clamp(scoreSoloPred + avalGrupo(scoreSoloPred, D2pred, me.D3, me.D5), 0, 100);
 }

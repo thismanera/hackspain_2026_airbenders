@@ -1,5 +1,5 @@
 import type { Banda } from "@/lib/features/decision/params";
-import { hashParams, type VariableId } from "@/lib/features/scoring/params";
+import { hashParams, PARAMS, type VariableId } from "@/lib/features/scoring/params";
 
 export const HORIZONTES = [3, 6] as const;
 export type Horizonte = (typeof HORIZONTES)[number];
@@ -14,7 +14,7 @@ export const FORECAST_PARAMS = {
   clipPercentiles: { bajo: 0.01, alto: 0.99 },
   residuosPercentiles: { bajo: 0.1, alto: 0.9 },
   /** Mismo umbral que scoring §8 (decisión 10). */
-  umbralDireccion: 6,
+  umbralDireccion: PARAMS.umbralDireccion,
   /** B2 proyectada sube un mes si `B1` proyectado cae por debajo (§3.2). */
   b1UmbralRacha: 0.9,
   /** Celda de `P_det` con menos observaciones hereda la fila (§5). */

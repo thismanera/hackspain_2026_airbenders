@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { paramsFixture } from "@/lib/features/forecast/__fixtures__/series";
 import { direccionPred, intervalo, probDeterioro } from "@/lib/features/forecast/interval";
+import type { Residuos } from "@/lib/features/forecast/params";
 
 test("intervalo adds the frozen residual percentiles and clamps to [0, 100]", () => {
   const p = paramsFixture();
@@ -9,6 +10,8 @@ test("intervalo adds the frozen residual percentiles and clamps to [0, 100]", ()
   assert.deepEqual(intervalo(60, 3, "B", p.residuos), { p10: 48, p90: 65 });
   assert.deepEqual(intervalo(98, 3, "B", p.residuos), { p10: 86, p90: 100 });
   assert.deepEqual(intervalo(50, 6, "A", p.residuos), { p10: 50, p90: 50 });
+  // Tabla sin la celda: el intervalo colapsa al score previsto.
+  assert.deepEqual(intervalo(60, 3, "C", { 3: {}, 6: {} } as Residuos), { p10: 60, p90: 60 });
 });
 
 test("direccionPred uses the ±6 threshold against the current score", () => {

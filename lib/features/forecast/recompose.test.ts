@@ -46,6 +46,12 @@ test("d2Pred moves D2 by the D1-weighted delta of the siblings' scoreSolo", () =
   assert.ok(Math.abs(d2! - 73.5) < 1e-9);
   assert.equal(d2Pred({ ...me, D2: null }, []), null);
   assert.equal(d2Pred(me, []), 80);
+  // Ninguna hermana tiene cobros (D1 = 0): media simple (−10 + 4) / 2 = −3.
+  const simple = d2Pred(me, [
+    { row: { ...h1, D1: 0 }, scoreSoloPred: h1.scoreSolo - 10 },
+    { row: { ...h2, D1: 0 }, scoreSoloPred: h2.scoreSolo + 4 },
+  ]);
+  assert.ok(Math.abs(simple! - 77) < 1e-9);
 });
 
 test("scorePred = clamp(scoreSolo + aval(D2pred)) and cascada sums to it", () => {
