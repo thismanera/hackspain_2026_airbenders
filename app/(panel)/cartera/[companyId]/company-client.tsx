@@ -78,12 +78,16 @@ export function CompanyClient({ companyId, month }: { companyId: string; month: 
         </p>
       ) : null}
 
-      <DecisionPanel decision={latest.decision} changed={latest.decision.action !== "mantener"} />
+      <DecisionPanel
+        decision={latest.decision}
+        changed={latest.decision.action !== "mantener"}
+        forecast={latest.forecast}
+      />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="flex flex-col gap-4 lg:col-span-2">
           <ScoreTrend history={history} />
-          <ForecastPanel companyId={companyId} month={month} />
+          <ForecastPanel file={data} />
           <Cascade month={latest} />
         </div>
 

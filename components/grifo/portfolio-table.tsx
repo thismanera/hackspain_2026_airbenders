@@ -16,10 +16,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { IMPACT_TONE } from "@/components/grifo/company/forecast-impact";
 import { cn } from "@/lib/core/utils";
 import {
   formatApr,
   formatEuros,
+  formatEurosCompact,
   formatPercent,
   formatScore,
 } from "@/lib/features/portfolio/format";
@@ -115,6 +117,39 @@ function LimitCell({ row }: { row: PortfolioRow }) {
   );
 }
 
+/**
+ * Dónde estará en 3 meses y qué le cuesta: score previsto, cambio de banda si lo
+ * hay, y euros al año. El texto dice lo mismo que el color (PRODUCT §8.6).
+ */
+function ForecastCell({ row, align = "start" }: { row: PortfolioRow; align?: "start" | "end" }) {
+  const forecast = row.forecast;
+  if (!forecast) return <span className="text-muted-foreground">—</span>;
+  const { impact } = forecast;
+  const money = impact.annualDelta;
+  return (
+    <span
+      className={cn("flex flex-col leading-tight", align === "end" ? "items-end" : "items-start")}
+    >
+      <span className="flex items-center gap-1.5">
+        <span className="font-medium tabular-nums">{formatScore(forecast.score3m)}</span>
+        <span className={cn("font-mono text-xs", IMPACT_TONE[impact.tone])}>
+          {impact.tone === "igual" ? forecast.band3m : `${impact.bandNow}→${impact.bandPred}`}
+        </span>
+      </span>
+      <span
+        className={cn(
+          "text-xs tabular-nums",
+          money === 0 ? "text-muted-foreground" : IMPACT_TONE[impact.tone],
+        )}
+      >
+        {money === 0
+          ? "mismo coste"
+          : `${money > 0 ? "+" : "−"}${formatEurosCompact(Math.abs(money))}/año`}
+      </span>
+    </span>
+  );
+}
+
 function AlertFlag({ count }: { count: number }) {
   if (count === 0) return null;
   return (
@@ -149,18 +184,19 @@ export function PortfolioTable({
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[19%]">Empresa</TableHead>
-              <TableHead className="w-[10%]">Estado</TableHead>
-              <TableHead className="w-[10%] text-right">Score</TableHead>
-              <TableHead className="w-[14%]">Tendencia 3 m</TableHead>
-              <TableHead className="w-[7%]">Banda</TableHead>
-              <TableHead className="w-[15%] text-right">Límite</TableHead>
+              <TableHead className="w-[17%]">Empresa</TableHead>
+              <TableHead className="w-[9%]">Estado</TableHead>
+              <TableHead className="w-[9%] text-right">Score</TableHead>
+              <TableHead className="w-[12%]">Tendencia 3 m</TableHead>
+              <TableHead className="w-[12%]">Previsión 3 m</TableHead>
+              <TableHead className="w-[6%]">Banda</TableHead>
+              <TableHead className="w-[13%] text-right">Límite</TableHead>
               {/* Entre lg y xl no cabe todo. Caen primero las dos columnas que el
                   analista puede recuperar abriendo la ficha sin perder el triaje:
                   el precio (se deduce de la banda) y el chevron (decorativo, la
                   fila entera ya es un enlace). */}
-              <TableHead className="hidden w-[8%] text-right xl:table-cell">TAE</TableHead>
-              <TableHead className="w-[13%]">Acción</TableHead>
+              <TableHead className="hidden w-[7%] text-right xl:table-cell">TAE</TableHead>
+              <TableHead className="w-[11%]">Acción</TableHead>
               <TableHead className="hidden w-[4%] xl:table-cell">
                 <span className="sr-only">Abrir ficha</span>
               </TableHead>
@@ -214,6 +250,9 @@ export function PortfolioTable({
                   </span>
                 </TableCell>
                 <TableCell>
+                  <ForecastCell row={row} />
+                </TableCell>
+                <TableCell>
                   <span className="font-mono text-sm">{row.band}</span>
                 </TableCell>
                 <TableCell className="text-right">
@@ -262,7 +301,7 @@ export function PortfolioTable({
               <StatusBadge estado={row.estado} />
             </div>
 
-            <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
+            <dl className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
               <div>
                 <dt className="text-muted-foreground text-xs">Score</dt>
                 <dd
@@ -281,6 +320,12 @@ export function PortfolioTable({
                 <dt className="text-muted-foreground text-xs">Tendencia</dt>
                 <dd>
                   <TrendDelta trend3m={row.trend3m} direction={row.direction} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">En 3 meses</dt>
+                <dd className="text-sm">
+                  <ForecastCell row={row} />
                 </dd>
               </div>
               <div className="text-right">

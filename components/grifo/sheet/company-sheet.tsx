@@ -14,6 +14,8 @@ import { AlertsTimeline } from "@/components/grifo/company/alerts-timeline";
 import { CompanyAvatar } from "@/components/grifo/company-avatar";
 import { Cascade } from "@/components/grifo/company/cascade";
 import { CoveragePanel } from "@/components/grifo/company/coverage-panel";
+import { ForecastImpactLine } from "@/components/grifo/company/forecast-impact";
+import { ForecastPanel } from "@/components/grifo/company/forecast-panel";
 import { GatesPanel } from "@/components/grifo/company/gates";
 import { GroupPanel } from "@/components/grifo/company/group-panel";
 import { OfferMenu } from "@/components/grifo/company/offer-menu";
@@ -128,6 +130,12 @@ function DecisionLead({ file }: { file: CompanyFileResponse }) {
         {alerts.length > 0 ? (
           <div className="border-t px-4 py-2.5">
             <FeaturedAlert alerts={alerts} />
+          </div>
+        ) : null}
+        {file.latest.forecast ? (
+          <div className="border-t px-4 py-2.5">
+            <p className="text-muted-foreground text-xs">Anticipación a 3 meses</p>
+            <ForecastImpactLine forecast={file.latest.forecast} showAction className="mt-1" />
           </div>
         ) : null}
       </section>
@@ -285,6 +293,14 @@ export function CompanySheet({
             <DetailRow title="Evolución del score">
               <ScoreTrend history={history} inset />
             </DetailRow>
+            {latest.forecast ? (
+              <DetailRow
+                title="Previsión a 3 y 6 meses"
+                aside={`${formatScore(latest.forecast.scoreSoloPred3m)} en 3 m · banda ${latest.forecast.bandaSoloPred3m}`}
+              >
+                <ForecastPanel file={data} inset />
+              </DetailRow>
+            ) : null}
             <DetailRow title="Cobertura del dato" aside={formatPercent(latest.confidence, 0)}>
               <CoveragePanel inset coverage={latest.coverage} confidence={latest.confidence} />
             </DetailRow>

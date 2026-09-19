@@ -28,6 +28,7 @@ const ALL: Omit<PortfolioSearchState, "mes"> = {
   accion: "todas",
   direccion: "todas",
   banda: "todas",
+  prevision: "todas",
 };
 
 /**

@@ -9,6 +9,7 @@
 import { CALENDAR, LATEST_MONTH } from "./calendar";
 import { buildPortfolio } from "./fixtures";
 import { INDICATORS } from "./indicators";
+import { matchesPrevision, rowForecast, summariseForecast, type Prevision } from "./forecast-rows";
 import {
   clusterLabel,
   dominantTraits,
@@ -57,6 +58,7 @@ export type PortfolioFilters = {
   accion?: Accion | "todas";
   direccion?: Direccion | "todas";
   banda?: Banda | "todas";
+  prevision?: Prevision | "todas";
 };
 
 /**
@@ -192,6 +194,7 @@ function rowFor(companyId: string, month: string): PortfolioRow | null {
     trail,
     hot,
     share: current.group?.share ?? 1,
+    forecast: rowForecast(current),
   };
 }
 
@@ -252,7 +255,17 @@ function summarise(month: string, rows: PortfolioRow[]): PortfolioSummary {
     }
   }
 
-  return { month, total: rows.length, byEstado, byDireccion, byAccion, eligible, exposure, moved };
+  return {
+    month,
+    total: rows.length,
+    byEstado,
+    byDireccion,
+    byAccion,
+    eligible,
+    exposure,
+    moved,
+    forecast: summariseForecast(rows),
+  };
 }
 
 function rowsFor(month: string): PortfolioRow[] {
@@ -273,6 +286,7 @@ function matches(filters: PortfolioFilters): (row: PortfolioRow) => boolean {
       return false;
     }
     if (filters.banda && filters.banda !== "todas" && row.band !== filters.banda) return false;
+    if (!matchesPrevision(row, filters.prevision)) return false;
     return true;
   };
 }

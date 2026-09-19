@@ -1,16 +1,26 @@
 import { ActionBadge } from "@/components/grifo/action-badge";
+import { ForecastImpactLine } from "@/components/grifo/company/forecast-impact";
 import { Figure } from "@/components/grifo/panel";
 import { cn } from "@/lib/core/utils";
 import { formatApr, formatEuros } from "@/lib/features/portfolio/format";
-import type { Decision } from "@/lib/features/portfolio/types";
+import type { Decision, Forecast } from "@/lib/features/portfolio/types";
 import { BANDA } from "@/lib/features/portfolio/vocabulary";
 
 /**
  * Lo primero y lo más grande de la ficha: qué hacemos y por qué, en una frase
  * que se pueda repetir en comité sin traducir nada. Todo lo demás de la página
  * es la justificación, y está debajo porque se consulta, no se lee siempre.
+ * Debajo de la decisión, la anticipación: dónde estará en 3 meses y qué cuesta.
  */
-export function DecisionPanel({ decision, changed }: { decision: Decision; changed: boolean }) {
+export function DecisionPanel({
+  decision,
+  changed,
+  forecast,
+}: {
+  decision: Decision;
+  changed: boolean;
+  forecast?: Forecast | null;
+}) {
   const limitChange =
     decision.previousLimit > 0 && decision.limit > 0
       ? Math.round((decision.limit / decision.previousLimit - 1) * 100)
@@ -30,6 +40,12 @@ export function DecisionPanel({ decision, changed }: { decision: Decision; chang
         </div>
         {/* Única frase de la aplicación a 16 px: es la que de verdad se lee. */}
         <p className="mt-2 max-w-[60ch] text-base leading-relaxed text-pretty">{decision.reason}</p>
+        {forecast ? (
+          <div className="mt-3 border-t pt-3">
+            <p className="text-muted-foreground text-xs">Anticipación a 3 meses</p>
+            <ForecastImpactLine forecast={forecast} showAction className="mt-1" />
+          </div>
+        ) : null}
       </div>
 
       {decision.eligible ? (

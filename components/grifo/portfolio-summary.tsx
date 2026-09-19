@@ -4,6 +4,7 @@ import {
   ArrowDownRight,
   ArrowLeftRight,
   ArrowUpRight,
+  Compass,
   ShieldAlert,
   TrendingDown,
   Wallet,
@@ -172,12 +173,14 @@ export function PortfolioKpis({
 
   const riskOn = filters.estado === "riesgo";
   const deteriorationOn = filters.direccion === "deterioro";
+  const forecastOn = filters.prevision === "baja_banda";
 
   const up = summary.byAccion.abrir + summary.byAccion.ampliar;
   const down = summary.byAccion.reducir + summary.byAccion.cerrar;
+  const money = summary.forecast.annualDelta;
 
   return (
-    <section aria-label="Resumen del mes" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <section aria-label="Resumen del mes" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       <KpiCard
         icon={Wallet}
         label="Límite vivo"
@@ -269,6 +272,45 @@ export function PortfolioKpis({
             </span>
           </span>
         }
+      />
+
+      {/* La previsión va en sombra (decisión 38): no decide, pero dice quién va a
+          cambiar de banda y cuánto dinero hay en juego. Pulsar filtra las que bajan. */}
+      <KpiCard
+        icon={Compass}
+        label="Bajan de banda en 3 m"
+        value={String(summary.forecast.bandDown)}
+        unit={`de ${summary.total}`}
+        accent={{ tile: "bg-status-watch-surface text-status-watch-fg", bars: "text-status-watch" }}
+        series={window.map((s) => s.forecast.bandDown)}
+        delta={
+          <Delta
+            value={delta((s) => s.forecast.bandDown)}
+            format={(v) => formatSigned(v, 0)}
+            tone={delta((s) => s.forecast.bandDown) > 0 ? "bad" : "good"}
+            previousMonth={previousMonth}
+          />
+        }
+        footer={
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="text-status-healthy-fg inline-flex items-center gap-1 tabular-nums">
+              <ArrowUpRight aria-hidden className="size-3" /> {summary.forecast.bandUp} suben
+            </span>
+            <span
+              className={cn(
+                "tabular-nums",
+                money > 0 && "text-status-healthy-fg",
+                money < 0 && "text-status-risk-fg",
+              )}
+            >
+              {money === 0
+                ? "sin cambio en intereses"
+                : `${money > 0 ? "+" : "−"}${formatEuros(Math.abs(money))}/año en intereses`}
+            </span>
+          </span>
+        }
+        pressed={forecastOn}
+        onToggle={() => onChange({ prevision: forecastOn ? "todas" : "baja_banda" })}
       />
     </section>
   );

@@ -8,8 +8,10 @@ import { CALENDAR, LATEST_MONTH } from "./calendar";
 import type {
   CompanyFileResponse,
   CompanyMeta,
+  Decision,
   Direccion,
   Estado,
+  Forecast,
   HotSignal,
   MonthScore,
   PortfolioResponse,
@@ -20,6 +22,8 @@ import type {
   TrailPoint,
 } from "./types";
 import { deriveBanda } from "./vocabulary";
+import { forecastImpact } from "./forecast-impact";
+import { matchesPrevision, rowForecast, summariseForecast, type Prevision } from "./forecast-rows";
 import { INDICATORS } from "./indicators";
 
 type CompatibleRun = {
@@ -34,6 +38,7 @@ export type LivePortfolioFilters = {
   accion?: "abrir" | "ampliar" | "mantener" | "reducir" | "cerrar" | "todas";
   direccion?: Direccion | "todas";
   banda?: "A" | "B" | "C" | "D" | "todas";
+  prevision?: Prevision | "todas";
 };
 
 async function compatibleRun(): Promise<CompatibleRun | null> {
@@ -116,6 +121,50 @@ export function monthScore(
   /* La ficha enseña el desglose de la TAE "desde", que es la del primer plazo
      del menú: el mismo tramo del que sale `apr`, para que la suma cuadre. */
   const split = d?.menu[0]?.desglose;
+  const decisionOut: Decision = {
+    eligible: d?.elegible ?? false,
+    reason: d?.motivo ?? d?.motivoAccion ?? "Sin decisión importada",
+    gates,
+    band: d?.banda ?? deriveBanda(row.scoreSolo),
+    limit: d?.L ?? 0,
+    previousLimit: d?.estado.LPrev ?? 0,
+    maxTenorDays: d?.TMax ?? 0,
+    baseApr: menu[0]?.apr ?? 0,
+    apr: menu[0]?.apr ?? 0,
+    aprBreakdown: {
+      base: split?.base ?? 0,
+      tenorPremium: split?.primaPlazo ?? 0,
+      confidencePremium: split?.primaConfianza ?? 0,
+      trendAdjustment: split?.ajusteTendencia ?? 0,
+      forecastPremium: split?.primaPrevision ?? 0,
+    },
+    menu,
+    action: d?.accion ?? "mantener",
+    adverseCapacity: row.capacidadCuotaAdv,
+    capacityLimit: d?.limiteOp ?? 0,
+    operatingLimit: d?.L ?? 0,
+  };
+  const forecastOut: Forecast | null = forecast
+    ? {
+        scoreSoloPred3m: forecast.horizontes[3].scoreSoloPred,
+        scoreGrupoPred3m: forecast.horizontes[3].scoreGrupoPred,
+        scoreSoloPred6m: forecast.horizontes[6].scoreSoloPred,
+        scoreGrupoPred6m: forecast.horizontes[6].scoreGrupoPred,
+        p10Solo3m: forecast.horizontes[3].p10Solo,
+        p90Solo3m: forecast.horizontes[3].p90Solo,
+        p10Grupo3m: forecast.horizontes[3].p10Grupo,
+        p90Grupo3m: forecast.horizontes[3].p90Grupo,
+        p10Solo6m: forecast.horizontes[6].p10Solo,
+        p90Solo6m: forecast.horizontes[6].p90Solo,
+        bandaSoloPred3m: forecast.horizontes[3].bandaSoloPred,
+        bandaSoloPred6m: forecast.horizontes[6].bandaSoloPred,
+        direccionPred: forecast.direccionSoloPred,
+        sinTendencia: forecast.sinTendencia.length > 0,
+        metodoSolo: forecast.metodoSolo,
+        metodoGrupo: forecast.metodoGrupo,
+        impact: forecastImpact(decisionOut, forecast.horizontes[3].scoreSoloPred),
+      }
+    : null;
   return {
     company: row.company,
     month: row.month,
@@ -149,29 +198,7 @@ export function monthScore(
             interdependence: row.D5,
             adjustment: row.ajusteHolding,
           },
-    decision: {
-      eligible: d?.elegible ?? false,
-      reason: d?.motivo ?? d?.motivoAccion ?? "Sin decisión importada",
-      gates,
-      band: d?.banda ?? deriveBanda(row.scoreSolo),
-      limit: d?.L ?? 0,
-      previousLimit: d?.estado.LPrev ?? 0,
-      maxTenorDays: d?.TMax ?? 0,
-      baseApr: menu[0]?.apr ?? 0,
-      apr: menu[0]?.apr ?? 0,
-      aprBreakdown: {
-        base: split?.base ?? 0,
-        tenorPremium: split?.primaPlazo ?? 0,
-        confidencePremium: split?.primaConfianza ?? 0,
-        trendAdjustment: split?.ajusteTendencia ?? 0,
-        forecastPremium: split?.primaPrevision ?? 0,
-      },
-      menu,
-      action: d?.accion ?? "mantener",
-      adverseCapacity: row.capacidadCuotaAdv,
-      capacityLimit: d?.limiteOp ?? 0,
-      operatingLimit: d?.L ?? 0,
-    },
+    decision: decisionOut,
     alerts: row.alertas.map((alert) => ({
       type: alert.tipo,
       label: alert.tipo.replaceAll("_", " "),
@@ -190,20 +217,7 @@ export function monthScore(
     },
     scoreSolo: row.scoreSolo,
     scoreGrupo: row.scoreGrupo,
-    forecast: forecast
-      ? {
-          scoreSoloPred3m: forecast.horizontes[3].scoreSoloPred,
-          scoreGrupoPred3m: forecast.horizontes[3].scoreGrupoPred,
-          scoreSoloPred6m: forecast.horizontes[6].scoreSoloPred,
-          scoreGrupoPred6m: forecast.horizontes[6].scoreGrupoPred,
-          p10Solo3m: forecast.horizontes[3].p10Solo,
-          p90Solo3m: forecast.horizontes[3].p90Solo,
-          p10Grupo3m: forecast.horizontes[3].p10Grupo,
-          p90Grupo3m: forecast.horizontes[3].p90Grupo,
-          metodoSolo: forecast.metodoSolo,
-          metodoGrupo: forecast.metodoGrupo,
-        }
-      : null,
+    forecast: forecastOut,
   };
 }
 
@@ -452,6 +466,7 @@ function portfolioRow(
     trail,
     hot,
     share: current.group?.share ?? 1,
+    forecast: rowForecast(current),
   };
 }
 
@@ -525,7 +540,17 @@ function summary(month: string, rows: PortfolioRow[]): PortfolioSummary {
       byAccion[row.action]++;
     }
   }
-  return { month, total: rows.length, byEstado, byDireccion, byAccion, eligible, exposure, moved };
+  return {
+    month,
+    total: rows.length,
+    byEstado,
+    byDireccion,
+    byAccion,
+    eligible,
+    exposure,
+    moved,
+    forecast: summariseForecast(rows),
+  };
 }
 
 /** Cartera real del último run compatible; los fixtures siguen siendo el fallback local. */
@@ -587,6 +612,7 @@ export async function getPortfolioLive(
       if (filters.direccion && filters.direccion !== "todas" && row.direction !== filters.direccion)
         return false;
       if (filters.banda && filters.banda !== "todas" && row.band !== filters.banda) return false;
+      if (!matchesPrevision(row, filters.prevision)) return false;
       return true;
     };
     const allAt = (target: string) =>
