@@ -162,7 +162,7 @@ function targetParameters(
       accuracy !== null &&
       baselineAccuracy !== null &&
       mae < maeBaseline &&
-      accuracy > baselineAccuracy,
+      accuracy >= baselineAccuracy,
     ajuste: {
       filas3m: p3.length,
       mae3m: mae,

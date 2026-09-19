@@ -29,7 +29,7 @@ type Anchor = readonly [raw: number, nota: number];
 type AnchoredScales = Partial<Record<VariableId, readonly Anchor[]>>;
 
 export const PARAMS = {
-  contratoVersion: "scoreSolo-holding-v5",
+  contratoVersion: "scoreSolo-holding-v6",
   mesInicio: "2024-09",
   mesFin: "2026-08",
   ventanaCorta: 6,

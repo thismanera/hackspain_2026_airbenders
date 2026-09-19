@@ -75,6 +75,8 @@ test("detecta una mejora A1 en el umbral exacto y usa evidencia, no causalidad",
     "the elapsed time comes from months, not the stored hint",
   );
   assert.equal(result.scoreEnInflexion, 68, "the origin score is the observed scoreSolo");
+  assert.equal(result.aciertos[0].canal, "operativo");
+  assert.equal(result.scoreRecuperableEstimado, 72);
   analisisPostInflexionSchema.parse(result);
 });
 
