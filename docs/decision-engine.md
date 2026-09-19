@@ -80,6 +80,7 @@ Todos los números del algoritmo viven en una tabla de parámetros con
 | | `base_TAE` | A 0,05 · B 0,07 · C 0,10 | 12, 21 |
 | Plazo | `T_max` (d) | ver §5 | 20 |
 | | `plazos_menu` (d) | 30, 60, 90, 120, 180 | 19 |
+| | `plazo_natural_defecto` (d) | 60 (sin `C3_dias`) | 22 |
 | Interés | `prima_plazo_pp_30d` | 0,005 | 21 |
 | | `prima_confianza_pp` | 0,01 si `confianza < 0,7` | 21 |
 | | `ajuste_mejora_pp` / `ajuste_deterioro_pp` | −0,005 / +0,01 | 21 |
@@ -92,6 +93,7 @@ Todos los números del algoritmo viven en una tabla de parámetros con
 | | `reducir_prev_meses` | 2 | 37 |
 | | `redondeo_L` | 1.000 € | 12 |
 | Grupo | `D1_cross_default` | 0,30 | 17 |
+| Métricas | `uso_simulado` | 0,6 del `L_vigente` | §14 |
 
 ## 3. Paso 0 — Elegibilidad
 
@@ -232,8 +234,15 @@ function menu(fila, L, T_max, cap, P):
 ```
 
 Invariantes: `cantidad_max` no decrece con el plazo; `tae` no decrece con
-el plazo; toda `cantidad_max ≤ L`. Menú vacío ⇒ `elegible = false`,
-`motivo = "Capacidad de cuota insuficiente para cualquier plazo"`.
+el plazo; toda `cantidad_max ≤ L`. **Menú vacío ⇒ `elegible = false`**: sin
+opciones no hay grifo que abrir, así que `elegible` exige las seis puertas,
+`T_max > 0` **y** `len(menu) > 0`. El `motivo` dice por qué está vacío:
+
+| Caso | `motivo` |
+| --- | --- |
+| `L_vigente > 0` pero ningún plazo cabe en la capacidad | "Capacidad de cuota insuficiente para cualquier plazo" |
+| `L_vigente = 0` esperando reapertura (§8) | "Reapertura en {n} meses" |
+| `L_vigente = 0` porque `L = 0` (banda D o capacidad nula) | "Límite a cero" |
 
 Validación de una petición concreta `(cantidad, plazo)`:
 
@@ -272,11 +281,11 @@ function accion(fila, elegible, L, estado_prev, P):
         return "reducir", L            # inmediato y sin histéresis: la señal manda
 
     # reducción preventiva (decisión 37): la banda prevista lleva dos meses por debajo de la actual
-    if prev.banda_pred_3m < banda_efectiva(fila, P) and estado_prev.meses_pred_peor_seguidos + 1 >= P.reducir_prev_meses:
+    if prev.banda_pred_3m < banda(fila.score) and estado_prev.meses_pred_peor_seguidos + 1 >= P.reducir_prev_meses:
         L_pred = limite con factor_banda[prev.banda_pred_3m]
         if L_pred < Lp: return "reducir", max(L_pred, Lp * (1 - P.histeresis_pct))
 
-    if L > P.ampliar_ratio * Lp and fila.direccion != "deterioro" and prev.banda_pred_3m >= banda_efectiva(fila, P):
+    if L > P.ampliar_ratio * Lp and fila.direccion != "deterioro" and prev.banda_pred_3m >= banda(fila.score):
         return "ampliar", L_acotado
 
     if L < P.reducir_ratio * Lp:
@@ -292,10 +301,16 @@ Actualización del estado tras decidir:
 ```text
 meses_elegible_seguidos  = elegible ? prev + 1 : 0
 meses_reduccion_seguidos = (L < reducir_ratio * Lp) ? prev + 1 : 0
-meses_pred_peor_seguidos = (banda_pred_3m < banda_efectiva) ? prev + 1 : 0
+meses_pred_peor_seguidos = (banda_pred_3m < banda(fila.score)) ? prev + 1 : 0
 cerrado_desde            = accion == "cerrar" ? mes : (accion == "abrir" ? null : prev)
 L_prev                   = L_vigente (el devuelto por accion)
 ```
+
+La previsión se compara **siempre con la banda actual** (`banda(fila.score)`),
+nunca con la efectiva (SOURCE §3.6, decisión 37). Si se comparase con la
+efectiva, un deterioro estructural o un escalón de cross-default que ya bajó la
+banda taparía la señal de la previsión. Vale para el plazo (§5), el interés (§6)
+y la acción.
 
 Lo dispuesto no se toca al cerrar: el motor no gestiona disposiciones, solo
 límites. "Cierre" = `L_vigente = 0` = sin nuevas disposiciones.
@@ -344,12 +359,14 @@ function grupo(filas_grupo, decisiones, P):
   (`meses_con_cross_default`). Si la causante no tiene fila ese mes, la bandera
   se levanta (fail-open). Al levantarse, la empresa vuelve por el camino normal
   de reapertura.
-- **A revisitar** (run 2026-09-19): en el 86 % de los grupo-mes la capacidad
-  consolidada estresada es 0 (hermanas con pagos y pocos cobros clasificados) y
-  el techo cierra al único miembro solvente (p. ej. COMP_0545, banda A, límite
-  propio 145 k€). Opciones: (i) aplicar techo solo si `L_grupo > 0`, y con
-  capacidad consolidada 0 bajar una banda en vez de cerrar; (ii) consolidar solo
-  hermanas con `confianza ≥ 0,5`.
+- **A revisitar** ⏳ (run 2026-09-19): de 30.137 cierres, `caja` (capacidad
+  estresada ≤ 0) aparece en 24.944 y `historia` (confianza < 0,5) en 22.801; el
+  techo de grupo solo en 371 (1,2 %). Solo 46 de 1.286 empresas llegan a tener
+  línea. La calibración pendiente está en scoring (cobertura/confianza y
+  capacidad), no en el techo; el techo a 0 sigue siendo a revisitar como opción
+  (i) aplicar techo solo si `L_grupo > 0`, y con capacidad consolidada 0 bajar
+  una banda en vez de cerrar, o (ii) consolidar solo hermanas con
+  `confianza ≥ 0,5`.
 
 ## 10. Salida: contrato
 
@@ -357,8 +374,8 @@ Tabla `company_month_decision`, una fila por `company_id` × `mes`:
 
 ```text
 company_id, mes, version_parametros
-elegible              bool
-motivo                texto (null si elegible)
+elegible              bool  (seis puertas + T_max > 0 + menú no vacío)
+motivo                texto (null si y solo si elegible)
 puertas_fallidas      [str]
 banda                 A|B|C|D            (sin recorte)
 banda_efectiva        A|B|C|D            (con recorte estructural / cross-default)
@@ -373,7 +390,9 @@ accion                abrir|ampliar|mantener|reducir|cerrar
 motivo_accion         texto (plantilla)
 motivo_grupo          texto o null
 banda_pred_3m_usada   A|B|C|D (null si previsión desconectada)
-estado                {L_prev, meses_elegible_seguidos, meses_reduccion_seguidos, meses_pred_peor_seguidos, cerrado_desde, cross_default_activo}
+estado                {L_prev, accion_prev, meses_elegible_seguidos, meses_reduccion_seguidos,
+                       meses_pred_peor_seguidos, cerrado_desde, cross_default_activo,
+                       causa_cross_default, meses_con_cross_default}
 ```
 
 `L` y `L_vigente` se guardan los dos: la ficha enseña "recomendado 120 k,
@@ -385,7 +404,7 @@ vigente 100 k (subida limitada al 25 %)".
 | --- | --- |
 | abrir | "Elegible: score {score} (banda {b}), límite {L} € hasta {T_max} d" |
 | ampliar | "Límite sube de {Lp} a {L_vigente} €: {top1 delta_contrib}" |
-| reducir | "Límite baja de {Lp} a {L_vigente} €: {motivo = estructural \| 2 meses por debajo \| previsión: banda {banda_pred_3m} en 3 meses}, {top1 delta_contrib o driver_1}" |
+| reducir | "Límite baja de {Lp} a {L_vigente} €: {motivo = deterioro estructural \| 2 meses por debajo \| previsión: banda {banda_pred_3m} en 3 meses \| cross-default de {empresa causante} \| techo de grupo}, {top1 delta_contrib o driver_1}" |
 | cerrar | "{motivo de §3}" |
 | mantener | "Sin cambios: score {score}, límite {Lp} €" / "Reapertura en {n} meses" / "Pendiente confirmar bajada" |
 
@@ -407,7 +426,7 @@ Mes 1 (`2024-09` o primer mes con score): `L_prev = 0`, sin cierre previo →
 
 ## 13. Fixtures y tests
 
-Cinco empresas sintéticas con filas de score a mano, 6 meses cada una.
+Siete empresas sintéticas con filas de score a mano, 6 meses cada una.
 Resultado esperado por mes escrito en el fixture, no calculado.
 
 | Fixture | Perfil | Debe dar |
@@ -437,10 +456,10 @@ Tests de propiedades (sobre todas las filas del dataset):
 
 | Métrica | Definición |
 | --- | --- |
-| Exposición evitada | Σ `L_vigente(t−k)` de empresas que entran en `evento_deterioro` en `t`, con `k` = meses de antelación con que el motor cerró o redujo. Comparar contra un motor sin anticipación (solo banda por score sin dirección). |
+| Exposición evitada | Σ `max(0, L_vigente(t−3) − L_vigente(t))` de empresas que entran en `evento_deterioro` en `t`. En v1 el retroceso es **fijo a t−3**, no el `k` variable del plan; la comparación contra un motor sin anticipación (solo banda por score sin dirección) queda como follow-up. |
 | Ingresos simulados | Σ `coste` asumiendo uso del 60 % del `L_vigente` al plazo natural. Supuesto explícito. |
 | Oscilación | % de empresa-mes con un cambio de acción; un `cerrar` repetido no cuenta. Objetivo < 20 %. |
-| Cierres falsos | cierres sin `evento_deterioro` en 6 meses / cierres. |
+| Cierres falsos | `cierres` y `cierres_falsos` se publican como **recuentos brutos** (solo el mes en que se cierra, no cada mes cerrado); el ratio es `cierres_falsos / cierres` = cierres sin `evento_deterioro` en los 6 meses siguientes. |
 | Lead time de cierre | mediana de meses entre primer `reducir` y `evento_deterioro`, **con y sin previsión** (decisión 38). |
 
 ## 15. Fuera de alcance v1
