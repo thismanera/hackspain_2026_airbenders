@@ -1,91 +1,44 @@
 import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream, existsSync } from "node:fs";
+import { createWriteStream, existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { once } from "node:events";
-import { createInterface } from "node:readline";
 
-import { decisionRowSchema, type DecisionRowDTO } from "../lib/features/decision/contracts";
+import { decisionRowSchema } from "../lib/features/decision/contracts";
 import { decideGroup, parametrosDecision } from "../lib/features/decision/engine";
 import { metricasDecision } from "../lib/features/decision/metrics";
 import type { DecisionRow } from "../lib/features/decision/types";
+import { previsiones } from "../lib/features/forecast/adapter";
+import type { ForecastRow } from "../lib/features/forecast/types";
 import { backtest } from "../lib/features/scoring/backtest";
-import { scoreRowSchema, type ScoreRowDTO } from "../lib/features/scoring/contracts";
-import {
-  prepareGroup,
-  scoreGroup,
-  variablesAt,
-  type GroupInput,
-} from "../lib/features/scoring/engine";
+import { scoreRowSchema } from "../lib/features/scoring/contracts";
+import { prepareGroup, scoreGroup, variablesAt } from "../lib/features/scoring/engine";
 import { fitPercentiles, groupSplit, type Sample } from "../lib/features/scoring/fit";
-import { fingerprint, ingest, readPartition, type Meta } from "../lib/features/scoring/ingest";
+import { ingest } from "../lib/features/scoring/ingest";
 import { VARIABLES } from "../lib/features/scoring/params";
-import type { Invoice, Parameters, Product, ScoreRow, Tx } from "../lib/features/scoring/types";
+import type { ScoreRow } from "../lib/features/scoring/types";
 import { CALENDAR } from "../lib/features/scoring/windows";
+import {
+  BACKTEST_MONTHS,
+  categoriesCsv,
+  close,
+  dataset,
+  dir,
+  FIT_CUTOFF,
+  groupInput,
+  groupsOf,
+  lines,
+  meta,
+  put,
+  runDir,
+  scoringParams,
+} from "./scoring-io";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const dataset = path.resolve(process.env.SCORING_DATASET ?? path.join(root, "dataset"));
-const dir = path.resolve(process.env.SCORING_OUT ?? path.join(root, "tmp", "scoring-v1"));
-/** El CSV de categorías normalizadas es opcional (está en .gitignore): si falta, se ingesta sin él. */
-const categoriesCsv = (() => {
-  const file = path.resolve(
-    process.env.SCORING_CATEGORIES ?? path.join(root, "analysis", "transaction_categories.csv"),
-  );
-  return existsSync(file) ? file : null;
-})();
-/** Ventana de validación del backtest (§13). */
-const BACKTEST_MONTHS: [string, string] = ["2025-09", "2026-08"];
-/** Último mes de ajuste: los percentiles solo ven muestras ≤ 2026-02 (§11). */
-const FIT_CUTOFF = "2026-02";
 const command = process.argv[2];
 
-function runDir(params: Parameters, inputFingerprint: string): string {
-  return path.join(dir, "runs", params.version, inputFingerprint);
-}
-function parameterPath(): string {
-  return path.resolve(process.env.SCORING_PARAMS ?? path.join(dir, "parameters.json"));
-}
-async function meta(): Promise<Meta> {
-  const m = JSON.parse(await readFile(path.join(dir, "ingest.json"), "utf8")) as Meta;
-  if (m.fingerprint !== (await fingerprint(dataset, categoriesCsv)))
-    throw new Error("dataset changed; run fit again with SCORING_REINGEST=1");
-  return m;
-}
-/** Las particiones se escriben por grupo, así que un `GroupInput` se arma de una sola lectura. */
-async function groupInput(groupId: string, m: Meta): Promise<GroupInput> {
-  const txs = await readPartition<Tx>(dir, groupId, "tx");
-  const invoices = new Map<string, Invoice[]>();
-  for (const invoice of await readPartition<Invoice>(dir, groupId, "invoice")) {
-    const list = invoices.get(invoice.company) ?? [];
-    list.push(invoice);
-    invoices.set(invoice.company, list);
-  }
-  return {
-    groupId,
-    companies: m.companies.filter((c) => c.groupId === groupId),
-    txs,
-    invoices,
-    schedule: new Map(Object.entries(m.schedule)),
-    products: new Map(Object.entries(m.products) as [string, Product][]),
-  };
-}
-function groupsOf(m: Meta): string[] {
-  return [...new Set(m.companies.map((c) => c.groupId))].sort();
-}
-async function* lines<T>(file: string): AsyncGenerator<T> {
-  for await (const line of createInterface({ input: createReadStream(file), crlfDelay: Infinity }))
-    if (line) yield JSON.parse(line) as T;
-}
-async function put(
-  stream: ReturnType<typeof createWriteStream>,
-  item: ScoreRowDTO | DecisionRowDTO,
-): Promise<void> {
-  if (!stream.write(JSON.stringify(item) + "\n")) await once(stream, "drain");
-}
-async function close(stream: ReturnType<typeof createWriteStream>): Promise<void> {
-  stream.end();
-  await once(stream, "finish");
+async function collect<T>(gen: AsyncGenerator<T>): Promise<T[]> {
+  const out: T[] = [];
+  for await (const x of gen) out.push(x);
+  return out;
 }
 
 async function doFit() {
@@ -127,7 +80,7 @@ async function doFit() {
 
 async function doScore() {
   const m = await meta().catch(() => ingest(dataset, dir, categoriesCsv));
-  const params = JSON.parse(await readFile(parameterPath(), "utf8")) as Parameters;
+  const params = await scoringParams();
   if (params.inputFingerprint !== m.fingerprint)
     throw new Error("parameters were fitted on a different dataset; run scoring:fit");
   await mkdir(runDir(params, m.fingerprint), { recursive: true });
@@ -159,9 +112,14 @@ async function doScore() {
 
 async function doDecide() {
   const m = await meta();
-  const scoringParams = JSON.parse(await readFile(parameterPath(), "utf8")) as Parameters;
-  const decParams = parametrosDecision(scoringParams.version);
-  const run = runDir(scoringParams, m.fingerprint);
+  const params = await scoringParams();
+  const decParams = parametrosDecision(params.version);
+  const run = runDir(params, m.fingerprint);
+  // forecast-engine §8 → decision §1: si hay previsión en el run, se conecta; si no, "desconectado".
+  const forecastsFile = path.join(run, "forecasts.jsonl");
+  const prev = existsSync(forecastsFile)
+    ? previsiones(await collect(lines<ForecastRow>(forecastsFile)))
+    : undefined;
   // El motor v1 decide **un grupo entero** de una vez (techo consolidado y cross-default, §9):
   // agrupar por `groupId` no es una optimización, es el contrato de `decideGroup`.
   const byGroup = new Map<string, ScoreRow[]>();
@@ -174,8 +132,8 @@ async function doDecide() {
   const companies = new Set<string>();
   let count = 0;
   for (const rows of byGroup.values())
-    // Sin previsión conectada el motor opera como "desconectado" (§1): `banda_pred_3m = banda`.
-    for (const decision of decideGroup(rows, decParams)) {
+    // Con forecasts.jsonl ausente el motor opera como "desconectado" (§1).
+    for (const decision of decideGroup(rows, decParams, prev)) {
       await put(output, decisionRowSchema.parse(decision));
       companies.add(decision.company);
       count++;
@@ -187,13 +145,14 @@ async function doDecide() {
     companies: companies.size,
     groups: byGroup.size,
     version: decParams.version,
+    prevision: prev ? "conectada" : "desconectada",
   };
   console.log(JSON.stringify(summary));
 }
 
 async function doBacktest() {
   const m = await meta();
-  const params = JSON.parse(await readFile(parameterPath(), "utf8")) as Parameters;
+  const params = await scoringParams();
   const run = runDir(params, m.fingerprint);
   const validation = new Set(params.validationGroups);
   const rows: ScoreRow[] = [];
@@ -220,7 +179,7 @@ async function doBacktest() {
 async function doImport() {
   const { prisma } = await import("../lib/core/db");
   const m = await meta();
-  const params = JSON.parse(await readFile(parameterPath(), "utf8")) as Parameters;
+  const params = await scoringParams();
   const run = runDir(params, m.fingerprint);
   // Antes de borrar nada: sin las dos salidas la importación dejaría la ejecución a medias.
   if (!existsSync(path.join(run, "scores.jsonl")) || !existsSync(path.join(run, "decisions.jsonl")))
