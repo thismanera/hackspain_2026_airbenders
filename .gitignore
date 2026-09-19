@@ -51,3 +51,6 @@ scoring-artifacts/
 # local tooling
 /.claude/worktrees/
 /.cursor/
+
+# planes/specs locales de superpowers (no se versionan)
+/docs/superpowers/
