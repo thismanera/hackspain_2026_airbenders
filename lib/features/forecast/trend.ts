@@ -18,7 +18,7 @@ export function tendencia(serie: readonly (number | null)[]): Tendencia {
   return { tendencia: median(deltas)!, sinTendencia: false };
 }
 
-/** `Σ_{i=1..h} amortiguacion[i]` (§3.2). Más allá de la tabla se repite el último factor. */
+/** `Σ_{i=1..h} amortiguacion[i − 1]` (§3.2). Más allá de la tabla se repite el último factor. */
 export function acumulada(h: number): number {
   let s = 0;
   for (let i = 0; i < h; i++) s += P.amortiguacion[i] ?? P.amortiguacion[P.amortiguacion.length - 1];

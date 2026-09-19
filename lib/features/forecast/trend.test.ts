@@ -17,6 +17,8 @@ test("a gap breaks the delta pair but not the rest of the series", () => {
   // pares válidos: (1,2) (2,3) ... null rompe (3,null) y (null,5): 3 deltas [1,1,1] → mediana 1
   assert.deepEqual(tendencia([1, 2, 3, null, 5, 6]), { tendencia: 1, sinTendencia: false });
   assert.deepEqual(tendencia([1, 2, 3, 4, null, 6]), { tendencia: 1, sinTendencia: false });
+  // Solo (5,6) sobrevive: 1 delta < minMesesTendencia − 1 ⇒ sin tendencia
+  assert.deepEqual(tendencia([1, null, 3, null, 5, 6]), { tendencia: 0, sinTendencia: true });
 });
 
 test("acumulada applies full trend 3 months and half the next 3", () => {

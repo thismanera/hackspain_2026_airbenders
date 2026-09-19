@@ -8,6 +8,10 @@ test("amortiguacion covers the longest horizon and is 1 for the first three mont
   assert.deepEqual(FORECAST_PARAMS.amortiguacion.slice(3), [0.5, 0.5, 0.5]);
 });
 
-test("hash is canonical: key order does not matter", () => {
-  assert.equal(hashForecastParams({ a: 1, b: 2 }), hashForecastParams({ b: 2, a: 1 }));
+test("hash is stable for a copy of FORECAST_PARAMS and changes with any value", () => {
+  assert.equal(hashForecastParams(FORECAST_PARAMS), hashForecastParams({ ...FORECAST_PARAMS }));
+  assert.notEqual(
+    hashForecastParams(FORECAST_PARAMS),
+    hashForecastParams({ ...FORECAST_PARAMS, umbralDireccion: 7 }),
+  );
 });
