@@ -2,7 +2,6 @@ import {
   ArrowLeftRight,
   Camera,
   CalendarDays,
-  ChevronRight,
   CircleDollarSign,
   Clock,
   Coins,
@@ -83,8 +82,7 @@ function ProblemHook() {
 }
 
 /* 2 · El problema, en cifras: una moneda recorre, en el aire, una trayectoria
-   punteada por encima de las cuatro paradas, con hueco de sobra respecto al
-   título para que no se choquen. */
+   punteada desde el primer nodo (Día 0) hasta el último (90 días) de forma fluida y continua. */
 function CashGapTimeline() {
   const stops = [
     { icon: Truck, label: "Paga al proveedor", day: "Día 0" },
@@ -93,8 +91,8 @@ function CashGapTimeline() {
     { icon: Coins, label: "El cliente paga", day: "90 días" },
   ];
   return (
-    <>
-      <div className="intro-rise relative mt-16 h-16 [animation-delay:120ms]">
+    <div className="intro-rise mt-16 [animation-delay:120ms]">
+      <div className="relative h-16">
         <svg
           aria-hidden
           viewBox="0 0 100 64"
@@ -102,11 +100,11 @@ function CashGapTimeline() {
           className="absolute inset-0 size-full"
         >
           <path
-            d="M4,60 Q50,4 96,60"
+            d="M12.5,58 Q50,6 87.5,58"
             fill="none"
             stroke="var(--border)"
             strokeWidth={1.5}
-            strokeDasharray="5 5"
+            strokeDasharray="4 4"
             strokeLinecap="round"
           />
         </svg>
@@ -135,12 +133,7 @@ function CashGapTimeline() {
           ))}
         </ol>
       </div>
-      <BigNumber
-        value="90 días"
-        caption="pasan entre pagar a sus proveedores y cobrar de sus clientes"
-        delayMs={3700}
-      />
-    </>
+    </div>
   );
 }
 
@@ -193,9 +186,8 @@ function OnceAYear() {
   );
 }
 
-/* 4 · Qué es Embat: antes, una maraña de fuentes que no se hablan entre sí;
-   al llegar a esta pantalla, cada una dibuja su propia línea, limpia, hacia
-   Embat, que aparece en el centro y se queda fluyendo. */
+/* 4 · Qué es Embat: cada fuente (bancos, facturas, cobros) dibuja una vía limpia
+   hacia Embat en el centro, y de cada nodo brota un pulso de datos constante. */
 function EmbatCore() {
   const left = [
     { icon: Landmark, label: "Banco A" },
@@ -207,90 +199,84 @@ function EmbatCore() {
     { icon: ArrowLeftRight, label: "Cobros y pagos" },
     { icon: Network, label: "Empresas del grupo" },
   ];
-  const tangleLinks = [
-    "M8,12 Q70,75 92,50",
-    "M8,50 Q75,10 92,12",
-    "M8,88 Q60,45 92,88",
-    "M8,12 Q20,50 8,88",
-    "M92,12 Q80,50 92,88",
+
+  // Vías limpias que nacen exactamente en el borde de cada nodo y convergen en el hub central
+  const streamTracks = [
+    // Izquierda -> Centro
+    { d: "M36,18 C41,18 43,50 46,50", delay: 0 },
+    { d: "M36,50 L46,50", delay: 0.35 },
+    { d: "M36,82 C41,82 43,50 46,50", delay: 0.7 },
+    // Derecha -> Centro
+    { d: "M64,18 C59,18 57,50 54,50", delay: 0.18 },
+    { d: "M64,50 L54,50", delay: 0.52 },
+    { d: "M64,82 C59,82 57,50 54,50", delay: 0.85 },
   ];
-  const cleanLinks = [
-    "M8,12 Q30,12 50,50",
-    "M8,50 L50,50",
-    "M8,88 Q30,88 50,50",
-    "M92,12 Q70,12 50,50",
-    "M92,50 L50,50",
-    "M92,88 Q70,88 50,50",
-  ];
+
   const Column = ({ items, side }: { items: typeof left; side: "l" | "r" }) => (
     <ul className="relative flex flex-col gap-2">
       {items.map((item) => (
         <li
           key={item.label}
           className={cn(
-            "bg-card flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+            "bg-card relative flex items-center gap-2 rounded-lg border px-3 py-2 text-sm shadow-xs",
             side === "r" && "flex-row-reverse text-right",
           )}
         >
           <item.icon aria-hidden className="text-muted-foreground size-5 shrink-0" />
-          {item.label}
+          <span className="font-medium">{item.label}</span>
         </li>
       ))}
     </ul>
   );
+
   return (
     <>
       <p className="text-muted-foreground intro-rise mt-4 text-base text-balance [animation-delay:200ms]">
         Su tesorería al día: cada movimiento de sus cuentas bancarias y cada factura.
       </p>
-      <div className="intro-rise relative mt-10 grid grid-cols-[1fr_auto_1fr] items-center gap-3 [animation-delay:360ms] sm:gap-6">
+      <div className="intro-rise relative mx-auto mt-10 grid max-w-xl grid-cols-[1fr_auto_1fr] items-center gap-3 [animation-delay:360ms] sm:gap-6">
         <svg
           aria-hidden
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
           className="pointer-events-none absolute inset-0 size-full"
         >
-          {tangleLinks.map((d, i) => (
+          {/* Vías base sutiles */}
+          {streamTracks.map((track, i) => (
             <path
-              key={`tangle-${i}`}
-              d={d}
-              className="embat-tangle"
+              key={`track-${i}`}
+              d={track.d}
               fill="none"
               stroke="var(--border)"
-              strokeWidth={0.6}
-              strokeDasharray="2.5 2"
+              strokeWidth={1.2}
               strokeLinecap="round"
             />
           ))}
-          {cleanLinks.map((d, i) => (
-            <g key={`clean-${i}`}>
-              <path
-                d={d}
-                pathLength={1}
-                className="embat-link-draw"
-                fill="none"
-                stroke="var(--status-healthy)"
-                strokeWidth={0.7}
-                strokeLinecap="round"
-                style={{ animationDelay: `${1.1 + i * 0.05}s` }}
-              />
-              <path
-                d={d}
-                pathLength={1}
-                className="embat-link-flow"
-                fill="none"
-                stroke="var(--status-healthy-fg)"
-                strokeWidth={0.9}
-                strokeLinecap="round"
-                style={{ animationDelay: `${1.8 + i * 0.05}s, ${1.8 + i * 0.05}s` }}
-              />
-            </g>
+          {/* Haces de luz que nacen en cada nodo y fluyen hacia Embat */}
+          {streamTracks.map((track, i) => (
+            <path
+              key={`beam-${i}`}
+              d={track.d}
+              pathLength={100}
+              className="embat-beam"
+              fill="none"
+              stroke="var(--status-healthy-fg)"
+              strokeWidth={2.2}
+              strokeLinecap="round"
+              style={{ animationDelay: `${track.delay}s` }}
+            />
           ))}
         </svg>
+
         <Column items={left} side="l" />
-        <span className="embat-mark-pop relative z-10 flex items-center justify-center">
-          <EmbatMark size={56} />
-        </span>
+
+        <div className="relative z-10 flex items-center justify-center">
+          <div className="relative flex size-14 items-center justify-center rounded-2xl border bg-card p-2.5 shadow-sm sm:size-16">
+            <span aria-hidden className="embat-hub-pulse pointer-events-none absolute inset-0 rounded-2xl" />
+            <EmbatMark size={40} />
+          </div>
+        </div>
+
         <Column items={right} side="r" />
       </div>
       <p className="text-muted-foreground intro-rise mt-6 text-sm [animation-delay:520ms]">
@@ -356,6 +342,21 @@ function ScoreIdea() {
   );
 }
 
+/* Animación del candado principal: grande, ubicado arriba de "Primero, la empresa" */
+function HeroLock() {
+  return (
+    <div className="intro-rise relative flex items-center justify-center">
+      <div className="border-status-healthy/30 bg-card text-status-healthy-fg relative flex size-16 items-center justify-center rounded-2xl border shadow-sm sm:size-20">
+        <span aria-hidden className="hero-lock-ring pointer-events-none absolute inset-0 rounded-2xl" />
+        <span aria-hidden className="relative flex size-8 items-center justify-center sm:size-10">
+          <LockOpen className="lock-open-out text-muted-foreground absolute size-8 sm:size-10" />
+          <Lock className="lock-closed-in text-status-healthy-fg absolute size-8 sm:size-10" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /* 6 · Primero la empresa: la nota es suya. */
 function Ownership() {
   const rows = [
@@ -368,7 +369,7 @@ function Ownership() {
       <p className="text-muted-foreground intro-rise mt-4 text-base text-balance [animation-delay:200ms]">
         Sabe cómo está, por qué, y cuánto debería costarle financiarse.
       </p>
-      <div className="bg-card intro-rise mx-auto mt-10 w-full max-w-md overflow-hidden rounded-[14px] border text-left [animation-delay:360ms]">
+      <div className="bg-card intro-rise mx-auto mt-8 w-full max-w-md overflow-hidden rounded-[14px] border text-left [animation-delay:360ms]">
         <ul className="divide-y">
           {rows.map((row) => (
             <li key={row.title} className="flex items-center gap-3 px-4 py-3">
@@ -381,10 +382,7 @@ function Ownership() {
           ))}
         </ul>
         <p className="bg-muted/50 flex items-start gap-2.5 border-t px-4 py-3 text-sm">
-          <span aria-hidden className="relative mt-0.5 size-4 shrink-0">
-            <LockOpen className="lock-open-out absolute inset-0 size-4" />
-            <Lock className="lock-closed-in absolute inset-0 size-4" />
-          </span>
+          <Lock className="text-status-healthy-fg mt-0.5 size-4 shrink-0" />
           <span>
             <span className="font-semibold">Nadie más ve sus datos.</span> Ni sus movimientos, ni
             sus facturas, ni su nota. Todo se queda en Embat.
@@ -395,79 +393,89 @@ function Ownership() {
   );
 }
 
-/* 7 · La empresa decide: tres pasos, solo el segundo abre la puerta. El paso
-   "decide" respira (anillo continuo) y solo la conexión que sale de él lleva
-   un punto en movimiento: nada fluye hacia el prestamista hasta que se pulsa. */
+/* 7 · La empresa decide: el botón central es el héroe absoluto con animación
+   de click táctil. Los pasos 1 y 3 son mínimos y limpios, sin tarjetas ni peso visual. */
 function Consent() {
-  const steps = [
-    { icon: Lock, kicker: "1 · Privado", title: "Ve su nota y su oferta", cta: false },
-    { icon: HandCoins, kicker: "2 · Decide", title: "Pedir financiación", cta: true },
-    { icon: Landmark, kicker: "3 · Quien presta", title: "Recibe nota y oferta", cta: false },
-  ] as const;
   return (
-    <>
-      <ol className="mt-10 grid gap-2 text-left sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-stretch">
-        {steps.map((step, index) => (
-          <li key={step.kicker} className="contents">
-            <div
-              className={cn(
-                "bg-card intro-rise relative flex flex-col items-start gap-2.5 rounded-[14px] border px-4 py-4",
-                index === 1 && "border-status-healthy",
-              )}
-              style={{ animationDelay: `${240 + index * 260}ms` }}
-            >
-              {index === 1 ? (
-                <span aria-hidden className="consent-pulse-ring pointer-events-none absolute inset-0 rounded-[14px]" />
-              ) : null}
-              <Tile icon={step.icon} tone={index === 1 ? "healthy" : "neutral"} />
-              <span
-                className={cn(
-                  "text-xs font-medium tracking-wide uppercase",
-                  index === 1 ? "text-status-healthy-fg" : "text-muted-foreground",
-                )}
-              >
-                {step.kicker}
-              </span>
-              {step.cta ? (
-                <span className="relative inline-flex">
-                  <span className="bg-status-healthy-surface text-status-healthy-fg flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold">
-                    {step.title}
-                    <ArrowLeftRight aria-hidden className="size-3.5" />
-                  </span>
-                  <span
-                    aria-hidden
-                    className="consent-tap-ripple border-status-healthy-fg pointer-events-none absolute -right-2 -bottom-2 size-5 rounded-full border-2"
-                  />
-                  <MousePointerClick
-                    aria-hidden
-                    className="consent-tap text-foreground pointer-events-none absolute -right-3 -bottom-3 size-5 drop-shadow-sm"
-                  />
-                </span>
-              ) : (
-                <span className="text-sm font-semibold">{step.title}</span>
-              )}
-            </div>
-            {index < steps.length - 1 ? (
-              <div
-                aria-hidden
-                className="relative hidden items-center justify-center self-center sm:flex"
-              >
-                <ChevronRight className="text-muted-foreground size-5" />
-                {index === 1 ? (
-                  <span className="embat-flow-dot bg-status-healthy-fg absolute top-1/2 left-0 size-1.5 rounded-full" />
-                ) : null}
-              </div>
-            ) : null}
-          </li>
-        ))}
-      </ol>
-      <p className="text-muted-foreground intro-rise mt-6 text-sm [animation-delay:900ms]">
+    <div className="intro-rise mt-12 flex flex-col items-center gap-8 [animation-delay:200ms]">
+      <div className="relative flex w-full max-w-xl flex-col items-center justify-between gap-6 sm:flex-row sm:items-center">
+        {/* Paso 1: Mínimo, sin tarjeta */}
+        <div className="flex items-center gap-3 text-left">
+          <span
+            aria-hidden
+            className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-full"
+          >
+            <Lock className="size-4" />
+          </span>
+          <span className="flex flex-col leading-tight">
+            <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
+              1 · Privado
+            </span>
+            <span className="text-foreground text-sm font-medium">Ve su nota y su oferta</span>
+          </span>
+        </div>
+
+        {/* Conector discreto */}
+        <div
+          aria-hidden
+          className="bg-border hidden h-px w-8 sm:block"
+        />
+
+        {/* Paso 2: Botón héroe siendo clicado */}
+        <div className="relative flex flex-col items-center">
+          <div className="consent-btn-target bg-primary text-primary-foreground relative flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold shadow-md transition-all sm:text-base">
+            <HandCoins className="text-status-healthy-fg size-4 sm:size-5" />
+            <span>Pedir financiación</span>
+            <ArrowLeftRight className="size-3.5 opacity-70 sm:size-4" />
+          </div>
+
+          {/* Ripple wave al hacer click */}
+          <span
+            aria-hidden
+            className="consent-btn-ripple border-status-healthy pointer-events-none absolute inset-0 rounded-xl border"
+          />
+
+          {/* Cursor animado que se acerca, pulsa y sale */}
+          <div
+            aria-hidden
+            className="consent-btn-cursor pointer-events-none absolute"
+          >
+            <MousePointerClick className="text-foreground size-6 drop-shadow-md" />
+          </div>
+        </div>
+
+        {/* Conector discreto con flujo animado tras el click */}
+        <div
+          aria-hidden
+          className="bg-border relative hidden h-px w-8 sm:block"
+        >
+          <span className="consent-stream-dot bg-status-healthy-fg absolute top-1/2 -mt-1 size-2 rounded-full" />
+        </div>
+
+        {/* Paso 3: Mínimo, sin tarjeta */}
+        <div className="consent-step-target flex items-center gap-3 text-left">
+          <span
+            aria-hidden
+            className="consent-step-icon bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-full transition-colors"
+          >
+            <Landmark className="size-4" />
+          </span>
+          <span className="flex flex-col leading-tight">
+            <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
+              3 · Quien presta
+            </span>
+            <span className="text-foreground text-sm font-medium">Recibe nota y oferta</span>
+          </span>
+        </div>
+      </div>
+
+      <p className="text-muted-foreground mt-4 text-sm">
         Se comparte la decisión.{" "}
         <span className="text-foreground font-medium">
           Nunca sus movimientos, facturas ni saldos.
         </span>
       </p>
-    </>
+    </div>
   );
 }
 
@@ -524,6 +532,7 @@ function Closing() {
 
 export type Scene = {
   kicker: string;
+  heroVisual?: ReactNode;
   title: ReactNode;
   body: ReactNode;
   footnote?: string;
@@ -578,6 +587,7 @@ export const SCENES: Scene[] = [
   },
   {
     kicker: "Primero, la empresa",
+    heroVisual: <HeroLock />,
     title: (
       <>
         Su nota es privada. <Accent>Nadie la ve, hasta que ella decide.</Accent>

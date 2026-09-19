@@ -72,6 +72,9 @@ export function IntroClient() {
 
       <main className="flex flex-1 items-center justify-center px-6 py-8">
         <section key={step} aria-labelledby="intro-title" className="w-full max-w-3xl text-center">
+          {scene.heroVisual ? (
+            <div className="mb-6 flex justify-center">{scene.heroVisual}</div>
+          ) : null}
           <p className="text-status-healthy-fg intro-rise text-xs font-medium tracking-wide uppercase">
             {scene.kicker}
           </p>
