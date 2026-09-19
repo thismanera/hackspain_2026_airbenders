@@ -4,10 +4,10 @@ Convenciones de este proyecto para cualquier agente de IA (Claude Code, Cursor,
 Copilot, Gemini...) o humano que vaya a escribir código aquí. Es la fuente de
 verdad tool-agnostic; `CLAUDE.md` solo apunta aquí para evitar duplicar reglas.
 
-> Antes de pedirle a un agente que "construya el proyecto", rellena
-> [`PRODUCT.md`](./PRODUCT.md) con el problema, los usuarios y el flujo core.
-> Este archivo (`AGENTS.md`) explica **cómo** construir; `PRODUCT.md` explica
-> **qué** construir.
+> Antes de pedirle a un agente que "construya el proyecto", lee
+> [`docs/product/PRODUCT.md`](./docs/product/PRODUCT.md) (quién, qué, reglas).
+> En la raíz queda un puntero `PRODUCT.md` para las herramientas que lo buscan
+> ahí. Este archivo (`AGENTS.md`) explica **cómo** construir.
 
 ## Stack
 

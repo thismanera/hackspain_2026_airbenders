@@ -1,10 +1,14 @@
 # Guía de las métricas de scoring
 
 El scoring convierte movimientos bancarios y facturas en una nota de salud.
-Esta guía explica qué significa cada cifra y cómo leerla. Las fórmulas vigentes
-están en [variables.ts](../../lib/features/scoring/variables.ts),
+Contrato `scoreSolo-holding-v7`. Paquete de entrega: [para el jurado](../product/para-el-jurado.md).
+
+**Lectura corta.** §1 y §2 bastan para no confundir un 67 con una aprobación.
+§3–5 son las catorce variables (caja, pagos, clientes). El resto reconstruye un
+campo de la ficha. Fórmulas en
+[variables.ts](../../lib/features/scoring/variables.ts),
 [aggregate.ts](../../lib/features/scoring/aggregate.ts) y
-[params.ts](../../lib/features/scoring/params.ts), contrato `scoreSolo-holding-v7`.
+[params.ts](../../lib/features/scoring/params.ts).
 
 ## 1. Las seis cifras que conviene distinguir
 

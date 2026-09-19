@@ -9,19 +9,20 @@ impago ni una aprobación automática.
 
 | Si quieres…                                        | Lee…                                                                                         |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Revisar la entrega (jurado)                        | [Paquete de entrega](./docs/product/para-el-jurado.md)                                       |
 | Orientarte en la documentación                     | [Mapa de docs/](./docs/README.md)                                                            |
-| Entender o explicar el producto a un cliente       | [Guía de módulos](./docs/product/modules-guide.md)                                           |
+| Entender o explicar el producto                    | [Guía de módulos](./docs/product/modules-guide.md)                                           |
 | Saber qué significa cada métrica                   | [Guía de métricas de scoring](./docs/engines/scoring-metrics.md)                             |
 | Revisar el cálculo observado                       | [Motor de scoring](./docs/engines/scoring-engine.md)                                         |
 | Comprender las previsiones y el modo sombra        | [Motor de forecast](./docs/engines/forecast-engine.md)                                       |
 | Entender una oferta y sus controles                | [Motor de decisión](./docs/engines/decision-engine.md)                                       |
 | Explicar recomendaciones y escenarios recuperables | [Playbook de tesorería](./docs/engines/treasury-playbook.md)                                 |
-| Preparar una presentación                          | [Guion de demo](./docs/demo/README.md) y [casos](./docs/demo/use_cases/README.md)            |
+| Preparar una presentación                          | [Casos de uso](./docs/demo/README.md)                                                        |
 | Consultar reglas y diferencias pendientes          | [SOURCE](./docs/product/SOURCE.md) y [auditoría](./docs/product/documentation-audit.md) |
 
 Las especificaciones anteriores se conservan en [docs/history](./docs/history/README.md).
-Las convenciones técnicas están en [AGENTS.md](./AGENTS.md) y el objetivo de
-producto en [PRODUCT.md](./PRODUCT.md).
+Las convenciones técnicas están en [AGENTS.md](./AGENTS.md) y el brief de
+producto en [docs/product/PRODUCT.md](./docs/product/PRODUCT.md).
 
 ## Uso rápido
 
@@ -432,12 +433,11 @@ gh api repos/{owner}/{repo} -X PATCH -f is_template=true
      `gh repo create mi-proyecto --template <tu-usuario>/plantilla-nextjs --private --clone`.
    - **Sin GitHub:** copia la carpeta a mano y borra `.git` (`rm -rf .git && git init`).
 2. Renombra el placeholder: `pnpm run rename-project -- "Mi Proyecto"`.
-3. Rellena [PRODUCT.md](./PRODUCT.md) con el problema, los usuarios y el
-   flujo core de este proyecto en concreto.
+3. El brief de producto está en [docs/product/PRODUCT.md](./docs/product/PRODUCT.md).
 4. `pnpm install`, copia `.env.example` → `.env` con tus credenciales reales,
    `pnpm prisma generate`.
 5. Abre el repo con tu agente de IA (Claude Code) y pídele que construya,
-   apoyándose en `AGENTS.md` (cómo) + `PRODUCT.md` (qué). Recomendado: pídele
+   apoyándose en `AGENTS.md` (cómo) + `docs/product/PRODUCT.md` (qué). Recomendado: pídele
    primero que entre en modo plan para la arquitectura inicial antes de
    generar código.
 

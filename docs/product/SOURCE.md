@@ -11,9 +11,9 @@ aplicar una política de financiación y proponer revisiones concretas de caja.
 El scoring mide salud; decisión determina importe, plazo y precio. La previsión
 no tiene por sí sola autoridad para conceder financiación.
 
-Para explicar el producto a un compañero o cliente, comenzar por la
-[guía de módulos](./modules-guide.md). Para entender las cifras, usar la
-[guía de métricas](../engines/scoring-metrics.md).
+Para explicar el producto a un compañero, cliente o jurado, comenzar por
+[para el jurado](./para-el-jurado.md) y la [guía de módulos](./modules-guide.md).
+Para entender las cifras, usar la [guía de métricas](../engines/scoring-metrics.md).
 
 ## Responsabilidades y fuentes
 

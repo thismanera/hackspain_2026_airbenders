@@ -1,12 +1,32 @@
-# Capturas del dashboard
+# Capturas de la demo
 
-Pega aquí los PNG de cada caso. Los nombres previstos están al final de cada
-ficha en `docs/demo/use_cases/`. Convención:
+Solo hay que rellenar los dos casos grabados. Una captura por idea, no una por
+pantalla. Las referencias concretas están en cada ficha.
+
+## Capturas mínimas
+
+1. Comparación de 01: dos empresas con score parecido.
+2. Grupo de 02: receptora y donante.
+
+## Convención
 
 ```text
-<nn>-<slug>-<pantalla>.png
+<numero>-<descripcion>.png
 ```
 
-Pantallas útiles: `ficha`, `cartera`, `grupo`, `pyme`, `slider`, `playbook`.
-No hace falta cubrirlas todas: una ficha nítida y, si el caso es de grupo, la
-vista de holding.
+Ejemplos:
+
+```text
+01-comparacion.png
+01-ficha-comp-0524.png
+01-ficha-comp-0563.png
+02-grupo.png
+02-ficha-comp-0512.png
+02-ficha-comp-0926.png
+```
+
+Cada imagen debería tener una leyenda con empresa o grupo, mes y la lectura que
+se quiere comprobar. Evita capturas con datos personales y no presentes una
+captura de un run distinto al que figura en la ficha.
+
+Los casos factibles no llevan capturas en esta entrega.
