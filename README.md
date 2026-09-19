@@ -61,8 +61,11 @@ existe):
 ```bash
 pnpm scoring:fit        # ingest por grupo, € y percentiles congelados
 pnpm scoring:score      # company_month_score (docs/scoring-engine.md §10)
+pnpm forecast:fit       # p1/p99, residuos p10/p90, P_det y la puerta contra el baseline (docs/forecast-engine.md)
+pnpm forecast:run       # company_month_forecast (§8) → forecasts.jsonl
 pnpm scoring:decide     # motor de decisión v1 (docs/decision-engine.md)
 pnpm scoring:backtest   # lead time, recall, falsas alarmas y métricas de decisión
+pnpm forecast:backtest  # MAE vs baseline, acierto de banda, cobertura, lead time con/sin previsión
 pnpm scoring:import     # Postgres
 ```
 
@@ -75,12 +78,22 @@ la ejecución. `scoring:backtest` añade a `backtest.json` un bloque `decision` 
 las métricas del jurado (§14): exposición evitada, ingresos simulados,
 oscilación, cierres falsos y lead time de cierre.
 
-Los cinco comandos son secuenciales: cada uno lee la salida del anterior en
+`scoring:decide` conecta la previsión si encuentra `forecasts.jsonl` en el run;
+si `forecast:fit` no bate al baseline, las filas salen `metodo = "desconectado"`
+y decisión las ignora.
+
+Los ocho comandos son secuenciales: cada uno lee la salida del anterior en
 `tmp/scoring-v1/`. La primera ejecución (o cualquiera después de tocar los
 CSV) necesita `SCORING_REINGEST=1 pnpm scoring:fit`, que releva los 472 MB de
 `transactions.csv` y tarda unos minutos; las siguientes reutilizan las
 particiones ya escritas. Variables de entorno útiles: `SCORING_DATASET`,
 `SCORING_OUT`, `SCORING_CATEGORIES` y `SCORING_PARAMS`.
+
+Desde un worktree: el `fingerprint` de la ingesta hashea tamaño y `mtime` de los
+CSV del dataset, así que una copia del `dataset/` da otra huella y obliga a
+reingestar. Si lanzas los scripts con `SCORING_OUT` fuera del checkout
+principal, apunta `SCORING_DATASET` y `SCORING_CATEGORIES` a los ficheros del
+checkout principal para reutilizar su ingesta.
 
 Los scripts se ejecutan con **Node 22**. Si usas [fnm](https://github.com/Schniz/fnm),
 `fnm use 22` antes de lanzarlos (o `fnm exec --using=22 pnpm scoring:fit`).

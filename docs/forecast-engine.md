@@ -47,9 +47,13 @@ para proyectar `caja_op` y la racha de déficit.
 | `min_meses_tendencia` | 4 | 35 |
 | `amortiguacion[h]` | 1,0 para h = 1..3 · 0,5 para h = 4..6 | 35 |
 | `clip_proyeccion` | valor proyectado acotado a [p1, p99] de la variable en ajuste | 35 |
+| p1/p99 por variable | ajuste propio del forecast sobre las mismas muestras que scoring §11 | 35 |
 | `umbral_direccion` | 6 (mismo que scoring) | 10 |
 | tabla `p10[h][banda]`, `p90[h][banda]` | residuos en ajuste (§4) | 36 |
 | tabla `P_det[banda_t][banda_pred_3m]` | frecuencia del evento en ajuste (§5) | 36 |
+
+El clip se ensancha hasta `x(t)`: una variable ya fuera de [p1, p99] con
+tendencia cero no se mueve.
 
 ## 3. Método v1: proyección determinista de variables
 
@@ -81,10 +85,10 @@ Excepciones a la regla general:
 | Variable | Proyección |
 | --- | --- |
 | B2 racha | sin tendencia: `racha_pred = racha(t)`. Solo sube si `B1` proyectado cae por debajo de 0,9: entonces `racha_pred = racha(t) + 1` |
-| A2 meses en déficit, racha_deficit | se recalculan sobre `caja_op` proyectado: `caja_op(t+i) = cobros_op(t) + i·tend_cobros − (pagos_op(t) + i·tend_pagos)`; la ventana de 6 meses desliza |
+| A2 meses en déficit, racha_deficit | se recalculan sobre `caja_op` proyectado: `caja_op(t+i) = (cobros_op(t) + tend_cobros · Σ_{j≤i} amortiguacion[j]) − (pagos_op(t) + tend_pagos · Σ_{j≤i} amortiguacion[j])` (misma amortiguación que las variables); la ventana de 6 meses desliza |
 | C5 volatilidad | constante (`x(t)`): la dispersión no tiene tendencia útil en 6 puntos |
 | conf_v | constante (`conf_v(t)`): no se inventa confianza futura |
-| D2 score del resto | se proyecta `score_solo` de cada hermana por el mismo método y se recompone D2; D3, D5 constantes |
+| D2 score del resto | se proyecta `score_solo` de cada hermana por el mismo método y se recompone D2; D3, D5 constantes. `D2_pred = D2 + media ponderada por D1 de (score_solo_pred − score_solo)` de las hermanas; D2 nulo sigue nulo |
 
 ### 3.3 Recomposición
 
@@ -97,7 +101,7 @@ Con los `x_v(t+h)` proyectados se ejecutan las mismas funciones de scoring
 
 ```text
 delta_v     = aportacion_v(t+h) − aportacion_v(t)
-drivers_h   = las 3 variables con mayor |delta_v|, con signo y valores bruto actual → previsto
+drivers_h   = las 3 entradas (14 variables o `grupo`) con mayor |delta_v|, con signo y valores bruto actual → previsto
 ```
 
 Plantilla: *"Si los cobros siguen cayendo un 4 %/mes (A1 15 % → 6 %) y la
@@ -116,7 +120,9 @@ intervalo_h = [score_pred_h + p10[h][b], score_pred_h + p90[h][b]]  acotado a [0
 ```
 
 Se guardan en `version_parametros`. En validación se comprueba que el
-intervalo contiene el realizado ~80 % de las veces (§9).
+intervalo contiene el realizado ~80 % de las veces (§9). En ajuste se fuerza
+`p10 ≤ 0 ≤ p90` (`min(p10, 0)`, `max(p90, 0)`), así que `p10 ≤ score_pred ≤ p90`
+siempre se cumple.
 
 ## 5. Dirección prevista y probabilidad de deterioro
 
@@ -160,6 +166,11 @@ para cada mes t:
 Regla de oro: la previsión en `t` usa solo filas `≤ t`. Las tablas de
 residuos y `P_det` se calculan una vez en ajuste y se congelan.
 
+Pipeline: `scoring:fit → scoring:score → forecast:fit → forecast:run →
+scoring:decide → scoring:backtest → forecast:backtest → scoring:import`.
+`forecast:fit` congela p1/p99, residuos y `P_det` sobre grupos de ajuste con
+`t + h ≤ 2026-02` y decide `conectado`.
+
 ## 8. Contrato de salida: `company_month_forecast`
 
 Una fila por `company_id` × `mes`. Campos ▶ los consume decisión.
@@ -174,8 +185,12 @@ Una fila por `company_id` × `mes`. Campos ▶ los consume decisión.
   drivers_3m[3], drivers_6m[3]                  {id, valor_actual, valor_pred, delta_aportacion}
   racha_deficit_pred_3m, racha_B2_pred_3m
   sin_tendencia[]                               variables con < 4 meses
-  metodo                                        "v1_proyeccion" | "v2_modelo"
+  metodo                                        "v1_proyeccion" | "v2_modelo" | "desconectado"
 ```
+
+Los campos por horizonte viajan anidados: `horizontes[3]`, `horizontes[6]`
+(camelCase en el código: `scorePred`, `bandaPred`, `p10`, `p90`,
+`cascadaPred`, `drivers`, `rachaDeficitPred`, `rachaB2Pred`).
 
 ## 9. Backtest (decisión 38)
 
@@ -190,29 +205,46 @@ para h = 6:
 | `lead_time_con_prevision` | decision-engine §14, ejecutando decisión con y sin previsión | mejora en meses: es el argumento |
 | `falsas_reducciones_preventivas` | reducciones preventivas sin evento en 6 m / reducciones preventivas | reportar; si > 40 % subir `reducir_prev_meses` |
 
+`falsas_reducciones_preventivas` se cuenta comparando la decisión con y sin
+previsión: preventiva = `reducir` con previsión donde sin ella no había
+`reducir` ni `cerrar`.
+
 Si v1 no bate al baseline ingenuo en MAE, la previsión **no se conecta** a
 decisión (decision-engine ignora `banda_pred_3m`) y se dice en el pitch.
 
+### Resultado v1 sobre el dataset (19-09-2026)
+
+| Conjunto | Filas 3m | MAE v1 | MAE baseline | Acierto banda v1 | baseline | Cobertura p10-p90 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Ajuste | 14 070 | 3,26 | 3,14 | — | — | — |
+| Validación h=3 | 2 088 | 3,81 | 3,63 | 0,789 | 0,799 | 0,775 |
+| Validación h=6 | 1 044 | 6,00 | 5,72 | 0,678 | 0,706 | 0,761 |
+
+Lead time de cierre con/sin previsión: 6 / 6 meses (previsión desconectada).
+La puerta del MAE saltó (v1 pierde contra el baseline ingenuo en los tres
+conjuntos), así que las filas salen `metodo = "desconectado"` y decisión las
+ignora hasta afinar los parámetros de §3.
+
 ## 10. Fixtures y tests
 
-Fixtures en `fixtures/forecast/`, con los mismos percentiles fijos que
-scoring §12.
+Fixtures en `lib/features/forecast/__fixtures__/series.ts` (series de
+variables explícitas), con los mismos percentiles fijos que scoring §12.
 
 | Fixture | Serie (6 meses) | Esperado |
 | --- | --- | --- |
-| `tendencia_bajista` | cobros 100 k → 80 k (−4 k/mes), pagos 85 k fijos | A1 baja 0,15 → 0,03 en t+3 · `caja_op` negativa en t+5 → `racha_deficit_pred_3m = 0`, en 6 m = 2 · `score_pred_3m` < `score(t)` − 6 → `direccion_pred = deterioro` · drivers: A1, A2, A4 |
-| `estable` | todo constante | `score_pred_h == score(t)` exacto · drivers con delta 0 |
-| `rebote` | 5 meses constantes, último mes cobros +40 % | mediana de deltas = 0 → `score_pred_3m == score(t)`; el mes extremo no manda |
-| `historial_corto` | 3 meses | `sin_tendencia` = todas · `score_pred == score(t)` · flag visible |
-| `grupo_arrastre` | filial constante, hermana con tendencia bajista fuerte, D5 = 0,15 | `D2_pred` < `D2` · `aval_pred` < `aval` · `score_pred` baja aunque la filial no cambie |
+| `estable` | todo constante, flujos 100 k / 85 k | `score_pred_h == score(t)` (1e-6) · drivers con delta 0 · `direccion_pred = estable` |
+| `tendencia_bajista` | A1 0,30→0,15 (−0,03/mes), A3 3,0→1,5, A4 0,05→0,30; cobros 100 k→80 k, pagos 65 k | A1 0,15 → 0,06 en t+3 · `score_pred_3m < score(t) − 6` → `deterioro` · drivers {A1, A3, A4} · `racha_deficit_pred` 0 a 3 m y 2 a 6 m (caja 15 k − [4, 8, 12, 14, 16, 18] k) |
+| `rebote` | 5 meses constantes, último mes A1 0,15→0,25 y cobros +40 % | mediana de deltas 0 ⇒ `score_pred_3m == score(t)` |
+| `historial_corto` | 3 meses | `sin_tendencia` = las 11 variables con tendencia general · `score_pred == score(t)` |
+| `grupo_arrastre` | filial constante (A1 0,02, A3 0,8), hermana con A1 0,30→0,10 y A3 3→1, D1 0,2/0,8, D5 = 0,15, D3 = 3 | `D2_pred < D2` · `aval_pred < aval` · `score_pred < score` · primer driver `grupo` |
 
 Tests de propiedades:
 
 1. `score_pred_h ∈ [0, 100]`; `p10 ≤ score_pred ≤ p90`.
-2. Tendencia cero en todas las variables ⇒ `score_pred_h == score(t)` (tolerancia 1e-6).
+2. Tendencia cero en todas las variables y caja proyectada sin déficit ⇒ `score_pred_h == score(t)` (tolerancia 1e-6).
 3. No fuga: previsión de `t = 2026-02` idéntica con CSV truncados a `2026-02-28`.
 4. Mismo input ⇒ misma salida.
-5. En ajuste, `MAE_3` de v1 < `MAE_3` del baseline ingenuo; si falla, el test avisa y `metodo = "desconectado"`.
+5. En ajuste, `MAE_3` de v1 < `MAE_3` del baseline ingenuo; si falla, `conectado = false` y `metodo = "desconectado"` (lo decide `forecast:fit`).
 6. Los 5 fixtures dan lo esperado.
 
 ## 11. Fuera de alcance v1
