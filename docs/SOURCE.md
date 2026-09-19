@@ -1,4 +1,4 @@
-# SOURCE — Grifo (Embat · X-Ray)
+# SOURCE — Embat Flow (Embat · X-Ray)
 
 Source of truth. Corto a propósito. `☐` = pendiente de validar con Pablo; `✅` validado; `⏳` aplazado. Justificaciones en §4.
 Detalle técnico ampliado en [`scoring-engine.md`](./scoring-engine.md) (score) y [`decision-engine.md`](./decision-engine.md) (decisión).
@@ -325,10 +325,11 @@ el contrato de scoring §10 + decision §10. La cartera puede cargarlas como
 Login, multi-tenant, disposiciones y amortizaciones reales, pagos, vista
 pyme (salvo tiempo), edición de parámetros desde UI.
 
-### 3.8 Nombre ☐
+### 3.8 Nombre ✅
 
-"Grifo" es provisional. Opciones: Grifo · Caudal · Embat Flow. Decide Pablo.
-Va en submission, cabecera de la app y slide.
+**Embat Flow.** Va en submission, cabecera de la app y slide. Se presenta
+como producto embebido de Embat; en el pitch se dice explícitamente que el
+nombre es una propuesta, no una marca autorizada.
 
 ---
 
@@ -373,6 +374,6 @@ el jurado.
 | 30 | Alertas: feed en cartera + webhook Slack; email no | Cubre el bonus con el mínimo. Slack se enseña en directo; email no. | ✅ 19-09 |
 | 31 | Entrega test por script, no por pantalla | El entregable es un CSV con el contrato; una pantalla de subida es trabajo sin valor para el jurado. | ✅ 19-09 |
 | 32 | Fuera de alcance: login, multi-tenant, disposiciones, pagos, vista pyme, parámetros desde UI | Nada que no salga en el golden path. | ✅ 19-09 |
-| 33 | Nombre del producto | Va en submission, app y slide. Opciones: Grifo, Caudal, Embat Flow. | ☐ Pablo |
+| 33 | Nombre: **Embat Flow** | Coherente con la decisión 13 (producto embebido de Embat): el jurado de Embat ve su producto, no una herramienta de banco. Riesgo asumido: usar su marca sin permiso; se declara como propuesta en el pitch. | ✅ 19-09 |
 
-**Estado 19-09:** 32 de 33 decisiones validadas. Abierta solo la 33 (nombre).
+**Estado 19-09:** 33 de 33 decisiones validadas. Ninguna abierta.
