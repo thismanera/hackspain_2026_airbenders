@@ -1,3 +1,7 @@
+> **Archivo histórico.** Copia anterior a la revisión documental del 19-09-2026.
+> Conserva propuestas, ejemplos y cifras anteriores; no describe necesariamente el código actual.
+> Consulta la [documentación vigente](../product/modules-guide.md).
+
 # Motor de decisión — especificación para desarrollo v1.0
 
 > Estado implementado: consume scoring `scoreSolo-holding-v7`. El apoyo positivo del holding
@@ -36,7 +40,7 @@ operativo; el partner financiero recibe además la clasificación `prudente`, `e
 el plazo tanto de líneas vivas como de nuevas aperturas; no se presenta como clasificación
 regulatoria formal.
 
-> Implementa §3 de [`SOURCE.md`](./SOURCE.md) (decisiones 11, 12, 17-23, 37 y
+> Implementa §3 de [`SOURCE.md`](../product/SOURCE.md) (decisiones 11, 12, 17-23, 37 y
 > el contrato mínimo 43-47, validadas 19-09-2026). Sustituye a §8 de
 > `scoring-engine.md`. Si algo aquí contradice a `SOURCE.md`, manda `SOURCE.md`
 > y se corrige esto. Determinista, sin LLM, sin estado oculto: misma entrada →

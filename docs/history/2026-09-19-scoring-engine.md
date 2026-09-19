@@ -1,15 +1,19 @@
+> **Archivo histórico.** Copia anterior a la revisión documental del 19-09-2026.
+> Conserva propuestas, ejemplos y cifras anteriores; no describe necesariamente el código actual.
+> Consulta la [documentación vigente](../product/modules-guide.md).
+
 # Motor de scoring — especificación para desarrollo v1.0
 
 > Estado implementado: contrato `scoreSolo-holding-v7`. `scoreSolo` es la única nota
 > autónoma; `scoreGrupo` añade el contexto de holding mediante `ajusteHolding`. Los
 > parámetros y artefactos de versiones anteriores no deben interpretarse con este contrato.
 
-> Implementa §1 de [`SOURCE.md`](./SOURCE.md) (decisiones 1-10, 14-16, 24,
+> Implementa §1 de [`SOURCE.md`](../product/SOURCE.md) (decisiones 1-10, 14-16, 24,
 > validadas 18/19-09-2026). Si algo aquí contradice a
 > `SOURCE.md`, manda `SOURCE.md` y se corrige esto. Determinista, sin LLM.
 > Su salida (`company_month_score`, §10) es la entrada del
-> [`forecast-engine.md`](./forecast-engine.md) y del
-> [`decision-engine.md`](./decision-engine.md). Este motor **no sabe que
+> [`forecast-engine.md`](../engines/forecast-engine.md) y del
+> [`decision-engine.md`](../engines/decision-engine.md). Este motor **no sabe que
 > existe el crédito**: no calcula límites, plazos ni precios.
 
 ## 0. Qué hace

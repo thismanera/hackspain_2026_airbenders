@@ -1,33 +1,57 @@
-# Plantilla Next.js
+# Embat Flow: salud financiera y decisiones de tesorería
 
-Plantilla base para arrancar proyectos: Next.js 16 (App Router), Prisma 7
-(Postgres, carpeta `prisma/schema/`), Tailwind 4, TanStack Query 5 (con SSR
-avanzado), TypeScript 7, UI [shadcn/ui](https://ui.shadcn.com) y autenticación
-con [Better Auth](https://better-auth.com).
+El proyecto analiza movimientos bancarios y facturas para explicar la salud de
+una empresa, proyectar su evolución, aplicar una política de financiación y
+proponer revisiones de tesorería. La nota de salud no es una probabilidad de
+impago ni una aprobación automática.
 
-Para las convenciones técnicas (qué patrones seguir, cómo se organiza `lib/`,
-cómo añadir una feature) ve a [AGENTS.md](./AGENTS.md). Para el flujo de "usar
-esta plantilla en un proyecto nuevo", sigue leyendo.
+## Por dónde empezar
+
+| Si quieres…                                        | Lee…                                                                                         |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Orientarte en la documentación                     | [Mapa de docs/](./docs/README.md)                                                            |
+| Entender o explicar el producto a un cliente       | [Guía de módulos](./docs/product/modules-guide.md)                                           |
+| Saber qué significa cada métrica                   | [Guía de métricas de scoring](./docs/engines/scoring-metrics.md)                             |
+| Revisar el cálculo observado                       | [Motor de scoring](./docs/engines/scoring-engine.md)                                         |
+| Comprender las previsiones y el modo sombra        | [Motor de forecast](./docs/engines/forecast-engine.md)                                       |
+| Entender una oferta y sus controles                | [Motor de decisión](./docs/engines/decision-engine.md)                                       |
+| Explicar recomendaciones y escenarios recuperables | [Playbook de tesorería](./docs/engines/treasury-playbook.md)                                 |
+| Preparar una presentación                          | [Guion de demo](./docs/demo/README.md) y [casos](./docs/demo/use_cases/README.md)            |
+| Consultar reglas y diferencias pendientes          | [SOURCE](./docs/product/SOURCE.md) y [auditoría](./docs/product/documentation-audit.md) |
+
+Las especificaciones anteriores se conservan en [docs/history](./docs/history/README.md).
+Las convenciones técnicas están en [AGENTS.md](./AGENTS.md) y el objetivo de
+producto en [PRODUCT.md](./PRODUCT.md).
 
 ## Uso rápido
+
+Necesitas Node 22, Corepack y Git LFS instalados. El setup comprueba las
+herramientas, instala dependencias y prepara Prisma; no instala Node ni una
+base de datos. Ejecuta desde la raíz:
 
 ```bash
 git lfs install
 git lfs pull
-pnpm install
-pnpm db:setup
-pnpm dev
+# Solo si todavía no tienes .env:
+cp -n .env.example .env
+# Completa DATABASE_URL, BETTER_AUTH_SECRET y BETTER_AUTH_URL en .env.
+bash scripts/setup.sh
+corepack pnpm pipeline:eval
 ```
 
-`pnpm db:setup` crea `.env` si falta, aplica el esquema Prisma contra
-`DATABASE_URL` (Neon) y carga el dataset del motor de scoring. Es idempotente:
-si ya existe una ejecución completa, no vuelve a procesar los CSV. Cada
-compañero pega su propia connection string de Neon en `.env` (ver
-`.env.example`) y ejecuta el mismo comando después de clonar el repositorio.
+El pipeline calcula scoring, forecast, decisión y submission con parámetros
+congelados y escribe archivos locales. No necesita Python ni una conexión a
+PostgreSQL para esos cálculos. Para ver la cartera, importa después el run en
+una base con el esquema preparado, siguiendo las instrucciones de abajo:
 
-Abre [http://localhost:3000](http://localhost:3000) (sign in/up con Better
-Auth) y [http://localhost:3000/tasks](http://localhost:3000/tasks) (ejemplo
-end-to-end de Prisma + API route + TanStack Query con prefetch SSR).
+```bash
+corepack pnpm dev
+```
+
+La app usa Next.js 16, React 19, TypeScript 7, Prisma 7/PostgreSQL, TanStack
+Query, Tailwind, shadcn/ui y Better Auth. Visita `/cartera` y la ficha de
+empresa desde la cartera. Sin un run compatible importado, el panel no
+sustituye los resultados por datos ficticios.
 
 ## Scripts
 
@@ -51,42 +75,38 @@ end-to-end de Prisma + API route + TanStack Query con prefetch SSR).
 | `pnpm run auth:generate`  | Regenera `prisma/schema/auth.prisma` tras tocar `lib/core/auth.ts`    |
 | `pnpm run rename-project` | Sustituye el nombre placeholder por el nombre real                    |
 
-## Motor de scoring v1 y decisión (recalibración opcional)
+## Recalibración y backtests: trabajo opcional
 
-Con PostgreSQL activo y los CSV en `dataset/`, el scoring funciona con las
-categorías del dataset y los parámetros precalculados. El CSV opcional de
-categorías reclasificadas se puede generar con Python (ver la sección de
-regeneración), pero no forma parte del runtime. Estos comandos solo son para
-recalibrar manualmente; para ejecutar la versión congelada usa
-`pnpm pipeline:eval`:
+La ejecución normal usa `corepack pnpm pipeline:eval`. Solo necesitas recalibrar
+si quieres estudiar otra configuración. Los backtests comprueban resultados
+contra observaciones posteriores o grupos reservados; no forman parte de la
+submission por defecto.
+
+Para recalibrar, usa una carpeta nueva y rutas de parámetros locales. No apuntes
+estos comandos de ajuste a los ficheros congelados que quieras conservar:
 
 ```bash
-pnpm scoring:fit        # ingest por grupo, € y percentiles congelados
-pnpm scoring:score      # company_month_score (docs/scoring-engine.md §10)
-pnpm scoring:decide     # motor de decisión v1 (docs/decision-engine.md)
-pnpm scoring:backtest   # lead time, recall y falsas alarmas para scoreSolo y scoreGrupo, más métricas de decisión
-pnpm scoring:import     # Postgres: filas del run + panel materializado (portfolio_snapshots)
-pnpm scoring:snapshot   # solo rematerializa el panel de un run ya importado
+export SCORING_OUT="tmp/recalibracion-$(date +%Y%m%d-%H%M%S)"
+export SCORING_PARAMS="$SCORING_OUT/parameters.json"
+export FORECAST_PARAMS="$SCORING_OUT/forecast-parameters.json"
+
+corepack pnpm scoring:fit
+corepack pnpm scoring:score
+corepack pnpm forecast:fit
+corepack pnpm forecast:run
+corepack pnpm scoring:decide
+corepack pnpm scoring:backtest
+corepack pnpm forecast:backtest
 ```
 
-`scoring:decide` corre el motor v1 entero sobre `scores.jsonl`: elegibilidad por
-seis puertas, límite y plazo máximo, menú de opciones (plazo, cantidad, TAE),
-estado mes a mes con histéresis y reapertura, y techo de grupo con cross-default
-(decide un grupo completo de una vez). Escribe `decisions.jsonl` y
-`decision-parameters.json` (la versión del motor de decisión) en el directorio de
-la ejecución. `scoring:backtest` añade a `backtest.json` un bloque `decision` con
-las métricas del jurado (§14): exposición evitada, ingresos simulados,
-oscilación, cierres falsos y lead time de cierre.
+Estos pasos trabajan en archivos y no requieren PostgreSQL. La ingesta se
+rehace automáticamente si falta, está dañada o cambian los metadatos de entrada.
+Usa el mismo directorio y parámetros durante toda la secuencia.
 
-Los cinco comandos son secuenciales: cada uno lee la salida del anterior en
-`tmp/scoring-v1/`. La primera ejecución (o cualquiera después de tocar los
-CSV) necesita `SCORING_REINGEST=1 pnpm scoring:fit`, que releva los 472 MB de
-`transactions.csv` y tarda unos minutos; las siguientes reutilizan las
-particiones ya escritas. Variables de entorno útiles: `SCORING_DATASET`,
-`SCORING_OUT`, `SCORING_CATEGORIES` y `SCORING_PARAMS`.
-
-Los scripts se ejecutan con **Node 22**. Si usas [fnm](https://github.com/Schniz/fnm),
-`fnm use 22` antes de lanzarlos (o `fnm exec --using=22 pnpm scoring:fit`).
+La importación se ejecuta por separado con `corepack pnpm scoring:import`:
+escribe en PostgreSQL y materializa las vistas del panel. `scoring:snapshot`
+rematerializa un run ya importado. El detalle de las métricas se explica en los
+documentos de scoring, forecast y decisión.
 
 ## Ejecución reproducible y submission
 
@@ -100,12 +120,13 @@ ejecutar scoring, forecast, decisión o exportación.
 
 ### Preparar el entorno
 
-Se necesitan Node 22 y pnpm. Desde la raíz del repositorio:
+Se necesitan Node 22, Corepack y Git LFS. El gestor del proyecto es pnpm.
+Desde la raíz del repositorio:
 
 ```bash
 git lfs install
 git lfs pull
-pnpm install
+corepack pnpm install --frozen-lockfile
 ```
 
 También se puede preparar todo con el script reproducible:
@@ -114,7 +135,16 @@ También se puede preparar todo con el script reproducible:
 bash scripts/setup.sh
 ```
 
-El script conserva varias versiones de pnpm mediante Corepack. El proyecto usa
+El script comprueba Node y Corepack; deben estar instalados previamente. Usa la
+versión de pnpm fijada en `package.json`, instala las
+dependencias con el lockfile y genera el cliente Prisma. No conecta con la
+base de datos ni cambia tablas; la configuración de base de datos se hace en
+`.env`. Si `.env` todavía no existe, omite `prisma generate`; créalo en la
+sección siguiente y vuelve a ejecutar `corepack pnpm prisma generate`.
+
+El script deja varias versiones de pnpm disponibles mediante Corepack. Sus
+órdenes `corepack install --global` también pueden cambiar la versión preferida
+fuera de este repositorio; dentro manda `packageManager`. El proyecto usa
 la versión declarada en `package.json` (`10.28.1`) y una versión secundaria
 (`12.4.2` por defecto) puede utilizarse explícitamente sin cambiar la global:
 
@@ -127,6 +157,96 @@ corepack pnpm test
 Si Corepack necesita descargar una versión, la máquina debe poder resolver
 `registry.npmjs.org`. El script no ejecuta `pnpm` global directamente para
 evitar que otra versión intente autoactualizarse o revalidar el lockfile.
+
+### Configurar y comprobar Neon
+
+Si todavía no tienes `.env`, copia el fichero de ejemplo y completa las variables locales. `.env` está
+ignorado por Git y no debe compartirse:
+
+```bash
+cp -n .env.example .env
+# Edita .env y pega la DATABASE_URL pooled de Neon.
+# Genera también un secreto local para Better Auth:
+openssl rand -base64 32
+```
+
+La URL debe incluir `sslmode=require` y `channel_binding=require`. Comprueba la
+conectividad con una consulta de solo lectura:
+
+```bash
+set -a
+. ./.env
+set +a
+psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atqc 'select 1'
+```
+
+Después de cambiar el esquema, vuelve a generar el cliente con:
+
+```bash
+corepack pnpm prisma generate
+```
+
+### Validación completa sin escribir en Neon
+
+Estas comprobaciones no modifican la base de datos:
+
+```bash
+corepack pnpm test
+corepack pnpm run typecheck
+corepack pnpm run lint
+corepack pnpm build
+export SCORING_OUT="tmp/scoring-check-$(date +%Y%m%d-%H%M%S)"
+export SUBMISSION_OUT="$SCORING_OUT/submission"
+corepack pnpm pipeline:eval
+```
+
+El último comando ejecuta ingesta, scoring, forecast, decisión y exportación
+con los parámetros congelados, escribiendo únicamente en `tmp/`.
+
+### Cargar el resultado precalculado en Prisma
+
+Cuando la base ya tiene el esquema, se puede importar el run local sin
+recalibrar ni ejecutar `db push`:
+
+```bash
+# En la misma terminal, conserva SCORING_OUT del paso anterior.
+# En otra terminal, exporta la ruta del directorio donde generaste el run.
+SCORING_PARAMS=artifacts/inference/scoreSolo-holding-v7/parameters.json \
+FORECAST_PARAMS=artifacts/inference/scoreSolo-holding-v7/forecast-parameters.json \
+corepack pnpm scoring:import
+```
+
+Comprueba las filas importadas con una consulta de solo lectura:
+
+```bash
+psql "$DATABASE_URL" -X -P pager=off -c "
+SELECT
+  (SELECT count(*) FROM score_runs) AS runs,
+  (SELECT count(*) FROM company_month_scores) AS scores,
+  (SELECT count(*) FROM company_month_forecasts) AS forecasts,
+  (SELECT count(*) FROM company_month_decisions) AS decisions;
+"
+```
+
+Para una base de desarrollo desechable, `corepack pnpm db:setup` aplica el
+esquema y ejecuta todo el pipeline antes de importar. Incluye
+`prisma db push --accept-data-loss`, por lo que puede reemplazar columnas o
+datos existentes; no lo uses sobre una base compartida sin copia o aprobación.
+
+La configuración mínima de Better Auth incluye `BETTER_AUTH_SECRET` y
+`BETTER_AUTH_URL` (por ejemplo, `http://localhost:3000` en desarrollo).
+`psql` es un cliente opcional para las comprobaciones SQL; el setup no lo instala.
+
+Con datos importados, arranca la aplicación y revisa las rutas de cartera:
+
+```bash
+corepack pnpm dev
+```
+
+Consulta `/cartera`, `/empresa`, `/api/scoring/companies` y
+`/api/scoring/runs/[runId]`. La interfaz usa el último run compatible de
+Prisma; si la base está vacía, las rutas de scoring no tendrán filas que
+mostrar.
 
 ### Regenerar categorías (opcional)
 
@@ -149,8 +269,10 @@ normal ni de la submission precalculada.
 
 `pipeline:eval` ejecuta, sin invocar pnpm de forma recursiva, la secuencia
 `autoingest → score → forecast → decisión → submission`. El forecast se
-calcula siempre; si sus métricas no superan el baseline queda marcado como
-**modo sombra** y no modifica la decisión.
+calcula siempre. Los parámetros incluidos mantienen Solo y Grupo en **modo
+sombra**, sin efecto en decisión. La regla de conexión compara MAE y acierto de
+banda; actualmente se calcula en ajuste, mientras el backtest reservado es un
+informe separado. Véase [la limitación documentada](./docs/engines/forecast-engine.md#6-conexión-con-decisión-estado-real).
 
 ```bash
 pnpm pipeline:eval
@@ -192,15 +314,16 @@ límites es exposición mensual acumulada), además de versiones, hashes, númer
 de empresas/meses y rutas absolutas. Septiembre de 2026 sigue excluido de
 calibración y validación.
 
-`pnpm db:setup` aplica el esquema con `prisma db push --accept-data-loss`:
-recrea las tablas de score y elimina las columnas antiguas.
+`corepack pnpm db:setup` es un bootstrap para una base de desarrollo:
+aplica `prisma db push --accept-data-loss` y, si no encuentra un run completo
+materializado, recalibra, ejecuta backtests e importa. No es el pipeline
+congelado. La comprobación de existencia de ese script tampoco sustituye los
+controles de compatibilidad del panel. Para una base existente con el esquema
+correcto, importa el run precalculado con el comando anterior.
 
-Normalmente basta con `pnpm db:setup`. Salida en `/api/scoring/companies`
-(`rows[].scoreSolo` y `rows[].decision`), `/api/scoring/companies/[companyId]`,
-`/api/scoring/runs/[runId]` y `/api/scoring/export`. Lógica y decisiones en
-[docs/SOURCE.md](./docs/SOURCE.md),
-[docs/scoring-engine.md](./docs/scoring-engine.md) y
-[docs/decision-engine.md](./docs/decision-engine.md).
+Las APIs de consulta incluyen `/api/scoring/companies`,
+`/api/scoring/companies/[companyId]`, `/api/scoring/runs/[runId]` y
+`/api/scoring/export`. Una versión explícita incompatible se rechaza con 409.
 
 ## Inferencia LLM con Helmcode (sponsor)
 
@@ -269,7 +392,10 @@ Docs: [integraciones](https://helmcode.com/docs/integrations) ·
 [modelos](https://helmcode.com/docs/models) ·
 [rate limits](https://helmcode.com/docs/rate-limits).
 
-## Flujo recomendado para un proyecto nuevo
+## Herencia de la plantilla: crear otro proyecto
+
+Esta sección se conserva para quien reutilice la base técnica. No forma parte
+de la instalación ni de la ejecución de Embat Flow.
 
 ### Paso 0 (una sola vez): publicar esta plantilla en GitHub
 

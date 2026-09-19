@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Sustituir `lib/features/decision/legacy.ts` por el motor especificado en `docs/decision-engine.md` v1.0 (SOURCE §3): elegibilidad por puertas, límite, plazo máximo, interés con desglose, menú (plazo, cantidad, TAE), estado mes a mes con histéresis y reapertura, techo de grupo y cross-default, contrato `company_month_decision`, métricas para el jurado. La previsión (`forecast-engine.md`) aún no existe: el motor acepta una entrada opcional y, sin ella, opera como "desconectado" (`banda_pred_3m = banda`).
+**Goal:** Sustituir `lib/features/decision/legacy.ts` por el motor especificado en `docs/engines/decision-engine.md` v1.0 (SOURCE §3): elegibilidad por puertas, límite, plazo máximo, interés con desglose, menú (plazo, cantidad, TAE), estado mes a mes con histéresis y reapertura, techo de grupo y cross-default, contrato `company_month_decision`, métricas para el jurado. La previsión (`forecast-engine.md`) aún no existe: el motor acepta una entrada opcional y, sin ella, opera como "desconectado" (`banda_pred_3m = banda`).
 
 **Architecture:** `lib/features/decision/` con un módulo por paso (`params`, `types`, `contracts`, `eligibility`, `limit`, `tenor`, `interest`, `menu`, `action`, `group`, `motivos`, `engine`, `metrics`). `engine.decideGroup` recibe todas las filas `ScoreRow` de un grupo, itera los 24 meses en orden, decide cada empresa con su estado del mes anterior, aplica el paso de grupo y persiste el estado. `scripts/scoring.ts decide` agrupa `scores.jsonl` por `groupId`. Tabla Prisma y API mantienen su forma; cambian los campos del JSON `data`.
 
 **Tech Stack:** TypeScript (Node 22 vía fnm), `node:test` + `node:assert/strict` (`pnpm test`), `zod` 4, Prisma 7. Fixtures: `lib/features/scoring/__fixtures__/score-row.ts` (`scoreRowFixture`).
 
-**Referencias obligatorias:** `docs/decision-engine.md` (§2 parámetros, §3-§9 pasos, §10 contrato, §11 plantillas, §13 fixtures, §14 métricas), `docs/SOURCE.md` §3 y §5 (decisiones 11, 12, 17-23, 37). `docs/scoring-engine.md` §10 para los campos de `ScoreRow`.
+**Referencias obligatorias:** `docs/engines/decision-engine.md` (§2 parámetros, §3-§9 pasos, §10 contrato, §11 plantillas, §13 fixtures, §14 métricas), `docs/product/SOURCE.md` §3 y §5 (decisiones 11, 12, 17-23, 37). `docs/engines/scoring-engine.md` §10 para los campos de `ScoreRow`.
 
 **Convenciones:** alias `@/*`, `function` declarativa, sin `enum`, tests `*.test.ts` junto al código, `pnpm run typecheck` (lib + scripts), `pnpm run lint`, prettier. Node 22: `export PATH="$HOME/AppData/Roaming/fnm/node-versions/v22.14.0/installation:$PATH"`.
 
@@ -37,7 +37,7 @@
 | `lib/features/scoring/backtest.ts` | modificar | exportar `detectEvents` para las métricas de decisión |
 | `scripts/scoring.ts` | modificar | `decide` con el motor v1 agrupado por grupo; `backtest` añade métricas de decisión; `import` mapea campos nuevos |
 | `lib/features/scoring/api.ts` | modificar | `DECISION_KEYS` y filtros `band`/`action` sobre los campos nuevos |
-| `README.md`, `docs/decision-engine.md` | modificar | comandos; §9 techo con `media6m` (sin `media3m` de grupo) |
+| `README.md`, `docs/engines/decision-engine.md` | modificar | comandos; §9 techo con `media6m` (sin `media3m` de grupo) |
 
 ---
 
@@ -91,7 +91,7 @@ import { hashParams } from "@/lib/features/scoring/params";
 
 export type Banda = "A" | "B" | "C" | "D";
 
-/** docs/decision-engine.md §2. Ningún número suelto en código. */
+/** docs/engines/decision-engine.md §2. Ningún número suelto en código. */
 export const DECISION_PARAMS = {
   // elegibilidad (decisión 18)
   confMin: 0.5,
@@ -1273,7 +1273,7 @@ export function metricasDecision(scores: ScoreRow[], decisions: DecisionRow[]): 
 
 ## Tarea 11: Cableado y retirada del legacy
 
-**Files:** modify `scripts/scoring.ts`, `lib/features/scoring/api.ts`, `README.md`, `docs/decision-engine.md`; delete `lib/features/decision/legacy.ts`, `legacy.test.ts`; remove `LegacyDecisionRow`/`legacyDecisionRowSchema`.
+**Files:** modify `scripts/scoring.ts`, `lib/features/scoring/api.ts`, `README.md`, `docs/engines/decision-engine.md`; delete `lib/features/decision/legacy.ts`, `legacy.test.ts`; remove `LegacyDecisionRow`/`legacyDecisionRowSchema`.
 
 - [ ] **Step 1: `scripts/scoring.ts`**
   - `doDecide`: agrupar `scores.jsonl` por `groupId`; `const params = parametrosDecision(scoringParams.version)`; por grupo `decideGroup(rows, params)`; escribir `decisions.jsonl` validando con `decisionRowSchema`; escribir `decision-parameters.json` en el run dir; log `{ decisions, companies, groups, version }`.
@@ -1281,7 +1281,7 @@ export function metricasDecision(scores: ScoreRow[], decisions: DecisionRow[]): 
   - `doImport`: mapear `band: d.bandaEfectiva`, `action: d.accion`, `recommendedLimit: d.L`, `appliedLimit: d.LVigente`, `data: d`.
 - [ ] **Step 2: `api.ts`** — `DECISION_KEYS = ["elegible","motivo","banda","bandaEfectiva","L","LVigente","TMax","accion","motivoAccion","motivoGrupo","bandaPred3mUsada"]` sobre `DecisionRowDTO`; los filtros `band`/`action` siguen sobre las columnas Prisma.
 - [ ] **Step 3: Borrar legacy** — `git rm lib/features/decision/legacy.ts lib/features/decision/legacy.test.ts`; quitar los tipos/esquemas legacy de `types.ts`/`contracts.ts`; `grep -rn "legacy" lib scripts app` → solo comentarios históricos, si alguno.
-- [ ] **Step 4: Docs** — `docs/decision-engine.md` §9: nota "limiteOp de grupo usa `cobros_op_grupo_media6m × 3` (no hay media de 3 meses consolidada)"; §1: la previsión es opcional (`metodo = desconectado` ⇒ `banda_pred_3m = banda`). README: `pnpm scoring:decide` ahora es el motor v1; `backtest.json` incluye `decision`.
+- [ ] **Step 4: Docs** — `docs/engines/decision-engine.md` §9: nota "limiteOp de grupo usa `cobros_op_grupo_media6m × 3` (no hay media de 3 meses consolidada)"; §1: la previsión es opcional (`metodo = desconectado` ⇒ `banda_pred_3m = banda`). README: `pnpm scoring:decide` ahora es el motor v1; `backtest.json` incluye `decision`.
 - [ ] **Step 5: Gates** — `pnpm test`, `pnpm run typecheck`, `pnpm run lint`, prettier. **Commit** `feat(decision): wire v1 engine, retire legacy`.
 
 ---

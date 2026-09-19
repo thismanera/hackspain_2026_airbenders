@@ -1,12 +1,16 @@
+> **Archivo histórico.** Copia anterior a la revisión documental del 19-09-2026.
+> Conserva propuestas, ejemplos y cifras anteriores; no describe necesariamente el código actual.
+> Consulta la [documentación vigente](../product/modules-guide.md).
+
 # Motor de previsión dual — especificación para desarrollo v1.0
 
 > Estado implementado: parámetros de forecast revisión 2, vinculados a
 > `scoreSolo-holding-v7`. El ajuste de conexión se recalibra después de cada cambio de
 > contrato y no reutiliza artefactos de versiones anteriores.
 
-> Implementa §2 de [`SOURCE.md`](./SOURCE.md) (decisiones 34-38, validadas
-> 19-09-2026). Se sitúa entre [`scoring-engine.md`](./scoring-engine.md) y
-> [`decision-engine.md`](./decision-engine.md). Determinista en v1, sin
+> Implementa §2 de [`SOURCE.md`](../product/SOURCE.md) (decisiones 34-38, validadas
+> 19-09-2026). Se sitúa entre [`scoring-engine.md`](../engines/scoring-engine.md) y
+> [`decision-engine.md`](../engines/decision-engine.md). Determinista en v1, sin
 > modelo entrenado. Si algo aquí contradice a `SOURCE.md`, manda
 > `SOURCE.md`.
 

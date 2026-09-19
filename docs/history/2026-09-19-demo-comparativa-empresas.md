@@ -1,3 +1,7 @@
+> **Archivo histórico.** Copia anterior a la revisión documental del 19-09-2026.
+> Conserva propuestas, ejemplos y cifras anteriores; no describe necesariamente el código actual.
+> Consulta la [documentación vigente](../product/modules-guide.md).
+
 # Demo: dos empresas con el mismo score y decisiones diferentes
 
 > **Escenario ilustrativo.** Los nombres y cifras de este documento son ficticios y sirven para explicar cómo presentar el scoring, el forecast, la decisión crediticia y el playbook de tesorería. No representan resultados reales del dataset ni una oferta bancaria vinculante.

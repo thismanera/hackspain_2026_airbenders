@@ -8,7 +8,7 @@ import pptxgen from "pptxgenjs";
 import { parse } from "csv-parse/sync";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const outputDir = path.join(root, "docs");
+const outputDir = path.join(root, "docs", "artifacts");
 const groupId = process.env.SCORING_SLIDES_GROUP ?? "GROUP_0088";
 
 const C = {

@@ -2,7 +2,7 @@
 
 Source of truth de producto: **quién compra, quién usa, quién paga, quién
 decide compartir, qué se construye y con qué palabras**. Cómo se calcula el
-score, la previsión y la decisión vive en [`docs/SOURCE.md`](./docs/SOURCE.md);
+score, la previsión y la decisión vive en [`docs/product/SOURCE.md`](./docs/product/SOURCE.md);
 lo visual en [`DESIGN.md`](./DESIGN.md); las convenciones técnicas en
 [`AGENTS.md`](./AGENTS.md). En producto manda este documento; en cálculo manda
 `SOURCE.md`. Cambios respecto al enfoque inicial en §13.
