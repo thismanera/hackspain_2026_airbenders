@@ -15,7 +15,6 @@ import { loadMonthSearchParams } from "@/lib/features/portfolio/search-params";
 import { GruposClient } from "./grupos-client";
 
 export const metadata: Metadata = {
-  title: "Grupos · Embat Flow",
   description: "Aval, contagio y techo de circulante de cada holding.",
 };
 

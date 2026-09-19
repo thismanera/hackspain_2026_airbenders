@@ -8,10 +8,8 @@ export function AnimatedCard({ className, ...props }: CardProps) {
   return (
     <div
       role="region"
-      aria-labelledby="card-title"
-      aria-describedby="card-description"
       className={cn(
-        "group/animated-card relative w-[356px] overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-900 dark:bg-black",
+        "animated-card group/animated-card bg-card text-card-foreground relative w-full overflow-hidden rounded-[14px] border shadow-xs transition-all hover:shadow-sm",
         className
       )}
       {...props}
@@ -24,7 +22,7 @@ export function CardBody({ className, ...props }: CardProps) {
     <div
       role="group"
       className={cn(
-        "flex flex-col space-y-1.5 border-t border-zinc-200 p-4 dark:border-zinc-900",
+        "flex flex-col gap-1 border-t px-4 py-4 sm:p-5 text-center",
         className
       )}
       {...props}
@@ -38,7 +36,7 @@ export function CardTitle({ className, ...props }: CardTitleProps) {
   return (
     <h3
       className={cn(
-        "text-lg leading-none font-semibold tracking-tight text-black dark:text-white",
+        "text-base font-semibold tracking-[-0.01em] text-foreground",
         className
       )}
       {...props}
@@ -53,7 +51,7 @@ export function CardDescription({ className, ...props }: CardDescriptionProps) {
   return (
     <p
       className={cn(
-        "text-sm text-neutral-500 dark:text-neutral-400",
+        "text-muted-foreground text-xs sm:text-sm leading-relaxed",
         className
       )}
       {...props}
@@ -64,7 +62,7 @@ export function CardDescription({ className, ...props }: CardDescriptionProps) {
 export function CardVisual({ className, ...props }: CardProps) {
   return (
     <div
-      className={cn("h-[180px] w-[356px] overflow-hidden", className)}
+      className={cn("h-[150px] w-full overflow-hidden relative", className)}
       {...props}
     />
   )

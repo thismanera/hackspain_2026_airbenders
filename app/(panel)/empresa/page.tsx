@@ -16,7 +16,6 @@ import { loadPymeSearchParams } from "@/lib/features/portfolio/search-params";
 import { EmpresaClient } from "./empresa-client";
 
 export const metadata: Metadata = {
-  title: "Mi score · Embat Flow",
   description: "Lo que ve la empresa: su score, cómo se compara y qué tiene preaprobado.",
 };
 
