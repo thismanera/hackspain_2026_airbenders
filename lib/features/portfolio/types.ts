@@ -158,6 +158,8 @@ export type PortfolioRow = {
   alertCount: number;
   /** Últimos 12 scores, para la sparkline. */
   spark: number[];
+  /** D1: peso de la empresa dentro de su grupo. 1 si va sola. */
+  share: number;
 };
 
 export type PortfolioSummary = {
@@ -194,6 +196,56 @@ export type GroupPeer = {
   estado: Estado;
   /** Peso del hermano dentro del grupo (D1). */
   share: number;
+};
+
+/** Una empresa vista desde su grupo: lo justo para el techo y el grafo de flujo. */
+export type GroupMember = {
+  id: string;
+  score: number;
+  previousScore: number | null;
+  estado: Estado;
+  direction: Direccion;
+  /** D1. */
+  share: number;
+  /** D5. 0 si va sola. */
+  interdependence: number;
+  /** D3. 0 si va sola. */
+  support: number;
+  /** Puntos que el grupo suma o resta a su score. */
+  adjustment: number;
+  limit: number;
+  previousLimit: number;
+  eligible: boolean;
+  action: Accion;
+  changed: boolean;
+  alertCount: number;
+  blockedBy: string | null;
+};
+
+export type GroupHistoryPoint = {
+  month: string;
+  /** Media de scores ponderada por D1. */
+  score: number;
+  /** Suma de límites vivos. */
+  exposure: number;
+};
+
+export type GroupFileResponse = {
+  groupId: string;
+  month: string;
+  months: string[];
+  members: GroupMember[];
+  score: number;
+  previousScore: number | null;
+  byEstado: Record<Estado, number>;
+  exposure: number;
+  previousExposure: number;
+  eligible: number;
+  /** D5 medio ponderado por D1. */
+  interdependence: number;
+  /** Empresas con D1 ≥ 0,3 que cierran este mes: arrastran al resto (cross-default). */
+  crossDefault: string[];
+  history: GroupHistoryPoint[];
 };
 
 export type CompanyFileResponse = {

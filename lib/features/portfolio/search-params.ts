@@ -56,3 +56,16 @@ export const companySearchParams = {
 };
 
 export const loadCompanySearchParams = createLoader(companySearchParams);
+
+export const SHEET_TABS = ["decision", "score", "grupo"] as const;
+export type SheetTab = (typeof SHEET_TABS)[number];
+
+/**
+ * La ficha se abre encima de la cartera, sin abandonarla. Empresa o grupo, y la
+ * pestaña, van en la URL: el enlace a "esta empresa, pestaña score" existe.
+ */
+export const sheetSearchParams = {
+  empresa: parseAsString.withDefault(""),
+  grupo: parseAsString.withDefault(""),
+  pestana: parseAsStringLiteral(SHEET_TABS).withDefault("decision"),
+};

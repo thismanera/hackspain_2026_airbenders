@@ -2,6 +2,7 @@
 
 import { AlertTriangle, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import type { MouseEvent } from "react";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
 import { StatusBadge } from "@/components/grifo/status-badge";
@@ -15,11 +16,64 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/core/utils";
-import { formatApr, formatEuros, formatPercent, formatScore } from "@/lib/features/portfolio/format";
+import {
+  formatApr,
+  formatEuros,
+  formatPercent,
+  formatScore,
+} from "@/lib/features/portfolio/format";
 import type { PortfolioRow } from "@/lib/features/portfolio/types";
 
 function hrefFor(row: PortfolioRow, month: string): string {
   return `/cartera/${row.company.id}?mes=${month}`;
+}
+
+type Openers = {
+  /** Clic normal: la ficha se abre encima de la cartera. */
+  onOpenCompany?: (companyId: string) => void;
+  onOpenGroup?: (groupId: string) => void;
+};
+
+/** Solo el clic simple izquierdo se queda en la hoja; ⌘/ctrl/shift/central siguen siendo un enlace. */
+function plainClick(event: MouseEvent<HTMLElement>): boolean {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+}
+
+function GroupTag({
+  row,
+  onOpenGroup,
+  className,
+}: {
+  row: PortfolioRow;
+  onOpenGroup?: (groupId: string) => void;
+  className?: string;
+}) {
+  const label = (
+    <>
+      {row.company.groupId}
+      {row.company.groupSize > 1 ? (
+        <span className="hidden xl:inline"> · {row.company.groupSize} empresas</span>
+      ) : null}
+    </>
+  );
+  if (!onOpenGroup || row.company.groupSize <= 1) {
+    return (
+      <span className={cn("text-muted-foreground font-mono text-xs", className)}>{label}</span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenGroup(row.company.groupId)}
+      aria-label={`Abrir el grupo ${row.company.groupId}`}
+      className={cn(
+        "text-muted-foreground hover:text-foreground focus-visible:ring-ring relative z-10 w-fit rounded-sm font-mono text-xs underline-offset-2 transition-colors duration-150 hover:underline focus-visible:ring-2 focus-visible:outline-none",
+        className,
+      )}
+    >
+      {label}
+    </button>
+  );
 }
 
 function LimitCell({ row }: { row: PortfolioRow }) {
@@ -74,7 +128,18 @@ function AlertFlag({ count }: { count: number }) {
   );
 }
 
-export function PortfolioTable({ rows, month }: { rows: PortfolioRow[]; month: string }) {
+export function PortfolioTable({
+  rows,
+  month,
+  onOpenCompany,
+  onOpenGroup,
+}: { rows: PortfolioRow[]; month: string } & Openers) {
+  const companyClick = (row: PortfolioRow) => (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!onOpenCompany || !plainClick(event)) return;
+    event.preventDefault();
+    onOpenCompany(row.company.id);
+  };
+
   return (
     <>
       {/* Escritorio: tabla densa. La fila entera es un enlace real, así que el
@@ -104,21 +169,17 @@ export function PortfolioTable({ rows, month }: { rows: PortfolioRow[]; month: s
             {rows.map((row) => (
               <TableRow key={row.company.id} className="hover:bg-muted/40 relative">
                 <TableCell>
-                  <Link
-                    href={hrefFor(row, month)}
-                    className="focus-visible:ring-ring flex flex-col leading-tight after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
-                  >
-                    <span className="flex items-center gap-2">
+                  <span className="flex flex-col items-start leading-tight">
+                    <Link
+                      href={hrefFor(row, month)}
+                      onClick={companyClick(row)}
+                      className="focus-visible:ring-ring flex items-center gap-2 after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
+                    >
                       <span className="font-mono text-sm font-medium">{row.company.id}</span>
                       <AlertFlag count={row.alertCount} />
-                    </span>
-                    <span className="text-muted-foreground font-mono text-xs">
-                      {row.company.groupId}
-                      {row.company.groupSize > 1 ? (
-                        <span className="hidden xl:inline"> · {row.company.groupSize} empresas</span>
-                      ) : null}
-                    </span>
-                  </Link>
+                    </Link>
+                    <GroupTag row={row} onOpenGroup={onOpenGroup} />
+                  </span>
                 </TableCell>
                 <TableCell>
                   <StatusBadge estado={row.estado} />
@@ -180,16 +241,17 @@ export function PortfolioTable({ rows, month }: { rows: PortfolioRow[]; month: s
         {rows.map((row) => (
           <li key={row.company.id} className="bg-card relative rounded-xl border p-3">
             <div className="flex items-start justify-between gap-3">
-              <Link
-                href={hrefFor(row, month)}
-                className="focus-visible:ring-ring flex min-w-0 flex-col leading-tight after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
-              >
-                <span className="flex items-center gap-2">
+              <span className="flex min-w-0 flex-col items-start leading-tight">
+                <Link
+                  href={hrefFor(row, month)}
+                  onClick={companyClick(row)}
+                  className="focus-visible:ring-ring flex items-center gap-2 after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
+                >
                   <span className="font-mono text-sm font-medium">{row.company.id}</span>
                   <AlertFlag count={row.alertCount} />
-                </span>
-                <span className="text-muted-foreground font-mono text-xs">{row.company.groupId}</span>
-              </Link>
+                </Link>
+                <GroupTag row={row} onOpenGroup={onOpenGroup} />
+              </span>
               <StatusBadge estado={row.estado} />
             </div>
 
