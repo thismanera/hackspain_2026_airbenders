@@ -150,11 +150,10 @@ la demo.
 | --- | --- | --- |
 | 2 · categorías nuevas de #12 | `debt_drawdown` y `balance_adjustment` entran con confianza 0,90 | Son reglas sin precisión medida; medirla cuando haya etiquetas |
 | §5.2 · cuota esperada | Usa `outstanding_balance` (foto final) para el término de interés | Contradice "sin foto final"; efecto pequeño (~6 % de la cuota) |
-| 17 · techo de grupo | Σ límites del grupo ≤ límite consolidado | Ver decisión abierta C |
 
 ---
 
-## 3. Decisiones abiertas (con cifras para decidir)
+## 3. Decisiones de calibración (decididas el 19-09 con estas cifras)
 
 Contexto medido en 2026-08, el mes de la demo:
 
@@ -174,9 +173,9 @@ De las 79 que pasan las puertas, 34 las cierra el techo de grupo a 0 € y
 En los 24 meses: 244 empresas pasan las puertas algún mes, 177 dos meses
 seguidos, y solo 46 llegan a tener línea.
 
-Conclusión: hay dos capas. **El scoring deja pasar al 6 %** (confianza y
-caja estresada). **De ese 6 %, la dinámica mensual deja al 10 %** (techo
-de grupo y reapertura). Hay que decidir en las dos.
+Conclusión: había dos capas. **El scoring dejaba pasar al 6 %** (confianza
+y caja estresada). **De ese 6 %, la dinámica mensual dejaba al 10 %**
+(techo de grupo y reapertura). Se decidió en las dos (A-D) y se midió (E).
 
 ### A · Umbral de confianza en la puerta `historia`
 
@@ -200,10 +199,10 @@ Difícil de defender.
 **Mantener 0,5.** Pro: coherente con "sana = score ≥ 70 y confianza ≥
 0,5". Contra: la demo enseña una cartera casi cerrada.
 
-**Recomendación:** 0,4, y renombrar la puerta en la ficha como "historial
-mínimo: 5 meses". Justificación ante el jurado: la confianza sigue
-descontando el precio y el límite (haircut `min(1, confianza/0,6)`); la
-puerta solo decide si opinamos.
+**Decidido (Pablo, 19-09, SOURCE 39): 0,4.** La puerta se presenta como
+"historial mínimo: 5 meses". Justificación: la confianza sigue
+descontando precio y límite (haircut `min(1, confianza/0,6)`, +1 pp por
+debajo de 0,7); la puerta solo decide si opinamos.
 
 ### B · Estrés de la capacidad de cuota
 
@@ -233,9 +232,11 @@ límite operativo (80 % de tres meses de cobros) sigue acotando.
 **Sin estrés, cobertura 1,3.** Pro: +120 %. Contra: pierde el argumento
 "escenario adverso" que el jurado de Embat (ex banca) va a preguntar.
 
-**Recomendación:** −10 / +5 / 1,3. Se defiende como "escenario adverso
-moderado sobre datos ya conservadores" y mantiene el DSCR 1,3 intacto.
-Con A y B juntos: 153 elegibles en 2026-08 (×2 respecto a hoy).
+**Decidido (Pablo, 19-09, SOURCE 40): −10 / +5 / 1,3.** "Escenario
+adverso moderado sobre datos ya conservadores", DSCR 1,3 intacto. El
+estrés es parámetro propio del motor de decisión, que recalcula la
+capacidad; el scoring conserva el suyo (−20/+10) para el aval de grupo,
+porque mide otra cosa (si el padre puede cubrir, no cuánto prestar).
 
 ### C · Techo de grupo cuando la capacidad consolidada es 0
 
@@ -263,8 +264,9 @@ aval dos veces".
 la más prudente. Contra: contradice el aval: la misma filial que recibe
 +10 puntos de aval del padre puede quedar cerrada por el techo del padre.
 
-**Recomendación:** opción i, con el motivo visible. Es la única que
-mantiene coherente aval y techo.
+**Decidido (Pablo, 19-09, SOURCE 41): opción i.** Con capacidad
+consolidada 0 se baja una banda y la ficha dice "Grupo sin capacidad
+consolidada: banda −1". El prorrateo sigue cuando el techo es positivo.
 
 ### D · Cierre por una puerta y reapertura a dos meses
 
@@ -286,30 +288,41 @@ rápido a quien cerró por impago; pierde el argumento de prudencia.
 **Opción iii · mantener.** Pro: prudente. Contra: en la demo se ve
 abrir-cerrar-esperar-abrir en empresas sanas.
 
-**Recomendación:** opción i. Coherente con "un mes no es tendencia" que
-ya aplicamos en el score (dirección a tres meses, estructural a dos).
+**Decidido (Pablo, 19-09, SOURCE 42): opción i.** Fallar `historia` o la
+capacidad de `caja` un mes deja la línea en "pendiente confirmar cierre";
+el segundo mes seguido cierra. Impago, estado, clientes, grupo y tres
+meses de déficit cierran de inmediato.
 
-### E · Efecto combinado (estimación)
+### E · Efecto medido (run del motor tras aplicar A-D)
 
-| Escenario | Elegibles 2026-08 | Con línea (estimado) |
+| 2026-08 | Antes | Después |
 | --- | --- | --- |
-| Hoy | 79 | 8 |
-| A (0,4) + B (−10/+5) | 153 | ~40 |
-| A + B + C (techo i) | 153 | ~90 |
-| A + B + C + D (cierre confirmado) | 153 | ~120 |
+| Pasan las seis puertas | 79 | 147 |
+| Elegibles | 8 | 106 |
+| Con línea abierta | 8 | 116 |
+| En "pendiente confirmar cierre" | 0 | 10 |
+| Afectadas por techo cero (banda −1, abiertas) | 0 | 324 |
+| Cerradas por prorrateo del techo | 219 | 37 |
 
-Las estimaciones de "con línea" salen de aplicar cada regla a las 79-153
-que pasan las puertas; la cifra exacta la da el run del motor tras
-cambiar los parámetros (10 s).
+| 24 meses | Antes | Después |
+| --- | --- | --- |
+| Empresas que alguna vez tienen línea | 46 | 308 |
+| Acciones `abrir` / `ampliar` / `reducir` | 50 / 35 / 9 | 420 / 417 / 394 |
+| Oscilación (cambios de acción) | 5,8 % | 8,6 % (objetivo < 20 %) |
+| Exposición evitada (validación) | 405 k€ | 656 k€ |
+| Ingresos simulados (validación, uso 60 %) | 142 k€ | 1,89 M€ |
+
+Las propiedades §13 se mantienen: cero violaciones en 30.864 filas
+(propiedad 1 con la excepción documentada del cierre pendiente).
 
 ### F · Umbrales de alerta del backtest
 
 Recall de deterioro 0,14 con 95 % de falsas alarmas; recuperación 0,43 y
 89 %. Lead time mediano 3 meses sobre 2 eventos casados. Palancas:
 umbral de dirección (±6 puntos en tres meses), persistencia (2 meses),
-definición de evento (3 meses de déficit). Es la siguiente iteración del
-scoring, no de la decisión; sin ella, la slide de anticipación se apoya
-en dos casos.
+definición de evento (3 meses de déficit). **Fuera del alcance de este
+equipo de decisión**: lo trabaja el compañero del scoring. Sin ello, la
+slide de anticipación se apoya en dos casos.
 
 ---
 
