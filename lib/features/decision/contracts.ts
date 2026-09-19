@@ -1,19 +1,83 @@
 import { z } from "zod";
+import { DECISION_PARAMS } from "@/lib/features/decision/params";
+import { PUERTAS, type DecisionRow } from "@/lib/features/decision/types";
+import { PARAMS } from "@/lib/features/scoring/params";
 
 const finite = z.number().finite();
+const money = finite.min(0);
+const banda = z.enum(["A", "B", "C", "D"]);
+const accion = z.enum(["abrir", "ampliar", "mantener", "reducir", "cerrar"]);
+const mes = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
+const desglose = z.object({
+  base: finite,
+  primaPlazo: finite.min(0),
+  primaConfianza: finite.min(0),
+  ajusteTendencia: finite,
+  primaPrevision: finite.min(0),
+});
+const opcion = z.object({
+  plazo: z.number().int().positive(),
+  cantidadMax: money,
+  tae: finite.min(0).max(1),
+  costeMax: money,
+  desglose,
+});
+const estado = z.object({
+  LPrev: money,
+  accionPrev: accion.nullable(),
+  mesesElegibleSeguidos: z.number().int().min(0),
+  mesesReduccionSeguidos: z.number().int().min(0),
+  mesesPredPeorSeguidos: z.number().int().min(0),
+  cerradoDesde: mes.nullable(),
+  crossDefaultActivo: z.boolean(),
+  causaCrossDefault: z.string().nullable(),
+});
+
 export const decisionRowSchema = z.object({
   company: z.string().min(1),
-  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  month: mes.refine((m) => m >= PARAMS.mesInicio && m <= PARAMS.mesFin),
+  groupId: z.string().min(1),
+  motor: z.literal("v1"),
+  versionParametros: z.string().min(1),
+  elegible: z.boolean(),
+  motivo: z.string().nullable(),
+  puertasFallidas: z.array(z.enum(PUERTAS)),
+  banda,
+  bandaEfectiva: banda,
+  capacidadCuotaAdv: money,
+  limiteCap: money,
+  limiteOp: money,
+  L: money,
+  LVigente: money,
+  TMax: z
+    .number()
+    .int()
+    .min(0)
+    .max(Math.max(...Object.values(DECISION_PARAMS.tMax).map((t) => t.base))),
+  menu: z.array(opcion),
+  plazoNaturalAnticipo: z.number().int().positive(),
+  accion,
+  motivoAccion: z.string(),
+  motivoGrupo: z.string().nullable(),
+  bandaPred3mUsada: banda.nullable(),
+  estado,
+}) satisfies z.ZodType<DecisionRow>;
+export type DecisionRowDTO = z.infer<typeof decisionRowSchema>;
+
+/** Esquema del motor legacy (se elimina en la Tarea 11). */
+export const legacyDecisionRowSchema = z.object({
+  company: z.string().min(1),
+  month: mes,
   motor: z.literal("legacy"),
-  banda: z.enum(["A", "B", "C", "D"]),
+  banda,
   precio: finite.nullable(),
-  capacidadBase: finite.min(0),
-  capacidadAdv: finite.min(0),
-  limiteCap: finite.min(0),
-  limiteOp: finite.min(0),
-  limiteRecomendado: finite.min(0),
-  limiteVigente: finite.min(0),
-  accion: z.enum(["abrir", "ampliar", "mantener", "reducir", "cerrar"]),
+  capacidadBase: money,
+  capacidadAdv: money,
+  limiteCap: money,
+  limiteOp: money,
+  limiteRecomendado: money,
+  limiteVigente: money,
+  accion,
   motivo: z.string(),
 });
-export type DecisionRowDTO = z.infer<typeof decisionRowSchema>;
+export type LegacyDecisionRowDTO = z.infer<typeof legacyDecisionRowSchema>;

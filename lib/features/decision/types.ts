@@ -1,6 +1,94 @@
-export type Banda = "A" | "B" | "C" | "D";
+import type { Banda } from "@/lib/features/decision/params";
+import type { Direccion } from "@/lib/features/scoring/types";
+
+export type { Banda };
 export type Accion = "abrir" | "ampliar" | "mantener" | "reducir" | "cerrar";
+export const PUERTAS = ["historia", "estado", "fiabilidad", "caja", "clientes", "grupo"] as const;
+export type Puerta = (typeof PUERTAS)[number];
+
+/** Estado que el motor arrastra de un mes al siguiente (decision-engine §8). */
+export type EstadoDecision = {
+  LPrev: number;
+  accionPrev: Accion | null;
+  mesesElegibleSeguidos: number;
+  mesesReduccionSeguidos: number;
+  mesesPredPeorSeguidos: number;
+  cerradoDesde: string | null;
+  crossDefaultActivo: boolean;
+  causaCrossDefault: string | null;
+};
+
+export const ESTADO_INICIAL: EstadoDecision = {
+  LPrev: 0,
+  accionPrev: null,
+  mesesElegibleSeguidos: 0,
+  mesesReduccionSeguidos: 0,
+  mesesPredPeorSeguidos: 0,
+  cerradoDesde: null,
+  crossDefaultActivo: false,
+  causaCrossDefault: null,
+};
+
+export type DesgloseTae = {
+  base: number;
+  primaPlazo: number;
+  primaConfianza: number;
+  ajusteTendencia: number;
+  primaPrevision: number;
+};
+
+export type MenuOption = {
+  plazo: number;
+  cantidadMax: number;
+  tae: number;
+  costeMax: number;
+  desglose: DesgloseTae;
+};
+
+/** Entrada opcional del forecast-engine (§1). Sin previsión: `metodo = "desconectado"` y `bandaPred3m = banda`. */
+export type PrevisionInput = {
+  bandaPred3m: Banda;
+  scorePred3m: number | null;
+  direccionPred: Direccion | null;
+  probDeterioro6m: number | null;
+  metodo: "v1_proyeccion" | "v2_modelo" | "desconectado";
+};
+
+/** Contrato decision-engine §10. */
 export type DecisionRow = {
+  company: string;
+  month: string;
+  groupId: string;
+  motor: "v1";
+  versionParametros: string;
+  elegible: boolean;
+  motivo: string | null;
+  puertasFallidas: Puerta[];
+  banda: Banda;
+  bandaEfectiva: Banda;
+  capacidadCuotaAdv: number;
+  limiteCap: number;
+  limiteOp: number;
+  L: number;
+  LVigente: number;
+  TMax: number;
+  menu: MenuOption[];
+  plazoNaturalAnticipo: number;
+  accion: Accion;
+  motivoAccion: string;
+  motivoGrupo: string | null;
+  bandaPred3mUsada: Banda | null;
+  estado: EstadoDecision;
+};
+
+export type DecisionParameters = {
+  version: string;
+  paramsHash: string;
+  versionScoring: string;
+};
+
+/** Contrato del motor legacy (se elimina en la Tarea 11). */
+export type LegacyDecisionRow = {
   company: string;
   month: string;
   motor: "legacy";

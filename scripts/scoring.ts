@@ -6,9 +6,12 @@ import { fileURLToPath } from "node:url";
 import { once } from "node:events";
 import { createInterface } from "node:readline";
 
-import { decisionRowSchema, type DecisionRowDTO } from "../lib/features/decision/contracts";
+import {
+  legacyDecisionRowSchema,
+  type LegacyDecisionRowDTO,
+} from "../lib/features/decision/contracts";
 import { decideLegacy } from "../lib/features/decision/legacy";
-import type { DecisionRow } from "../lib/features/decision/types";
+import type { LegacyDecisionRow } from "../lib/features/decision/types";
 import { backtest } from "../lib/features/scoring/backtest";
 import { scoreRowSchema, type ScoreRowDTO } from "../lib/features/scoring/contracts";
 import {
@@ -78,7 +81,7 @@ async function* lines<T>(file: string): AsyncGenerator<T> {
 }
 async function put(
   stream: ReturnType<typeof createWriteStream>,
-  item: ScoreRowDTO | DecisionRowDTO,
+  item: ScoreRowDTO | LegacyDecisionRowDTO,
 ): Promise<void> {
   if (!stream.write(JSON.stringify(item) + "\n")) await once(stream, "drain");
 }
@@ -173,7 +176,7 @@ async function doDecide() {
     // `decideLegacy` arrastra el límite vigente del mes anterior: exige orden cronológico.
     rows.sort((a, b) => a.month.localeCompare(b.month));
     for (const decision of decideLegacy(rows)) {
-      await put(output, decisionRowSchema.parse(decision));
+      await put(output, legacyDecisionRowSchema.parse(decision));
       count++;
     }
   }
@@ -261,7 +264,7 @@ async function doImport() {
   await flush();
   if (imported !== manifest.rows)
     throw new Error(`imported ${imported}, expected ${manifest.rows}`);
-  let decisions: DecisionRow[] = [];
+  let decisions: LegacyDecisionRow[] = [];
   let importedDecisions = 0;
   async function flushDecisions() {
     if (!decisions.length) return;
@@ -280,8 +283,8 @@ async function doImport() {
     importedDecisions += decisions.length;
     decisions = [];
   }
-  for await (const d of lines<DecisionRow>(path.join(run, "decisions.jsonl"))) {
-    decisions.push(decisionRowSchema.parse(d));
+  for await (const d of lines<LegacyDecisionRow>(path.join(run, "decisions.jsonl"))) {
+    decisions.push(legacyDecisionRowSchema.parse(d));
     if (decisions.length >= 500) await flushDecisions();
   }
   await flushDecisions();

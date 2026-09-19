@@ -7,7 +7,7 @@
  * 2. Se usa la amortización bruta en vez del movimiento neteado de la línea de crédito.
  * 3. El límite operativo es `media3m × 3`, no la suma de los tres meses.
  */
-import type { Accion, Banda, DecisionRow } from "@/lib/features/decision/types";
+import type { Accion, Banda, LegacyDecisionRow } from "@/lib/features/decision/types";
 import type { ScoreRow } from "@/lib/features/scoring/types";
 
 const LEGACY = {
@@ -38,8 +38,8 @@ function lower(b: Banda): Banda {
 }
 
 /** rows: filas de UNA empresa en orden cronológico. */
-export function decideLegacy(rows: ScoreRow[]): DecisionRow[] {
-  const out: DecisionRow[] = [];
+export function decideLegacy(rows: ScoreRow[]): LegacyDecisionRow[] {
+  const out: LegacyDecisionRow[] = [];
   for (let t = 0; t < rows.length; t++) {
     const r = rows[t],
       prev = out[t - 1],

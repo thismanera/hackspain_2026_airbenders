@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { prisma } from "@/lib/core/db";
-import { decisionRowSchema, type DecisionRowDTO } from "@/lib/features/decision/contracts";
+import {
+  legacyDecisionRowSchema,
+  type LegacyDecisionRowDTO,
+} from "@/lib/features/decision/contracts";
 import { scoreRowSchema, type ScoreRowDTO } from "@/lib/features/scoring/contracts";
 
 export const listQuery = z.object({
@@ -34,7 +37,7 @@ export function invalid(error: z.ZodError): Response {
 function merged(row: { data: unknown; decision: { data: unknown } | null }) {
   return {
     score: scoreRowSchema.parse(row.data),
-    decision: row.decision ? decisionRowSchema.parse(row.decision.data) : null,
+    decision: row.decision ? legacyDecisionRowSchema.parse(row.decision.data) : null,
   };
 }
 export async function listCompanies(request: Request): Promise<Response> {
@@ -99,7 +102,7 @@ export async function runDetail(runId: string): Promise<Response> {
   });
 }
 function cell(
-  value: ScoreRowDTO[keyof ScoreRowDTO] | DecisionRowDTO[keyof DecisionRowDTO],
+  value: ScoreRowDTO[keyof ScoreRowDTO] | LegacyDecisionRowDTO[keyof LegacyDecisionRowDTO],
 ): string {
   const s =
     typeof value === "object" && value !== null ? JSON.stringify(value) : String(value ?? "");
@@ -134,7 +137,7 @@ const DECISION_KEYS = [
   "limiteRecomendado",
   "limiteVigente",
   "precio",
-] as const satisfies readonly (keyof DecisionRowDTO)[];
+] as const satisfies readonly (keyof LegacyDecisionRowDTO)[];
 export async function exportScores(request: Request): Promise<Response> {
   const parsed = z
     .object({

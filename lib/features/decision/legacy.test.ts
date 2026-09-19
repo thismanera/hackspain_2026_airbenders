@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { decisionRowSchema } from "@/lib/features/decision/contracts";
+import { legacyDecisionRowSchema } from "@/lib/features/decision/contracts";
 import { decideLegacy } from "@/lib/features/decision/legacy";
 import { scoreRowFixture } from "@/lib/features/scoring/__fixtures__/score-row";
 import type { ScoreRow } from "@/lib/features/scoring/types";
@@ -18,7 +18,7 @@ const redondeado = (x: number) => Math.round(x / 1000) * 1000;
 test("legacy decision reproduces band A limit and opens on first month", () => {
   const d = decideLegacy([row(CALENDAR[0]), row(CALENDAR[1])]);
   assert.equal(d.length, 2);
-  for (const x of d) decisionRowSchema.parse(x);
+  for (const x of d) legacyDecisionRowSchema.parse(x);
   assert.equal(d[0].banda, "A");
   assert.equal(d[0].accion, "abrir");
   assert.equal(d[0].limiteRecomendado, redondeado(Math.min(LIMITE_CAP, 0.8 * 300_000)));
