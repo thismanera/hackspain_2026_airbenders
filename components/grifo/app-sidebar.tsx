@@ -172,12 +172,7 @@ export function AppSidebar() {
       <SidebarHeader className="border-b px-4 py-3">
         <Link href="/cartera" className="flex items-center gap-2.5 rounded-md">
           <EmbatMark size={28} />
-          <span className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold">Embat Flow</span>
-            <span className="text-muted-foreground text-xs">
-              Circulante que se recalcula cada mes
-            </span>
-          </span>
+          <span className="text-sm font-semibold leading-tight">Embat Flow</span>
         </Link>
       </SidebarHeader>
 

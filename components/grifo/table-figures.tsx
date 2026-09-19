@@ -77,18 +77,20 @@ export function MoneyDelta({
   );
 }
 
-/** Importe actual y, si cambió, el delta en euros. Límite, techo y alerta. */
+/** Importe actual; opcionalmente el delta en euros debajo (p. ej. techo y alerta). */
 export function MoneyFigure({
   amount,
   previous,
   empty = "Sin línea",
   align = "end",
+  showDelta = true,
   className,
 }: {
   amount: number;
   previous?: number | null;
   empty?: string;
   align?: "start" | "end" | "center";
+  showDelta?: boolean;
   className?: string;
 }) {
   const prior = previous ?? amount;
@@ -106,6 +108,20 @@ export function MoneyFigure({
         )}
       >
         {empty}
+      </span>
+    );
+  }
+
+  if (!showDelta) {
+    return (
+      <span
+        className={cn(
+          "font-medium tabular-nums",
+          align === "center" && "block text-center",
+          className,
+        )}
+      >
+        {formatEuros(amount)}
       </span>
     );
   }

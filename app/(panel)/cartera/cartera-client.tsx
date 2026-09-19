@@ -55,7 +55,6 @@ export function CarteraClient() {
       <PortfolioKpis
         summary={data.summary}
         previous={data.previous}
-        history={data.history}
         filters={filters}
         onChange={onChange}
       />
