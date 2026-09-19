@@ -51,7 +51,7 @@ export function CompanyClient({ companyId, month }: { companyId: string; month: 
               )}
             >
               {formatScore(latest.score)}
-              <TrendDelta trend3m={latest.trend3m} direction={latest.direction} />
+              <TrendDelta trend3m={latest.trend3m} direction={latest.direction} showWindow />
             </dd>
           </div>
           <div>
@@ -84,7 +84,7 @@ export function CompanyClient({ companyId, month }: { companyId: string; month: 
         </div>
 
         <div className="flex flex-col gap-4">
-          <OfferMenu options={latest.decision.menu} />
+          {latest.decision.eligible ? <OfferMenu options={latest.decision.menu} /> : null}
           <GatesPanel gates={latest.decision.gates} />
           <AlertsTimeline alerts={latest.alerts} />
           {latest.group && peers.length > 0 ? (

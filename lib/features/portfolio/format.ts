@@ -107,11 +107,11 @@ export function formatMonthShort(month: string): string {
   return `${MONTHS_ES_SHORT[Number(index) - 1]} ${year}`;
 }
 
-/** "2026-08" → "ago". Para el eje X de series largas. */
+/** "2026-08" → "ago". Enero y agosto llevan año para no confundir dos ciclos. */
 export function formatMonthTick(month: string): string {
   const [year, index] = month.split("-");
   const label = MONTHS_ES_SHORT[Number(index) - 1];
-  return index === "01" ? `${label} ${year.slice(2)}` : label;
+  return index === "01" || index === "08" ? `${label} ${year.slice(2)}` : label;
 }
 
 /** Valor bruto de un indicador, en la unidad que le corresponde. */
