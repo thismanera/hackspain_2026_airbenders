@@ -1,6 +1,14 @@
 "use client";
 
-import { AlertTriangle, CircleSlash, Layers, TrendingDown } from "lucide-react";
+import {
+  Bell,
+  Building2,
+  FlaskConical,
+  Layers,
+  Network,
+  Scale,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -18,45 +26,88 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
+type NavItem = { label: string; href: string; icon: LucideIcon; hint: string };
+
 /**
- * Las "vistas" no son secciones inventadas: cada una es la cartera con un filtro
- * distinto, el mismo estado que vive en la URL. Un enlace aquí y teclear el
- * filtro a mano llevan exactamente al mismo sitio.
+ * Una sección por actor de PRODUCT §3. El partner y el CFO de grupo trabajan la
+ * cartera; la empresa mira su propio score; el jurado mide el motor. Cada
+ * entrada es una página con su URL, y el mes que se está mirando viaja con ella.
  */
-const VIEWS = [
-  { label: "Todas las empresas", icon: Layers, estado: null, direccion: null },
-  { label: "En riesgo", icon: AlertTriangle, estado: "riesgo", direccion: null },
-  { label: "Con deterioro", icon: TrendingDown, estado: null, direccion: "deterioro" },
-  { label: "Sin datos suficientes", icon: CircleSlash, estado: "sin_datos", direccion: null },
-] as const;
+const SECTIONS: { label: string; items: NavItem[] }[] = [
+  {
+    label: "Cartera",
+    items: [
+      {
+        label: "Empresas",
+        href: "/cartera",
+        icon: Layers,
+        hint: "Quién está sano, quién se tuerce",
+      },
+      { label: "Grupos", href: "/grupos", icon: Network, hint: "Aval, contagio y techo" },
+      { label: "Alertas", href: "/alertas", icon: Bell, hint: "Deterioro y mejora, fechados" },
+      {
+        label: "Comparar",
+        href: "/comparar",
+        icon: Scale,
+        hint: "Hasta tres empresas lado a lado",
+      },
+    ],
+  },
+  {
+    label: "Empresa",
+    items: [
+      {
+        label: "Mi score",
+        href: "/empresa",
+        icon: Building2,
+        hint: "Lo que ve la empresa antes de pedir",
+      },
+    ],
+  },
+  {
+    label: "Modelo",
+    items: [
+      {
+        label: "Backtest",
+        href: "/backtest",
+        icon: FlaskConical,
+        hint: "Cuánto antes avisó el motor",
+      },
+    ],
+  },
+];
 
-type ViewFilter = { estado: string | null; direccion: string | null };
-
-function hrefFor(view: ViewFilter, month: string | null): string {
-  const params = new URLSearchParams();
-  if (view.estado) params.set("estado", view.estado);
-  if (view.direccion) params.set("direccion", view.direccion);
-  if (month) params.set("mes", month);
-  const search = params.toString();
-  return search ? `/cartera?${search}` : "/cartera";
+function hrefWithMonth(href: string, month: string | null): string {
+  return month ? `${href}?mes=${month}` : href;
 }
 
-function ViewsMenu({ month, current }: { month: string | null; current: ViewFilter | null }) {
+function NavMenu({
+  items,
+  month,
+  pathname,
+}: {
+  items: NavItem[];
+  month: string | null;
+  pathname: string | null;
+}) {
   return (
     <SidebarMenu>
-      {VIEWS.map((view) => {
-        const active =
-          current !== null && current.estado === view.estado && current.direccion === view.direccion;
+      {items.map((item) => {
+        const active = pathname === item.href || pathname?.startsWith(`${item.href}/`) === true;
         return (
-          <SidebarMenuItem key={view.label}>
+          <SidebarMenuItem key={item.href}>
             <SidebarMenuButton
               isActive={active}
+              tooltip={item.hint}
               render={
-                <Link href={hrefFor(view, month)} aria-current={active ? "page" : undefined} />
+                <Link
+                  href={hrefWithMonth(item.href, month)}
+                  aria-current={active ? "page" : undefined}
+                />
               }
             >
-              <view.icon aria-hidden className="size-4" />
-              <span>{view.label}</span>
+              <item.icon aria-hidden className="size-4" />
+              <span>{item.label}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         );
@@ -65,19 +116,36 @@ function ViewsMenu({ month, current }: { month: string | null; current: ViewFilt
   );
 }
 
-function LiveViewsMenu() {
+function LiveNav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-
+  const month = searchParams.get("mes");
   return (
-    <ViewsMenu
-      month={searchParams.get("mes")}
-      current={
-        pathname === "/cartera"
-          ? { estado: searchParams.get("estado"), direccion: searchParams.get("direccion") }
-          : null
-      }
-    />
+    <>
+      {SECTIONS.map((section) => (
+        <SidebarGroup key={section.label}>
+          <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <NavMenu items={section.items} month={month} pathname={pathname} />
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ))}
+    </>
+  );
+}
+
+function StaticNav() {
+  return (
+    <>
+      {SECTIONS.map((section) => (
+        <SidebarGroup key={section.label}>
+          <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <NavMenu items={section.items} month={null} pathname={null} />
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ))}
+    </>
   );
 }
 
@@ -90,29 +158,26 @@ export function AppSidebar() {
             aria-hidden
             className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md text-sm font-semibold"
           >
-            G
+            E
           </span>
           <span className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold">Grifo</span>
-            <span className="text-muted-foreground text-xs">Decisión de crédito</span>
+            <span className="text-sm font-semibold">Embat Flow</span>
+            <span className="text-muted-foreground text-xs">
+              Circulante que se recalcula cada mes
+            </span>
           </span>
         </Link>
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Cartera</SidebarGroupLabel>
-          <SidebarGroupContent>
-            {/* Solo el menú lee la URL, y por eso solo él necesita el límite de
-                Suspense que exige useSearchParams. Envolver la barra entera
-                retrasaría su hidratación hasta después de que el proveedor
-                detecte el móvil, y servidor y cliente renderizarían variantes
-                distintas (rail vs. panel deslizante). */}
-            <Suspense fallback={<ViewsMenu month={null} current={null} />}>
-              <LiveViewsMenu />
-            </Suspense>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Solo el menú lee la URL, y por eso solo él necesita el límite de
+            Suspense que exige useSearchParams. Envolver la barra entera
+            retrasaría su hidratación hasta después de que el proveedor
+            detecte el móvil, y servidor y cliente renderizarían variantes
+            distintas (rail vs. panel deslizante). */}
+        <Suspense fallback={<StaticNav />}>
+          <LiveNav />
+        </Suspense>
       </SidebarContent>
 
       <SidebarFooter className="border-t">

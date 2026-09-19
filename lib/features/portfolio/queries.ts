@@ -1,4 +1,12 @@
-import type { CompanyFileResponse, GroupFileResponse, PortfolioResponse } from "./types";
+import type {
+  AlertsResponse,
+  BacktestResponse,
+  BenchmarkResponse,
+  CompanyFileResponse,
+  GroupFileResponse,
+  GroupsResponse,
+  PortfolioResponse,
+} from "./types";
 import type { PortfolioSearchState } from "./search-params";
 
 /**
@@ -12,7 +20,55 @@ export const portfolioKeys = {
   company: (companyId: string, month: string) =>
     ["portfolio", "company", companyId, month] as const,
   group: (groupId: string, month: string) => ["portfolio", "group", groupId, month] as const,
+  groups: (month: string) => ["portfolio", "groups", month] as const,
+  alerts: (month: string) => ["portfolio", "alerts", month] as const,
+  backtest: (month: string) => ["portfolio", "backtest", month] as const,
+  benchmark: (companyId: string, month: string) =>
+    ["portfolio", "benchmark", companyId, month] as const,
 };
+
+async function getJson<T>(url: string, notFound: string, failed: string): Promise<T> {
+  const res = await fetch(url, { cache: "no-store" });
+  if (res.status === 404) throw new Error(notFound);
+  if (!res.ok) throw new Error(failed);
+  return res.json();
+}
+
+export function fetchGroups(month: string, baseUrl = ""): Promise<GroupsResponse> {
+  return getJson(
+    `${baseUrl}/api/portfolio/groups?month=${month}`,
+    "Sin grupos",
+    "No se han podido cargar los grupos",
+  );
+}
+
+export function fetchAlerts(month: string, baseUrl = ""): Promise<AlertsResponse> {
+  return getJson(
+    `${baseUrl}/api/portfolio/alerts?month=${month}`,
+    "Sin alertas",
+    "No se han podido cargar las alertas",
+  );
+}
+
+export function fetchBacktest(month: string, baseUrl = ""): Promise<BacktestResponse> {
+  return getJson(
+    `${baseUrl}/api/portfolio/backtest?month=${month}`,
+    "Sin backtest",
+    "No se ha podido cargar el backtest",
+  );
+}
+
+export function fetchBenchmark(
+  companyId: string,
+  month: string,
+  baseUrl = "",
+): Promise<BenchmarkResponse> {
+  return getJson(
+    `${baseUrl}/api/portfolio/companies/${encodeURIComponent(companyId)}/benchmark?month=${month}`,
+    "Empresa no encontrada",
+    "No se ha podido cargar el benchmark",
+  );
+}
 
 function toSearch(filters: PortfolioSearchState): string {
   const search = new URLSearchParams({ month: filters.mes });

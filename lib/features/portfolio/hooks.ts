@@ -3,9 +3,22 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useQueryStates } from "nuqs";
 
-import { fetchCompanyFile, fetchGroupFile, fetchPortfolio, portfolioKeys } from "./queries";
 import {
+  fetchAlerts,
+  fetchBacktest,
+  fetchBenchmark,
+  fetchCompanyFile,
+  fetchGroupFile,
+  fetchGroups,
+  fetchPortfolio,
+  portfolioKeys,
+} from "./queries";
+import {
+  alertsSearchParams,
+  compareSearchParams,
+  monthSearchParams,
   portfolioSearchParams,
+  pymeSearchParams,
   sheetSearchParams,
   type PortfolioSearchState,
 } from "./search-params";
@@ -50,6 +63,54 @@ export function useGroupFile(groupId: string, month: string) {
   return useSuspenseQuery({
     queryKey: portfolioKeys.group(groupId, month),
     queryFn: () => fetchGroupFile(groupId, month),
+    ...SCORING_CADENCE,
+  });
+}
+
+export function useMonth() {
+  return useQueryStates(monthSearchParams);
+}
+
+export function useAlertsState() {
+  return useQueryStates(alertsSearchParams);
+}
+
+export function usePymeState() {
+  return useQueryStates(pymeSearchParams);
+}
+
+export function useCompareState() {
+  return useQueryStates(compareSearchParams);
+}
+
+export function useGroups(month: string) {
+  return useSuspenseQuery({
+    queryKey: portfolioKeys.groups(month),
+    queryFn: () => fetchGroups(month),
+    ...SCORING_CADENCE,
+  });
+}
+
+export function useAlerts(month: string) {
+  return useSuspenseQuery({
+    queryKey: portfolioKeys.alerts(month),
+    queryFn: () => fetchAlerts(month),
+    ...SCORING_CADENCE,
+  });
+}
+
+export function useBacktest(month: string) {
+  return useSuspenseQuery({
+    queryKey: portfolioKeys.backtest(month),
+    queryFn: () => fetchBacktest(month),
+    ...SCORING_CADENCE,
+  });
+}
+
+export function useBenchmark(companyId: string, month: string) {
+  return useSuspenseQuery({
+    queryKey: portfolioKeys.benchmark(companyId, month),
+    queryFn: () => fetchBenchmark(companyId, month),
     ...SCORING_CADENCE,
   });
 }
