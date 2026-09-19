@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { decidirAccion, siguienteEstado } from "@/lib/features/decision/action";
+import { DECISION_PARAMS as P } from "@/lib/features/decision/params";
 import { ESTADO_INICIAL, type EstadoDecision } from "@/lib/features/decision/types";
 import { scoreRowFixture } from "@/lib/features/scoring/__fixtures__/score-row";
 import type { ScoreRow } from "@/lib/features/scoring/types";
@@ -18,7 +19,7 @@ const sana = (i: number, p: Partial<ScoreRow> = {}) =>
 
 function run(rows: ScoreRow[], bandaPred: (r: ScoreRow) => "A" | "B" | "C" | "D" = () => "A") {
   let estado: EstadoDecision = ESTADO_INICIAL;
-  return rows.map((r) => {
+  const out = rows.map((r) => {
     const d = decidirAccion(
       r,
       {
@@ -32,6 +33,10 @@ function run(rows: ScoreRow[], bandaPred: (r: ScoreRow) => "A" | "B" | "C" | "D"
     estado = siguienteEstado(estado, d, r, bandaPred(r));
     return { ...d, estado };
   });
+  // Propiedad transversal: la histéresis nunca saca a `L_vigente` del grid de `redondeo_L`.
+  for (const d of out)
+    assert.equal(d.LVigente % P.redondeoL, 0, `L_vigente fuera del grid: ${d.LVigente}`);
+  return out;
 }
 
 test("sana: abrir at month 1, mantener afterwards", () => {
@@ -108,4 +113,59 @@ test("previsión peor: hold, then preventive reducir after 2 months; never ampli
   assert.equal(out[3].accion, "mantener");
   assert.equal(out[3].LVigente, 90_000);
   assert.notEqual(out[3].accion, "ampliar");
+});
+
+test("not eligible ⇒ L and L_vigente are 0, but limite_cap/limite_op stay on the row", () => {
+  const r = sana(0);
+  const d = decidirAccion(
+    r,
+    { elegible: false, motivo: "Historial insuficiente", puertasFallidas: ["historia"] },
+    "A",
+    ESTADO_INICIAL,
+  );
+  assert.equal(d.accion, "cerrar");
+  assert.equal(d.L, 0);
+  assert.equal(d.LVigente, 0);
+  assert.equal(d.limite.limiteCap, 120_000);
+  assert.equal(d.limite.limiteOp, 240_000);
+});
+
+test("nothing to open: L = 0 comes out as mantener, not abrir", () => {
+  // banda D (score 40) pero elegible por la puerta falsa del helper: factor 0 → L = 0.
+  const out = run([sana(0, { score: 46, capacidadCuotaAdv: 0 })]);
+  assert.equal(out[0].L, 0);
+  assert.equal(out[0].accion, "mantener");
+  assert.equal(out[0].LVigente, 0);
+});
+
+test("a confirmed reducir resets the counter and a later recovery can ampliar again", () => {
+  const out = run([
+    sana(0),
+    sana(1, { capacidadCuotaAdv: 5_000 }),
+    sana(2, { capacidadCuotaAdv: 5_000 }),
+    sana(3, { capacidadCuotaAdv: 10_000, direccion: "mejora" }),
+  ]);
+  assert.equal(out[2].accion, "reducir");
+  assert.equal(out[2].LVigente, 90_000);
+  assert.equal(out[2].estado.mesesReduccionSeguidos, 2);
+  // mes 4: L vuelve a 120 k > 1,15 × 90 k → ampliar y el contador de bajadas se reinicia.
+  // Techo del grid: 90 000 × 1,25 = 112 500 → 112 000.
+  assert.equal(out[3].accion, "ampliar");
+  assert.equal(out[3].LVigente, 112_000);
+  assert.equal(out[3].estado.mesesReduccionSeguidos, 0);
+});
+
+test("the hysteresis band lands on the redondeo_L grid on both sides", () => {
+  // Lp = 67 000: techo 83 750 → 83 000 (abajo) · suelo 50 250 → 51 000 (arriba)
+  const prev: EstadoDecision = { ...ESTADO_INICIAL, LPrev: 67_000, accionPrev: "abrir" };
+  const e = { elegible: true, motivo: null, puertasFallidas: [] };
+  const arriba = decidirAccion(sana(1, { capacidadCuotaAdv: 30_000 }), e, "A", prev);
+  assert.equal(arriba.accion, "ampliar");
+  assert.equal(arriba.LVigente, 83_000);
+  const abajo = decidirAccion(sana(1, { capacidadCuotaAdv: 1_000 }), e, "A", {
+    ...prev,
+    mesesReduccionSeguidos: 1,
+  });
+  assert.equal(abajo.accion, "reducir");
+  assert.equal(abajo.LVigente, 51_000);
 });

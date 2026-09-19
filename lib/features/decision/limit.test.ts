@@ -56,3 +56,14 @@ test("limit = min(cap×12, 0.8×3m cobros) × factor × confianza haircut, round
     14_000,
   );
 });
+
+test("the operating limit binds when receipts are small next to the instalment capacity", () => {
+  // cap × 12 = 600 000 pero 0,8 × 100 000 × 3 = 240 000: manda `limiteOp`.
+  const r = scoreRowFixture({ capacidadCuotaAdv: 50_000, cobrosOpMedia3m: 100_000, confianza: 1 });
+  const l = limite(r, "A");
+  assert.equal(l.limiteCap, 600_000);
+  assert.equal(l.limiteOp, 240_000);
+  assert.ok(l.limiteOp < l.limiteCap);
+  assert.equal(l.L, 240_000);
+  assert.equal(limite(r, "B").L, 168_000); // 240 000 × 0,7
+});

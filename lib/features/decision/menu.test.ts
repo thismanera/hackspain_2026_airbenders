@@ -26,6 +26,11 @@ test("sana fixture menu: amounts grow with tenor up to L, TAE grows, capped by T
   assert.deepEqual(menu(r, 0, 180, "A", "A"), []);
 });
 
+test("band D has no price, so it has no menu", () => {
+  const r = scoreRowFixture({ capacidadCuotaAdv: 10_000, cobrosOpMedia3m: 100_000, score: 40 });
+  assert.deepEqual(menu(r, 120_000, 180, "D", "D"), []);
+});
+
 test("valida a request against the menu; plazo natural from C3", () => {
   const r = scoreRowFixture({
     capacidadCuotaAdv: 10_000,
@@ -37,6 +42,9 @@ test("valida a request against the menu; plazo natural from C3", () => {
   assert.equal(valida({ cantidad: 25_000, plazo: 60 }, m), false);
   assert.equal(valida({ cantidad: 25_000, plazo: 75 }, m), true); // primera opción con plazo ≥ 75 es 90 d
   assert.equal(valida({ cantidad: 1, plazo: 200 }, m), false);
+  // el borde de la región factible entra: cantidad == cantidad_max
+  assert.equal(valida({ cantidad: m[2].cantidadMax, plazo: 90 }, m), true);
+  assert.equal(valida({ cantidad: m[2].cantidadMax + 1, plazo: 90 }, m), false);
   assert.equal(plazoNatural(scoreRowFixture({ C3dias: 45 })), 60);
   assert.equal(plazoNatural(scoreRowFixture({ C3dias: null })), 60);
   assert.equal(plazoNatural(scoreRowFixture({ C3dias: 200 })), 180);
