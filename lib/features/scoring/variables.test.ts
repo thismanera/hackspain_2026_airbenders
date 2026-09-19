@@ -108,3 +108,40 @@ test("B3 median supplier delay from paid invoices in the last 6 months", () => {
   assert.equal(vars.B3.raw, 6); // mediana de 10 y 2; la de febrero queda fuera (pagada tras fin(t))
   assert.ok(Math.abs(vars.B3.conf - 2 / 5) < 1e-9);
 });
+
+test("C1/C2 concentration over 12 months of identified counterparties", () => {
+  const h = sanaHistory(6, (f) => {
+    f.pagosPorContraparte = { p1: 40_000, p2: 5_000, p3: 5_000, p4: 5_000 };
+  });
+  const { vars } = computeVariables(input(h, 5));
+  assert.ok(Math.abs(vars.C1.raw! - 0.3) < 1e-9); // 10 clientes iguales
+  assert.ok(Math.abs(vars.C2.raw! - 50 / 55) < 1e-9);
+  assert.ok(Math.abs(vars.C1.conf - (6 / 12) * 1) < 1e-9); // identificados 100 %, ventana 6/12
+});
+
+test("C3, C4 from client invoices; C6 from returned receipts; C5 needs 6 observations", () => {
+  const inv = (id: string, due: string, paid: string, status: string, amount: number): Invoice => ({
+    id,
+    company: "c",
+    issued: "2024-12-01",
+    due,
+    paid,
+    amount,
+    status,
+    counterparty: "k",
+  });
+  const invoices = [
+    inv("1", "2025-01-05", "2025-01-15", "paid", 100),
+    inv("2", "2025-01-05", "2025-01-05", "overdue", 300),
+    inv("3", "2025-01-05", "2025-03-01", "paid", 100), // pagada tras fin(t): vencida en t
+  ];
+  const h = sanaHistory(6, (f) => (f.recibosDevueltos = 2_000));
+  const { vars, extras } = computeVariables(input(h, 4, { invoices })); // t=4 → 2025-01
+  assert.equal(vars.C3.raw, 10);
+  assert.ok(Math.abs(vars.C4.raw! - 400 / 500) < 1e-9);
+  assert.equal(extras.C4, vars.C4.raw);
+  assert.ok(Math.abs(vars.C6.raw! - 0.02) < 1e-9);
+  assert.equal(vars.C5.raw, null); // 5 meses observados < 6
+  const { vars: v6 } = computeVariables(input(h, 5));
+  assert.equal(v6.C5.raw, 0); // 6 meses iguales → MAD 0
+});

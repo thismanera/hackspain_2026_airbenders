@@ -2,7 +2,15 @@ import { pctClasificado } from "@/lib/features/scoring/flows";
 import { PARAMS, VARIABLES, type VariableId } from "@/lib/features/scoring/params";
 import type { Extras, Flow, Invoice, VariableSet } from "@/lib/features/scoring/types";
 import { OBLIGACIONES, type Obligacion } from "@/lib/features/scoring/types";
-import { CALENDAR, divide, endOfMonth, median, sum, window } from "@/lib/features/scoring/windows";
+import {
+  CALENDAR,
+  divide,
+  endOfMonth,
+  mad,
+  median,
+  sum,
+  window,
+} from "@/lib/features/scoring/windows";
 
 export type VariableInput = {
   company: string;
@@ -164,7 +172,38 @@ export function computeVariables(input: VariableInput): { vars: VariableSet; ext
   extras.rachaB2Prev = [1, 2, 3].map((k) => rachaAt(history, t - k, input.scheduleMonthly));
   extras.cobertura.nFacturasProv6m = paidSupplier.length;
 
-  // ---- Bloque C (Tarea 8): insertar aquí
+  // ---- Bloque C
+  const top3Share = (key: "cobrosPorContraparte" | "pagosPorContraparte", total: number) => {
+    const by: Record<string, number> = {};
+    for (const f of w12)
+      if (f) for (const [cp, a] of Object.entries(f[key])) by[cp] = (by[cp] ?? 0) + a;
+    const vals = Object.values(by).sort((a, b) => b - a);
+    const identificado = sum(vals);
+    return {
+      raw: divide(sum(vals.slice(0, 3)), identificado),
+      conf: (obs12 / 12) * (total > 0 ? identificado / total : 0),
+    };
+  };
+  const c1 = top3Share("cobrosPorContraparte", extras.cobrosOp12m);
+  const c2 = top3Share("pagosPorContraparte", extras.pagosOp12m);
+  vars.C1 = val(c1.raw, c1.conf);
+  vars.C2 = val(c2.raw, c2.conf);
+  const client = eligible.filter((i) => i.amount > 0);
+  const paidClient = client.filter((i) => paidAt(i, end) && i.paid >= start6);
+  const dueClient = client.filter((i) => i.due >= start6 && i.due <= end);
+  const vencido = divide(
+    sum(dueClient.filter((i) => !paidAt(i, end)).map((i) => i.amount)),
+    sum(dueClient.map((i) => i.amount)),
+  );
+  vars.C3 = val(medianDelay(paidClient), Math.min(1, paidClient.length / PARAMS.nFacturasRef));
+  vars.C4 = val(vencido, Math.min(1, dueClient.length / PARAMS.nFacturasRef));
+  const obsCobros = w12.filter((f): f is Flow => !!f).map((f) => f.cobrosOp);
+  const med = obsCobros.length >= PARAMS.minObsVolatilidad ? median(obsCobros) : null;
+  vars.C5 = val(med && med > 0 ? mad(obsCobros)! / med : null, (obs12 / 12) * cobertura6);
+  vars.C6 = val(divide(s(w6, "recibosDevueltos"), cobros6), cTx);
+  extras.C3dias = vars.C3.raw;
+  extras.C4 = vars.C4.raw;
+  extras.cobertura.nFacturasCli6m = paidClient.length + dueClient.length;
 
   return { vars, extras };
 }
