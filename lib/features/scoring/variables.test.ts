@@ -3,7 +3,7 @@ import test from "node:test";
 import { emptyFlow } from "@/lib/features/scoring/flows";
 import { computeVariables, type VariableInput } from "@/lib/features/scoring/variables";
 import { CALENDAR } from "@/lib/features/scoring/windows";
-import type { Flow } from "@/lib/features/scoring/types";
+import type { Flow, Invoice } from "@/lib/features/scoring/types";
 
 export function sanaHistory(
   months = 6,
@@ -56,4 +56,55 @@ test("A3 is NA without debt service, confidence scales with observed months", ()
   assert.equal(vars.A3.raw, null);
   assert.equal(vars.A3.conf, 0);
   assert.ok(Math.abs(vars.A1.conf - 2 / 6) < 1e-9);
+});
+
+test("B1/B2 on sana: everything paid, no streak", () => {
+  const { vars, extras } = computeVariables(input(sanaHistory(), 5));
+  assert.equal(vars.B1.raw, 1);
+  assert.equal(vars.B2.raw, 0);
+  assert.equal(extras.rachaB2, 0);
+  assert.equal(vars.B3.raw, null);
+});
+
+test("salto_un_mes: skipped tax in month 4, double in month 5", () => {
+  const h = sanaHistory(6, (f, i) => {
+    if (i === 3) f.obligaciones.tax = 0;
+    if (i === 4) f.obligaciones.tax = 20_000;
+  });
+  const m4 = computeVariables(input(h, 3));
+  assert.equal(m4.vars.B2.raw, 1);
+  assert.ok(m4.vars.B1.raw! < 1);
+  const m5 = computeVariables(input(h, 4));
+  assert.equal(m5.vars.B2.raw, 0);
+  assert.equal(m5.vars.B1.raw, 1);
+  assert.deepEqual(m5.extras.rachaB2Prev, [1, 0, 0]);
+});
+
+test("impago: two months without social security", () => {
+  const h = sanaHistory(6, (f, i) => {
+    if (i >= 4) f.obligaciones.social_security = 0;
+  });
+  const { vars } = computeVariables(input(h, 5));
+  assert.equal(vars.B2.raw, 2);
+});
+
+test("B3 median supplier delay from paid invoices in the last 6 months", () => {
+  const inv = (id: string, due: string, paid: string, amount: number): Invoice => ({
+    id,
+    company: "c",
+    issued: "2024-12-01",
+    due,
+    paid,
+    amount,
+    status: "paid",
+    counterparty: "s",
+  });
+  const invoices = [
+    inv("1", "2025-01-10", "2025-01-20", -100),
+    inv("2", "2025-01-10", "2025-01-12", -100),
+    inv("3", "2025-01-10", "2025-02-15", -100),
+  ];
+  const { vars } = computeVariables(input(sanaHistory(), 4, { invoices })); // t=4 → 2025-01
+  assert.equal(vars.B3.raw, 6); // mediana de 10 y 2; la de febrero queda fuera (pagada tras fin(t))
+  assert.ok(Math.abs(vars.B3.conf - 2 / 5) < 1e-9);
 });

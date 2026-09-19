@@ -1,7 +1,8 @@
 import { pctClasificado } from "@/lib/features/scoring/flows";
 import { PARAMS, VARIABLES, type VariableId } from "@/lib/features/scoring/params";
 import type { Extras, Flow, Invoice, VariableSet } from "@/lib/features/scoring/types";
-import { divide, sum, window } from "@/lib/features/scoring/windows";
+import { OBLIGACIONES, type Obligacion } from "@/lib/features/scoring/types";
+import { CALENDAR, divide, endOfMonth, median, sum, window } from "@/lib/features/scoring/windows";
 
 export type VariableInput = {
   company: string;
@@ -20,6 +21,47 @@ function val(raw: number | null, conf: number) {
 }
 function s(flows: (Flow | undefined)[], key: keyof Flow): number {
   return sum(flows.map((f) => (f ? Number(f[key]) : 0)));
+}
+
+type ObligacionStat = { recurrente: boolean; pagado: number; esperado: number; racha: number };
+
+export function obligacionStat(
+  w6: (Flow | undefined)[],
+  k: Obligacion,
+  scheduleMonthly: number,
+): ObligacionStat {
+  const amounts = w6.map((f) => (f ? f.obligaciones[k] : 0));
+  const presentes = amounts.filter((a) => a > 0);
+  const recurrente = presentes.length >= PARAMS.recurrenciaMin;
+  if (!recurrente) return { recurrente: false, pagado: 0, esperado: 0, racha: 0 };
+  const esperadoMes =
+    k === "debt_repayment" && scheduleMonthly > 0 ? scheduleMonthly : median(presentes)!;
+  const first = amounts.findIndex((a) => a > 0);
+  const mesesEsperados = amounts.length - first;
+  let racha = 0;
+  for (let i = amounts.length - 1; i >= first && amounts[i] === 0; i--) racha++;
+  return {
+    recurrente: true,
+    pagado: sum(presentes),
+    esperado: esperadoMes * mesesEsperados,
+    racha,
+  };
+}
+
+export function rachaAt(history: (Flow | undefined)[], t: number, scheduleMonthly: number): number {
+  if (t < 0) return 0;
+  const w6 = window(history, t, 6);
+  return Math.max(0, ...OBLIGACIONES.map((k) => obligacionStat(w6, k, scheduleMonthly).racha));
+}
+
+function paidAt(i: Invoice, end: string): boolean {
+  return i.status === "paid" && !!i.paid && i.paid <= end;
+}
+function days(a: string, b: string): number {
+  return Math.round((Date.parse(a) - Date.parse(b)) / 86400000);
+}
+export function medianDelay(items: Invoice[]): number | null {
+  return median(items.map((i) => days(i.paid, i.due)).filter((d) => Math.abs(d) <= 365));
 }
 
 export function computeVariables(input: VariableInput): { vars: VariableSet; extras: Extras } {
@@ -103,7 +145,24 @@ export function computeVariables(input: VariableInput): { vars: VariableSet; ext
     },
   };
 
-  // ---- Bloque B (Tarea 7): insertar aquí
+  // ---- Bloque B
+  const stats = OBLIGACIONES.map((k) => obligacionStat(w6, k, input.scheduleMonthly)).filter(
+    (o) => o.recurrente,
+  );
+  const esperadoTotal = sum(stats.map((o) => o.esperado));
+  const rachaB2 = stats.length ? Math.max(...stats.map((o) => o.racha)) : 0;
+  vars.B1 = stats.length
+    ? val(Math.min(1, sum(stats.map((o) => o.pagado)) / esperadoTotal), cTx)
+    : na();
+  vars.B2 = stats.length ? val(rachaB2, cVentana6) : na();
+  const end = endOfMonth(CALENDAR[t]);
+  const start6 = `${CALENDAR[Math.max(0, t - 5)]}-01`;
+  const eligible = input.invoices.filter((i) => i.issued <= end);
+  const paidSupplier = eligible.filter((i) => i.amount < 0 && paidAt(i, end) && i.paid >= start6);
+  vars.B3 = val(medianDelay(paidSupplier), Math.min(1, paidSupplier.length / PARAMS.nFacturasRef));
+  extras.rachaB2 = rachaB2;
+  extras.rachaB2Prev = [1, 2, 3].map((k) => rachaAt(history, t - k, input.scheduleMonthly));
+  extras.cobertura.nFacturasProv6m = paidSupplier.length;
 
   // ---- Bloque C (Tarea 8): insertar aquí
 
