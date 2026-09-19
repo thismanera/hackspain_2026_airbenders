@@ -123,16 +123,27 @@ categoría. Clave `(|importe_eur| al céntimo, date)`; candidatos = movimientos
 con signo opuesto y misma clave; se prueba primero la pareja dentro de la
 misma empresa, después dentro del grupo; greedy en orden de `transaction_id`,
 cada movimiento se empareja como mucho una vez. Lo emparejado no entra en
-ninguna otra clase. Motivo: solo un tercio de los espejos intragrupo va como
+ninguna otra clase. **Solo se emparejan movimientos de cuentas operativas**
+(`checking`, `saving`, `wallet`): una disposición sobre `lineofcredit` y su
+abono en la cuenta corriente tienen el mismo importe y la misma fecha, y
+emparejarlos como traspaso interno borraría la disposición (`prepareGroup`
+filtra con `operatingOnly` antes de llamar a `pairMirrors`). Motivo: solo un tercio de los espejos intragrupo va como
 `transfer`; el resto va como `payment`/`collection`/sin categoría (análisis
 #9/#12).
 
 Categoría de entrada (decisión 2): `category_final` viene de
 `transaction_categories.parquet` (#12): categoría original normalizada si
 existe; si no, la inferida cuando `category_confidence ≥ 0,95`; si no,
-`unknown`. Mapeo de las categorías nuevas: `debt_drawdown` → `disp_credito`
-(financiación, aunque llegue a una cuenta operativa); `balance_adjustment` →
-neutral.
+`unknown`. Mapeo de las categorías nuevas: `balance_adjustment` → neutral;
+`debt_drawdown` sobre cuenta operativa → `disp_credito` **solo si la empresa
+no tiene ningún producto `lineofcredit`**; si lo tiene, la disposición ya se
+contabiliza en los movimientos de la propia línea y el abono en la cuenta va a
+neutral (evita contarla dos veces).
+
+Excepción de confianza: `debt_drawdown` y `balance_adjustment` son categorías
+de regla de #12 y llegan siempre con `category_confidence = 0,90`; se aceptan
+con `≥ PARAMS.categoryConfidenceNuevas` (0,90). El resto sigue exigiendo
+`≥ PARAMS.categoryConfidenceMin` (0,95).
 
 ### 3.4 Facturas
 
@@ -246,9 +257,20 @@ Subnota de B2 (regla directa, no percentiles; decisión 7):
 ```text
 racha ≥ 2                          → 0
 racha == 1                         → 70
-racha == 0 y última racha==1 hace k meses (k < 3) → 70 + 10·k        (decae: 80, 90, 100)
+racha == 0 y la última racha fue hace k meses (1 ≤ k ≤ 3):
+    base = 70 si esa racha era 1, base = 0 si era ≥ 2
+    subnota = base + (100 − base)·k/3
+    → tras una racha de 1: 80, 90, 100
+    → tras una racha ≥ 2:  33,3, 66,7, 100   (la recuperación de un impago real cuesta más)
 racha == 0 en otro caso            → 100
 ```
+
+`B1` suma sobre la **ventana de 6 meses** (`Σ6m`), no sobre un solo mes:
+numerador `Σ_k Σ6m pagado_k` y denominador `Σ_k Σ6m esperado_k` de las
+categorías recurrentes, agrupando las cuatro categorías en un único cociente.
+Un mes de calendario **sin fila** (o sin ningún movimiento clasificable) es
+«sin dato»: no cuenta como mes esperado y rompe la racha, igual que
+`racha_deficit`.
 
 Edge case cubierto: mes sin pago + doble pago siguiente → B1 = 1 (la suma
 6 m incluye el doble), B2 pasa de 1 a 0 y su subnota sube 70 → 80 → 90 → 100.
@@ -435,7 +457,7 @@ C2 [0,2; 0,9] · C3 [−5; 60] · C4 [0; 0,6] · C5 [0,05; 0,8] · C6 [0; 0,10].
 | Fixture | Flujos (6 meses iguales, €) | Esperado en `t = mes 6` |
 | --- | --- | --- |
 | `sana` | cobros 100 k, pagos 85 k, servicio 5 k, sin línea, tax/SS/nómina presentes y constantes, 10 clientes iguales, facturas cliente pagadas a +5 d | A1 = 0,15 → 62,5 · A2 = 0 → 100 · A3 = 3,0 → 71,4 · A4 = 0,05 → 90 · A5 NA → 50 (conf 0,3) · B1 = 1 → 100 · B2 = 0 → 100 · C1 = 0,3 → 85,7 · subscore_A ≈ 74 (con conf 1 salvo A5) · estado `sana` · direccion `estable` |
-| `salto_un_mes` | como `sana`, pero mes 4 sin `tax` y mes 5 con `tax` doble | mes 4: B2 = 1 (70), B1 = 5/6 → 66,7 · mes 5: B1 = 1, B2 = 0 con decaimiento → 80 · mes 6: 90 · nunca `riesgo` |
+| `salto_un_mes` | como `sana`, pero mes 4 sin `tax` y mes 5 con `tax` doble | mes 4: B2 = 1 (70), B1 = 200 k/210 k = 0,952 (Σ de las cuatro categorías) · mes 5: B1 = 1, B2 = 0 con decaimiento → 80 · mes 6: 90 · nunca `riesgo` |
 | `impago` | como `sana`, meses 5 y 6 sin `social_security` | mes 6: B2 = 2 → 0 · estado `riesgo` · alerta `impago_obligaciones` |
 | `deterioro_estructural` | cobros bajan 100 k → 70 k linealmente desde mes 4, pagos fijos 85 k | mes 6: A1 < 0, A2 ≥ 0,5, racha_deficit ≥ 2 · `tend_score_3m ≤ −6` · con mes 7 igual: `naturaleza = estructural` (A1, A2 mueven, persistencia 2) |
 | `bache` | como `sana`, mes 5 cobros 40 k, mes 6 vuelve a 100 k | mes 5 direccion puede ser `deterioro`; mes 6 `naturaleza = temporal` (no persiste) · nunca `estructural` |

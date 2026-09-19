@@ -13,7 +13,7 @@ export function emptyFlow(company: string, month: string): Flow {
     cobrosOp: 0, pagosOp: 0, servicioDeuda: 0, dispCredito: 0, amortCredito: 0, recibosDevueltos: 0,
     obligaciones: { tax: 0, social_security: 0, salary: 0, debt_repayment: 0 },
     intragrupoIn: 0, intragrupoOut: 0,
-    clasificado: 0, neutral: 0, sinClasificar: 0, nMov: 0, nExcluidos: 0,
+    clasificado: 0, neutral: 0, sinClasificar: 0, excluido: 0, nMov: 0, nSinImporte: 0,
     cobrosPorContraparte: {}, pagosPorContraparte: {},
   };
 }
@@ -22,12 +22,20 @@ function add(map: Record<string, number>, key: string, amount: number): void {
   if (key) map[key] = (map[key] ?? 0) + amount;
 }
 
-/** txs: movimientos booked de UNA empresa, en ventana, con importe en €. mirrors: resultado de pairMirrors sobre el grupo. */
+/**
+ * txs: movimientos booked de UNA empresa, en ventana, con importe en €. mirrors: resultado de
+ * `pairMirrors` sobre el grupo (solo cuentas operativas). `hasLine`: la empresa tiene algún
+ * producto `lineofcredit`; en ese caso un `debt_drawdown` sobre cuenta operativa es el abono de una
+ * disposición que ya se contabiliza en el propio producto de crédito y va a neutral (no se cuenta
+ * dos veces). Sin línea conocida, ese movimiento es la única traza de la disposición y va a
+ * `disp_credito`.
+ */
 export function monthlyFlows(
   company: string,
   txs: Tx[],
   products: Map<string, Product>,
   mirrors: Map<string, MirrorKind>,
+  hasLine: boolean,
 ): Map<string, Flow> {
   const flows = new Map<string, Flow>();
   for (const t of txs) {
@@ -35,12 +43,16 @@ export function monthlyFlows(
     const f = flows.get(t.month) ?? emptyFlow(company, t.month);
     flows.set(t.month, f);
     f.nMov++;
-    const p = products.get(t.product);
-    if (t.amount === null || !p) {
-      f.nExcluidos++;
+    if (t.amount === null) {
+      f.nSinImporte++;
       continue;
     }
     const a = Math.abs(t.amount);
+    const p = products.get(t.product);
+    if (!p) {
+      f.excluido += a;
+      continue;
+    }
     const mirror = mirrors.get(t.id);
     if (mirror === "interno") {
       f.neutral += a;
@@ -55,34 +67,42 @@ export function monthlyFlows(
       if (t.amount > 0) f.dispCredito += a;
       else f.amortCredito += a;
       f.clasificado += a;
+      f.observed = true;
       continue;
     }
     if (!OPERATIVAS.has(p.type)) {
-      f.nExcluidos++;
+      f.excluido += a;
       continue;
     }
-    f.observed = true;
     const c = t.category;
     if (c === "unknown" || c === "-" || c === "") f.sinClasificar += a;
     else if (c === "debt_drawdown" && t.amount > 0) {
-      f.dispCredito += a;
-      f.clasificado += a;
+      if (hasLine) f.neutral += a;
+      else {
+        f.dispCredito += a;
+        f.clasificado += a;
+        f.observed = true;
+      }
     } else if (COBROS.has(c) && t.amount > 0) {
       f.cobrosOp += a;
       f.clasificado += a;
+      f.observed = true;
       add(f.cobrosPorContraparte, t.counterparty, a);
     } else if (PAGOS.has(c) && t.amount < 0) {
       f.pagosOp += a;
       f.clasificado += a;
+      f.observed = true;
       if (OBLIG.has(c)) f.obligaciones[c as "tax" | "social_security" | "salary"] += a;
       add(f.pagosPorContraparte, t.counterparty, a);
     } else if ((c === "debt_repayment" || c === "interest_charge") && t.amount < 0) {
       f.servicioDeuda += a;
       f.clasificado += a;
+      f.observed = true;
       if (c === "debt_repayment") f.obligaciones.debt_repayment += a;
     } else if (c === "collection_refund" && t.amount < 0) {
       f.recibosDevueltos += a;
       f.clasificado += a;
+      f.observed = true;
     } else f.neutral += a;
   }
   return flows;
@@ -90,28 +110,36 @@ export function monthlyFlows(
 
 export function groupFlows(members: Map<string, Flow>[]): Map<string, GroupFlow> {
   const out = new Map<string, GroupFlow>();
+  const empresas = new Map<string, Set<string>>();
   for (const flows of members)
     for (const f of flows.values()) {
       const g = out.get(f.month) ?? { month: f.month, cobrosOp: 0, pagosOp: 0, servicioDeuda: 0, nEmpresas: 0 };
       g.cobrosOp += f.cobrosOp;
       g.pagosOp += f.pagosOp;
       g.servicioDeuda += f.servicioDeuda;
-      g.nEmpresas++;
+      const vistas = empresas.get(f.month) ?? new Set<string>();
+      vistas.add(f.company);
+      empresas.set(f.month, vistas);
+      g.nEmpresas = vistas.size;
       out.set(f.month, g);
     }
   return out;
 }
 
+/**
+ * Cobertura de clasificación de la ventana: parte del importe que cae en una clase real × parte de
+ * las filas con importe conocido. Un denominador vacío no penaliza (no hay nada que clasificar).
+ */
 export function pctClasificado(flows: (Flow | undefined)[]): number {
-  let clasificado = 0, resto = 0, nMov = 0, nExcl = 0;
+  let clasificado = 0, resto = 0, nMov = 0, nSinImporte = 0;
   for (const f of flows) {
     if (!f) continue;
     clasificado += f.clasificado;
-    resto += f.neutral + f.sinClasificar;
+    resto += f.neutral + f.sinClasificar + f.excluido;
     nMov += f.nMov;
-    nExcl += f.nExcluidos;
+    nSinImporte += f.nSinImporte;
   }
-  const porImporte = clasificado + resto > 0 ? clasificado / (clasificado + resto) : 0;
-  const porFilas = nMov > 0 ? (nMov - nExcl) / nMov : 1;
+  const porImporte = clasificado + resto > 0 ? clasificado / (clasificado + resto) : 1;
+  const porFilas = nMov > 0 ? (nMov - nSinImporte) / nMov : 1;
   return porImporte * porFilas;
 }

@@ -46,8 +46,11 @@ export type Flow = {
   clasificado: number;
   neutral: number;
   sinClasificar: number;
+  /** Importe € de los movimientos excluidos por producto desconocido o no operativo. */
+  excluido: number;
   nMov: number;
-  nExcluidos: number;
+  /** Movimientos sin importe convertible a € (amount null): no entran en ningún importe. */
+  nSinImporte: number;
   cobrosPorContraparte: Record<string, number>;
   pagosPorContraparte: Record<string, number>;
 };

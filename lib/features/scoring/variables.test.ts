@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { emptyFlow } from "@/lib/features/scoring/flows";
-import { computeVariables, type VariableInput } from "@/lib/features/scoring/variables";
+import {
+  computeVariables,
+  medianDelay,
+  type VariableInput,
+} from "@/lib/features/scoring/variables";
 import { CALENDAR } from "@/lib/features/scoring/windows";
 import type { Flow, Invoice } from "@/lib/features/scoring/types";
 
@@ -73,7 +77,8 @@ test("salto_un_mes: skipped tax in month 4, double in month 5", () => {
   });
   const m4 = computeVariables(input(h, 3));
   assert.equal(m4.vars.B2.raw, 1);
-  assert.ok(m4.vars.B1.raw! < 1);
+  // B1 agrupa las cuatro categorias: 200 k pagados sobre 210 k esperados (§5.2)
+  assert.ok(Math.abs(m4.vars.B1.raw! - 200_000 / 210_000) < 1e-9);
   const m5 = computeVariables(input(h, 4));
   assert.equal(m5.vars.B2.raw, 0);
   assert.equal(m5.vars.B1.raw, 1);
@@ -144,4 +149,67 @@ test("C3, C4 from client invoices; C6 from returned receipts; C5 needs 6 observa
   assert.equal(vars.C5.raw, null); // 5 meses observados < 6
   const { vars: v6 } = computeVariables(input(h, 5));
   assert.equal(v6.C5.raw, 0); // 6 meses iguales → MAD 0
+});
+
+test("A5 with a credit line measures drawdowns over receipts", () => {
+  const h = sanaHistory(6, (f) => (f.dispCredito = 20_000));
+  const { vars } = computeVariables(input(h, 5, { hasLine: true }));
+  assert.ok(Math.abs(vars.A5.raw! - 0.2) < 1e-9);
+  assert.equal(vars.A5.conf, 1);
+});
+
+test("C1 confidence scales with the identified share of receipts", () => {
+  const h = sanaHistory(6, (f) => {
+    f.cobrosPorContraparte = { cli1: 20_000, cli2: 10_000 };
+  });
+  const { vars } = computeVariables(input(h, 5));
+  assert.equal(vars.C1.raw, 1); // los dos identificados son el top-3
+  assert.ok(Math.abs(vars.C1.conf - (6 / 12) * 0.3) < 1e-9);
+});
+
+test("the debt schedule overrides the median expected instalment", () => {
+  const h = sanaHistory();
+  const alto = computeVariables(input(h, 5, { scheduleMonthly: 6_000 }));
+  assert.ok(Math.abs(alto.vars.B1.raw! - 315_000 / 324_000) < 1e-9);
+  const bajo = computeVariables(input(h, 5, { scheduleMonthly: 1_000 }));
+  assert.equal(bajo.vars.B1.raw, 1); // pagado > esperado: B1 capado a 1
+});
+
+test("B1/B2 are NA when no obligation is recurrent", () => {
+  const h = sanaHistory(6, (f) => {
+    f.obligaciones = { tax: 0, social_security: 0, salary: 0, debt_repayment: 0 };
+  });
+  const { vars, extras } = computeVariables(input(h, 5));
+  assert.equal(vars.B1.raw, null);
+  assert.equal(vars.B1.conf, 0);
+  assert.equal(vars.B2.raw, null);
+  assert.equal(extras.rachaB2, 0);
+});
+
+test("a month without a flow row breaks the obligation streak", () => {
+  const h = sanaHistory(6, (f, i) => {
+    if (i >= 4) f.obligaciones.tax = 0;
+  });
+  assert.equal(computeVariables(input(h, 5)).vars.B2.raw, 2);
+  h[4] = undefined; // mes sin datos: no cuenta como impago
+  assert.equal(computeVariables(input(h, 5)).vars.B2.raw, 1);
+});
+
+test("racha_deficit counts consecutive observed months in the red", () => {
+  const h = sanaHistory(6, (f, i) => {
+    if (i >= 4) f.cobrosOp = 50_000;
+  });
+  const { extras } = computeVariables(input(h, 5));
+  assert.equal(extras.rachaDeficit, 2);
+  assert.equal(extras.deficitMes, true);
+  assert.ok(extras.margenMes! < 0);
+});
+
+test("medianDelay keeps early payments and drops absurd delays", () => {
+  const inv = (id: string, due: string, paid: string): Invoice => ({
+    id, company: "c", issued: "2024-12-01", due, paid, amount: 100, status: "paid", counterparty: "k",
+  });
+  assert.deepEqual(medianDelay([inv("1", "2025-01-10", "2025-01-05")]), { value: -5, n: 1 });
+  assert.deepEqual(medianDelay([inv("1", "2025-01-10", "2027-01-05")]), { value: null, n: 0 });
+  assert.deepEqual(medianDelay([]), { value: null, n: 0 });
 });
