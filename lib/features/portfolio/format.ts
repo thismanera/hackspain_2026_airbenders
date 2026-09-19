@@ -81,6 +81,11 @@ export function formatScore(value: number): string {
 }
 
 /** Delta con signo explícito. El signo es parte del dato, no decoración. */
+/** Un decimal, sin signo: para "baja 0,5 puntos", donde el verbo ya lleva el sentido. */
+export function formatDecimal(value: number): string {
+  return dec1.format(value);
+}
+
 export function formatSigned(value: number, decimals: 0 | 1 = 1): string {
   const formatted = decimals === 0 ? int0.format(Math.round(value)) : dec1.format(value);
   return value > 0 ? `+${formatted}` : formatted;

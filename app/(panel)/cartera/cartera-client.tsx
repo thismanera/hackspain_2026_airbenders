@@ -6,6 +6,7 @@ import { AccionBreakdown, EstadoEvolution } from "@/components/grifo/portfolio-c
 import { PortfolioFilters } from "@/components/grifo/portfolio-filters";
 import { PortfolioKpis } from "@/components/grifo/portfolio-summary";
 import { PortfolioTable } from "@/components/grifo/portfolio-table";
+import { EntitySheet } from "@/components/grifo/sheet/entity-sheet";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -14,7 +15,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { usePortfolio, usePortfolioFilters } from "@/lib/features/portfolio/hooks";
+import { usePortfolio, usePortfolioFilters, useSheetState } from "@/lib/features/portfolio/hooks";
 import { formatMonthLong } from "@/lib/features/portfolio/format";
 
 const CLEARED = {
@@ -28,6 +29,7 @@ const CLEARED = {
 export function CarteraClient() {
   const [filters, setFilters] = usePortfolioFilters();
   const { data } = usePortfolio(filters);
+  const [, setSheet] = useSheetState();
 
   const noneAtAll = data.totalUnfiltered === 0;
   const onChange = (update: Partial<typeof filters>) => void setFilters(update);
@@ -91,8 +93,15 @@ export function CarteraClient() {
           ) : null}
         </Empty>
       ) : (
-        <PortfolioTable rows={data.rows} month={data.month} />
+        <PortfolioTable
+          rows={data.rows}
+          month={data.month}
+          onOpenCompany={(empresa) => void setSheet({ empresa, grupo: "", pestana: "decision" })}
+          onOpenGroup={(grupo) => void setSheet({ empresa: "", grupo, pestana: "decision" })}
+        />
       )}
+
+      <EntitySheet month={data.month} />
     </div>
   );
 }
