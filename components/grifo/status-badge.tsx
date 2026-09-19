@@ -1,34 +1,47 @@
+import { AlertTriangle, CircleSlash, Eye, ShieldCheck, type LucideIcon } from "lucide-react";
+
 import { cn } from "@/lib/core/utils";
 import type { Estado } from "@/lib/features/portfolio/types";
 import { ESTADO } from "@/lib/features/portfolio/vocabulary";
 
 /**
  * El estado nunca viaja solo en el color: el texto siempre está presente y el
- * punto es un refuerzo, no el mensaje. En escala de grises y en deuteranopía la
- * fila se sigue leyendo igual.
+ * icono es un refuerzo con forma propia, no el mensaje. En escala de grises y
+ * en deuteranopía la fila se sigue leyendo igual.
  */
 const TONE = {
   sana: {
+    icon: ShieldCheck,
     dot: "bg-status-healthy",
     surface: "bg-status-healthy-surface",
     text: "text-status-healthy-fg",
   },
   vigilar: {
+    icon: Eye,
     dot: "bg-status-watch",
     surface: "bg-status-watch-surface",
     text: "text-status-watch-fg",
   },
   riesgo: {
+    icon: AlertTriangle,
     dot: "bg-status-risk",
     surface: "bg-status-risk-surface",
     text: "text-status-risk-fg",
   },
   sin_datos: {
+    icon: CircleSlash,
     dot: "bg-status-none",
     surface: "bg-status-none-surface",
     text: "text-status-none-fg",
   },
-} satisfies Record<Estado, { dot: string; surface: string; text: string }>;
+} satisfies Record<Estado, { icon: LucideIcon; dot: string; surface: string; text: string }>;
+
+export const STATUS_ICON = {
+  sana: TONE.sana.icon,
+  vigilar: TONE.vigilar.icon,
+  riesgo: TONE.riesgo.icon,
+  sin_datos: TONE.sin_datos.icon,
+} satisfies Record<Estado, LucideIcon>;
 
 export function StatusBadge({
   estado,
@@ -40,20 +53,18 @@ export function StatusBadge({
   className?: string;
 }) {
   const tone = TONE[estado];
+  const Icon = tone.icon;
   return (
     <span
       className={cn(
-        "inline-flex w-fit items-center gap-1.5 rounded-full font-medium whitespace-nowrap",
+        "inline-flex w-fit items-center gap-1 rounded-full font-medium whitespace-nowrap",
         tone.surface,
         tone.text,
-        size === "sm" ? "px-2 py-0.5 text-xs" : "px-2.5 py-1 text-sm",
+        size === "sm" ? "py-0.5 pr-2 pl-1.5 text-xs" : "py-1 pr-2.5 pl-2 text-sm",
         className,
       )}
     >
-      <span
-        aria-hidden
-        className={cn("size-1.5 shrink-0 rounded-full", tone.dot, size === "lg" && "size-2")}
-      />
+      <Icon aria-hidden className={cn("shrink-0", size === "sm" ? "size-3" : "size-3.5")} />
       {ESTADO[estado].label}
     </span>
   );

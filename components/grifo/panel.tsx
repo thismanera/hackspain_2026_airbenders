@@ -23,7 +23,7 @@ export function Panel({
   bodyClassName?: string;
 }) {
   return (
-    <section className={cn("bg-card rounded-lg border", className)}>
+    <section className={cn("bg-card rounded-xl border", className)}>
       <div className="flex items-start justify-between gap-3 border-b px-4 py-3">
         <div className="min-w-0">
           <h2 className="text-sm font-medium">{title}</h2>

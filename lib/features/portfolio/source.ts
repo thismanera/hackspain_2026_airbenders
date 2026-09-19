@@ -82,7 +82,9 @@ function rowFor(companyId: string, month: string): PortfolioRow | null {
   if (index === -1) return null;
 
   const current = dataset.months[index];
-  const spark = dataset.months.slice(Math.max(0, index - 11), index + 1).map((entry) => entry.score);
+  const spark = dataset.months
+    .slice(Math.max(0, index - 11), index + 1)
+    .map((entry) => entry.score);
 
   return {
     company: dataset.meta,
@@ -112,29 +114,45 @@ function rowFor(companyId: string, month: string): PortfolioRow | null {
   };
 }
 
-function summarise(rows: PortfolioRow[]): PortfolioSummary {
+function summarise(month: string, rows: PortfolioRow[]): PortfolioSummary {
   const byEstado: Record<Estado, number> = { sana: 0, vigilar: 0, riesgo: 0, sin_datos: 0 };
+  const byDireccion: Record<Direccion, number> = { mejora: 0, estable: 0, deterioro: 0 };
+  const byAccion: Record<Accion, number> = {
+    abrir: 0,
+    ampliar: 0,
+    mantener: 0,
+    reducir: 0,
+    cerrar: 0,
+  };
+  let eligible = 0;
   let exposure = 0;
   let moved = 0;
 
   for (const row of rows) {
     byEstado[row.estado] += 1;
-    if (row.eligible) exposure += row.limit;
-    if (row.changed) moved += 1;
+    byDireccion[row.direction] += 1;
+    if (row.eligible) {
+      eligible += 1;
+      exposure += row.limit;
+    }
+    if (row.changed) {
+      moved += 1;
+      byAccion[row.action] += 1;
+    }
   }
 
-  return { total: rows.length, byEstado, exposure, moved };
+  return { month, total: rows.length, byEstado, byDireccion, byAccion, eligible, exposure, moved };
 }
 
-export function getPortfolio(filters: PortfolioFilters = {}): PortfolioResponse {
-  const month = filters.month && CALENDAR.includes(filters.month) ? filters.month : LATEST_MONTH;
-
-  const all = [...buildPortfolio().keys()]
+function rowsFor(month: string): PortfolioRow[] {
+  return [...buildPortfolio().keys()]
     .map((companyId) => rowFor(companyId, month))
     .filter((row): row is PortfolioRow => row !== null);
+}
 
+function matches(filters: PortfolioFilters): (row: PortfolioRow) => boolean {
   const needle = filters.q?.trim().toLowerCase() ?? "";
-  const rows = all.filter((row) => {
+  return (row) => {
     if (needle && !`${row.company.id} ${row.company.groupId}`.toLowerCase().includes(needle)) {
       return false;
     }
@@ -145,7 +163,24 @@ export function getPortfolio(filters: PortfolioFilters = {}): PortfolioResponse 
     }
     if (filters.banda && filters.banda !== "todas" && row.band !== filters.banda) return false;
     return true;
-  });
+  };
+}
+
+export function getPortfolio(filters: PortfolioFilters = {}): PortfolioResponse {
+  const month = filters.month && CALENDAR.includes(filters.month) ? filters.month : LATEST_MONTH;
+  const keep = matches(filters);
+
+  const all = rowsFor(month);
+  const rows = all.filter(keep);
+
+  // La historia arrastra el mismo filtro que la tabla: lo que se dibuja es lo que
+  // se lista. Un gráfico de toda la cartera encima de una tabla filtrada por
+  // "riesgo" contaría dos historias distintas.
+  const history = CALENDAR.slice(0, CALENDAR.indexOf(month) + 1).map((past) =>
+    past === month ? summarise(month, rows) : summarise(past, rowsFor(past).filter(keep)),
+  );
+  const summary = history[history.length - 1];
+  const previous = history.length > 1 ? history[history.length - 2] : null;
 
   rows.sort((a, b) => {
     const byAction = priorityOf(a) - priorityOf(b);
@@ -159,18 +194,22 @@ export function getPortfolio(filters: PortfolioFilters = {}): PortfolioResponse 
   return {
     month,
     months: CALENDAR,
-    summary: summarise(rows),
+    summary,
+    previous,
+    history,
     rows,
     totalUnfiltered: all.length,
   };
 }
 
-export function getCompanyFile(companyId: string, requestedMonth?: string): CompanyFileResponse | null {
+export function getCompanyFile(
+  companyId: string,
+  requestedMonth?: string,
+): CompanyFileResponse | null {
   const dataset = buildPortfolio().get(companyId);
   if (!dataset) return null;
 
-  const month =
-    requestedMonth && CALENDAR.includes(requestedMonth) ? requestedMonth : LATEST_MONTH;
+  const month = requestedMonth && CALENDAR.includes(requestedMonth) ? requestedMonth : LATEST_MONTH;
   const index = dataset.months.findIndex((entry) => entry.month === month);
   if (index === -1) return null;
 
