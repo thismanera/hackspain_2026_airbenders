@@ -1,20 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  ajusteGrupo,
-  limiteGrupo,
-  MOTIVO_TECHO_CERO,
-  type DecisionMes,
-} from "@/lib/features/decision/group";
+import { decisionInputFixture } from "@/lib/features/decision/__fixtures__/decision-input";
+import { ajusteGrupo, limiteGrupo, type DecisionMes } from "@/lib/features/decision/group";
 import { DECISION_PARAMS as P } from "@/lib/features/decision/params";
 import type { Accion, Banda, Puerta } from "@/lib/features/decision/types";
-import { scoreRowFixture } from "@/lib/features/scoring/__fixtures__/score-row";
-
-const base = {
-  cobrosOpGrupoMedia6m: 300_000,
-  pagosOpGrupoMedia6m: 200_000,
-  servicioDeudaGrupoMedia6m: 10_000,
-};
 
 function decision(
   company: string,
@@ -34,63 +23,108 @@ function decision(
   };
 }
 
-test("group limit from consolidated flows", () => {
+test("decisión 47: el techo del grupo es la fórmula de §4 sobre Σ tamaño", () => {
   const rows = [
-    scoreRowFixture({ company: "a", score: 80, confianza: 1, cobrosOpMedia6m: 100_000, ...base }),
-    scoreRowFixture({ company: "b", score: 70, confianza: 1, cobrosOpMedia6m: 200_000, ...base }),
+    decisionInputFixture({ company: "a", score: 80, confianza: 1, tamano: 100_000 }),
+    decisionInputFixture({ company: "b", score: 70, confianza: 1, tamano: 200_000 }),
   ];
-  // Decisión 40: el techo consolidado usa el estrés del motor de decisión (0,9 / 1,05 / 1,3),
-  // el mismo que `capacidadCuotaAdv` de §4, no el de scoring (0,8 / 1,1).
-  // capacidad = (0,9×300 000 − 1,05×200 000)/1,3 − 10 000 = (270 000 − 210 000)/1,3 − 10 000
-  const cap = (P.estresCobros * 300_000 - P.estresPagos * 200_000) / P.coberturaMin - 10_000;
   const g = limiteGrupo(rows);
-  assert.ok(Math.abs(g.capacidad - cap) < 1e-6);
-  assert.ok(Math.abs(cap - 36_153.846) < 0.01);
-  // score ponderado por cobros = (80×100k + 70×200k)/300k = 73,3 → banda B (factor 0,7); conf 1 → sin recorte
-  assert.equal(g.banda, "B");
-  assert.equal(g.limiteCap, cap * 12); // 433 846,15
+  assert.equal(g.tamano, 300_000);
   assert.equal(g.limiteOp, 0.8 * 300_000 * 3); // 720 000
-  // L = floor(min(433 846,15; 720 000) × 0,7 / 1000) × 1000 = 303 000
-  assert.equal(g.L, Math.floor((Math.min(cap * 12, 0.8 * 300_000 * 3) * 0.7) / 1000) * 1000);
-  assert.equal(g.L, 303_000);
+  // score ponderado por tamaño = (80×100k + 70×200k)/300k = 73,33 → banda B (factor 0,7)
+  assert.ok(Math.abs(g.score - 73.333) < 0.01);
+  assert.equal(g.banda, "B");
+  assert.equal(g.confianza, 1); // sin recorte
+  assert.equal(g.factorA, 1); // pilares A 80 > factorARef
+  assert.equal(g.L, 504_000); // 720 000 × 0,7
 });
 
-test("an empty group has no consolidated row to compute from", () => {
+test("decisión 47: score, confianza y pilar A van ponderados por tamaño", () => {
+  // La grande manda: score 80 con 900 k frente a score 20 con 100 k → media 74 → banda B.
+  const rows = [
+    decisionInputFixture({ company: "a", score: 80, confianza: 1, tamano: 900_000 }),
+    decisionInputFixture({
+      company: "b",
+      score: 20,
+      confianza: 0.3,
+      subscores: { A: 10, B: 10, C: 10 },
+      tamano: 100_000,
+    }),
+  ];
+  const g = limiteGrupo(rows);
+  assert.equal(g.tamano, 1_000_000);
+  assert.ok(Math.abs(g.score - 74) < 1e-9);
+  assert.equal(g.banda, "B");
+  assert.ok(Math.abs(g.confianza - 0.93) < 1e-9); // (1×900k + 0,3×100k)/1M
+  assert.equal(g.factorA, 1); // A ponderado = (80×900k + 10×100k)/1M = 73 > factorARef
+  // Con los pesos invertidos la pequeña sana no salva al grupo: media 26 → banda D → L = 0.
+  const invertido = limiteGrupo([
+    decisionInputFixture({ company: "a", score: 80, confianza: 1, tamano: 100_000 }),
+    decisionInputFixture({
+      company: "b",
+      score: 20,
+      confianza: 0.3,
+      subscores: { A: 10, B: 10, C: 10 },
+      tamano: 900_000,
+    }),
+  ]);
+  assert.equal(invertido.banda, "D");
+  assert.equal(invertido.L, 0);
+});
+
+test("decisión 47: el pilar A también recorta el techo del grupo", () => {
+  const rows = ["a", "b"].map((company) =>
+    decisionInputFixture({
+      company,
+      score: 80,
+      confianza: 1,
+      subscores: { A: 35, B: 80, C: 80 },
+      tamano: 100_000,
+    }),
+  );
+  const g = limiteGrupo(rows);
+  assert.equal(g.factorA, 0.5);
+  assert.equal(g.L, 240_000); // 0,8 × 200 000 × 3 × 1 × 1 × 0,5
+});
+
+test("an empty group has no members to compute from", () => {
   assert.throws(() => limiteGrupo([]), /grupo vacío/);
 });
 
 test("the weighted mean falls back to the plain mean when nobody has receipts", () => {
   const rows = [
-    scoreRowFixture({ company: "a", score: 80, confianza: 1, cobrosOpMedia6m: 0, ...base }),
-    scoreRowFixture({ company: "b", score: 60, confianza: 1, cobrosOpMedia6m: 0, ...base }),
+    decisionInputFixture({ company: "a", score: 80, confianza: 1, tamano: 0 }),
+    decisionInputFixture({ company: "b", score: 60, confianza: 1, tamano: 0 }),
   ];
-  // sin peso: media simple (80 + 60)/2 = 70 → banda B, igual que la ponderada de pesos iguales
-  assert.equal(limiteGrupo(rows).banda, "B");
-  assert.equal(limiteGrupo(rows).L, 303_000);
+  const g = limiteGrupo(rows);
+  assert.equal(g.score, 70); // media simple
+  assert.equal(g.banda, "B");
+  // Σ tamaño = 0 ⇒ no hay anticipo que repartir, y el límite individual de cada miembro también es 0
+  assert.equal(g.tamano, 0);
+  assert.equal(g.L, 0);
 });
 
 test("ceiling prorates limits; cross-default flags siblings of a fallen company", () => {
   const rows = [
-    scoreRowFixture({ company: "a", score: 80, D1: 0.5, ...base }),
-    scoreRowFixture({ company: "b", score: 80, D1: 0.5, ...base }),
+    decisionInputFixture({ company: "a", score: 80, D1: 0.5 }),
+    decisionInputFixture({ company: "b", score: 80, D1: 0.5 }),
   ];
   const dec = [decision("a", "cerrar", 0), decision("b", "mantener", 100_000)];
   const out = ajusteGrupo(rows, dec, 60_000);
   // Σ LVigente = 100 000 > techo 60 000 ⇒ prorrateo puro: 100 000 × 60 000 / 100 000 = 60 000.
-  // El escalón extra de banda por el cross-default lo aplica el engine (§9, Tarea 9), no `group.ts`.
+  // El escalón extra de banda por el cross-default lo aplica el engine (§9, paso 2), no `group.ts`.
   assert.equal(out.decisiones.find((d) => d.company === "b")!.LVigente, 60_000);
   assert.equal(out.decisiones.find((d) => d.company === "a")!.LVigente, 0);
   assert.deepEqual(out.caidas, ["a"]);
   assert.deepEqual(out.afectadas, ["b"]);
   assert.equal(out.modo, "prorrateo");
-  assert.deepEqual(out.afectadasTecho, []);
   assert.match(out.motivoGrupo!, /Techo de grupo/);
 });
 
 test("no ceiling and no cross-default leaves decisions untouched", () => {
   const rows = [
-    scoreRowFixture({ company: "a", score: 80, D1: 0.2, ...base }),
-    scoreRowFixture({ company: "b", score: 80, D1: 0.5, ...base }),
+    decisionInputFixture({ company: "a", score: 80, D1: 0.2 }),
+    decisionInputFixture({ company: "b", score: 80, D1: 0.5 }),
   ];
   const dec = [decision("a", "cerrar", 0), decision("b", "mantener", 20_000)];
   const out = ajusteGrupo(rows, dec, 60_000);
@@ -102,42 +136,25 @@ test("no ceiling and no cross-default leaves decisions untouched", () => {
   assert.equal(out.motivoGrupo, null);
 });
 
-test("decisión 41: con capacidad consolidada 0 el grupo baja una banda, no cierra", () => {
-  const rows = ["a", "b", "c"].map((company) =>
-    scoreRowFixture({ company, score: 80, D1: 0.1, ...base }),
-  );
-  const dec = [
-    decision("a", "mantener", 100_000),
-    decision("b", "abrir", 50_000),
-    decision("c", "cerrar", 0),
-  ];
-  const out = ajusteGrupo(rows, dec, 0);
-  // No se prorratea: el prorrateo a cero cerraría al único miembro solvente.
+test("decisión 47: con techo 0 el prorrateo es la única regla; no hay bajada de banda", () => {
+  // `L_grupo = 0` solo pasa en banda D o con Σ tamaño = 0, y entonces el prorrateo a cero es
+  // exactamente lo que se quiere: la regla del techo cero (decisión 41) se queda sin objeto.
+  const rows = ["a", "b"].map((company) => decisionInputFixture({ company, score: 40, D1: 0.1 }));
+  const out = ajusteGrupo(rows, [decision("a", "mantener", 50_000), decision("b", "abrir", 0)], 0);
+  assert.equal(out.modo, "prorrateo");
   assert.deepEqual(
     out.decisiones.map((d) => d.LVigente),
-    [100_000, 50_000, 0],
+    [0, 0],
   );
-  assert.equal(out.modo, "bajaBanda");
-  // Solo los miembros vivos bajan banda; el que ya cierra no se toca.
-  assert.deepEqual(out.afectadasTecho, ["a", "b"]);
-  assert.equal(out.motivoGrupo, MOTIVO_TECHO_CERO);
-});
-
-test("decisión 41: un grupo entero cerrado con techo 0 no dispara nada", () => {
-  const rows = ["a", "b"].map((company) =>
-    scoreRowFixture({ company, score: 40, D1: 0.1, ...base }),
-  );
-  const out = ajusteGrupo(rows, [decision("a", "cerrar", 0), decision("b", "cerrar", 0)], 0);
-  assert.equal(out.modo, null);
-  assert.deepEqual(out.afectadasTecho, []);
-  assert.equal(out.motivoGrupo, null);
+  assert.match(out.motivoGrupo!, /Techo de grupo: 0 €/);
+  // Con todos a cero no hay techo que aplicar y no se marca nada.
+  const nadie = ajusteGrupo(rows, [decision("a", "cerrar", 0), decision("b", "cerrar", 0)], 0);
+  assert.equal(nadie.modo, null);
+  assert.equal(nadie.motivoGrupo, null);
 });
 
 test("a closure whose only failing gate is `grupo` is contagion, not a new fall", () => {
-  const rows = [
-    scoreRowFixture({ company: "a", score: 80, D1: 0.5, ...base }),
-    scoreRowFixture({ company: "b", score: 80, D1: 0.5, ...base }),
-  ];
+  const rows = ["a", "b"].map((company) => decisionInputFixture({ company, score: 80, D1: 0.5 }));
   const heredado = ajusteGrupo(
     rows,
     [decision("a", "mantener", 20_000), decision("b", "cerrar", 0, { puertasFallidas: ["grupo"] })],
@@ -157,10 +174,7 @@ test("a closure whose only failing gate is `grupo` is contagion, not a new fall"
 });
 
 test("a company that arrived already closed is not a new fall", () => {
-  const rows = [
-    scoreRowFixture({ company: "a", score: 80, D1: 0.5, ...base }),
-    scoreRowFixture({ company: "b", score: 80, D1: 0.5, ...base }),
-  ];
+  const rows = ["a", "b"].map((company) => decisionInputFixture({ company, score: 80, D1: 0.5 }));
   const out = ajusteGrupo(
     rows,
     [decision("a", "cerrar", 0, { yaCerrada: true }), decision("b", "mantener", 20_000)],
@@ -172,7 +186,7 @@ test("a company that arrived already closed is not a new fall", () => {
 
 test("three companies prorate with flooring: Σ stays under the ceiling", () => {
   const rows = ["a", "b", "c"].map((company) =>
-    scoreRowFixture({ company, score: 80, D1: 0.1, ...base }),
+    decisionInputFixture({ company, score: 80, D1: 0.1 }),
   );
   // Σ = 100 000 y techo 70 000: cada una × 0,7 y redondeada abajo al escalón de 1 000.
   const dec = [
@@ -190,9 +204,7 @@ test("three companies prorate with flooring: Σ stays under the ceiling", () => 
 });
 
 test("Σ exactly equal to the ceiling is left untouched", () => {
-  const rows = ["a", "b"].map((company) =>
-    scoreRowFixture({ company, score: 80, D1: 0.1, ...base }),
-  );
+  const rows = ["a", "b"].map((company) => decisionInputFixture({ company, score: 80, D1: 0.1 }));
   const dec = [decision("a", "mantener", 40_000), decision("b", "mantener", 20_000)];
   const out = ajusteGrupo(rows, dec, 60_000);
   assert.deepEqual(

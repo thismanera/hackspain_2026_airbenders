@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { decisionInputFixture } from "@/lib/features/decision/__fixtures__/decision-input";
 import { coste, tae } from "@/lib/features/decision/interest";
-import { scoreRowFixture } from "@/lib/features/scoring/__fixtures__/score-row";
 
 test("TAE = base + tenor premium + confidence premium ± trend + forecast premium", () => {
-  const r = scoreRowFixture({ confianza: 0.9 });
+  const r = decisionInputFixture({ confianza: 0.9 });
   assert.deepEqual(tae("A", 30, r, "A"), {
     tae: 0.05,
     desglose: {
@@ -16,9 +16,9 @@ test("TAE = base + tenor premium + confidence premium ± trend + forecast premiu
     },
   });
   assert.equal(tae("A", 180, r, "A").tae, 0.075);
-  assert.equal(tae("B", 60, scoreRowFixture({ score: 65, confianza: 0.65 }), "B").tae, 0.085);
-  assert.equal(tae("A", 30, scoreRowFixture({ direccion: "mejora" }), "A").tae, 0.045);
-  assert.equal(tae("A", 30, scoreRowFixture({ direccion: "deterioro" }), "A").tae, 0.06);
+  assert.equal(tae("B", 60, decisionInputFixture({ score: 65, confianza: 0.65 }), "B").tae, 0.085);
+  assert.equal(tae("A", 30, decisionInputFixture({ direccion: "mejora" }), "A").tae, 0.045);
+  assert.equal(tae("A", 30, decisionInputFixture({ direccion: "deterioro" }), "A").tae, 0.06);
   assert.equal(tae("A", 30, r, "B").tae, 0.055);
   assert.equal(tae("D", 30, r, "D").tae, null);
   assert.equal(coste(10_000, 0.06, 90), 150);
@@ -27,7 +27,7 @@ test("TAE = base + tenor premium + confidence premium ± trend + forecast premiu
 test("the forecast premium compares against the current band, not the effective one", () => {
   // score 80 → banda actual A; el deterioro estructural deja la efectiva en B (SOURCE §3.3 dice
   // "banda actual": contra la efectiva la previsión B quedaría empatada y la prima se perdería).
-  const r = scoreRowFixture({
+  const r = decisionInputFixture({
     score: 80,
     confianza: 0.9,
     direccion: "deterioro",
@@ -41,7 +41,7 @@ test("the forecast premium compares against the current band, not the effective 
 });
 
 test("premiums stack: band B, 180 d, low confidence, deterioration and a worse forecast", () => {
-  const r = scoreRowFixture({
+  const r = decisionInputFixture({
     score: 65, // banda actual B
     confianza: 0.65,
     direccion: "deterioro",

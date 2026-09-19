@@ -1,13 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { flujosCapacidad } from "@/lib/features/decision/__fixtures__/flujos";
 import { decisionRowSchema } from "@/lib/features/decision/contracts";
 import {
   crossDefaultSiguiente,
   decideGroup,
   parametrosDecision,
 } from "@/lib/features/decision/engine";
-import { MOTIVO_TECHO_CERO } from "@/lib/features/decision/group";
 import { DECISION_PARAMS as P } from "@/lib/features/decision/params";
 import {
   ESTADO_INICIAL,
@@ -16,25 +14,21 @@ import {
   type PrevisionInput,
 } from "@/lib/features/decision/types";
 import { scoreRowFixture } from "@/lib/features/scoring/__fixtures__/score-row";
-import type { ScoreRow } from "@/lib/features/scoring/types";
+import type { AlertTipo, ScoreRow } from "@/lib/features/scoring/types";
 import { CALENDAR } from "@/lib/features/scoring/windows";
 
 const params = parametrosDecision("score-v");
-const grupo = {
-  cobrosOpGrupoMedia6m: 1_000_000,
-  pagosOpGrupoMedia6m: 600_000,
-  servicioDeudaGrupoMedia6m: 20_000,
-};
+
+const alertas = (...tipos: AlertTipo[]) => tipos.map((tipo) => ({ tipo, desdeMes: CALENDAR[0] }));
 
 /**
- * Techo del grupo del fixture (`limiteGrupo`, §9), derivado a mano con el estrés del motor de
- * decisión (decisión 40: 0,9 / 1,05 / 1,3):
- *   capacidad  = (0,9 × 1 000 000 − 1,05 × 600 000)/1,3 − 20 000 = 270 000/1,3 − 20 000 = 187 692,31
- *   limite_cap = 187 692,31 × 12 = 2 252 307,69  ·  limite_op = 0,8 × 1 000 000 × 3 = 2 400 000
- *   score ponderado por cobros = 82 → banda A (factor 1); conf 0,9 → min(1; 0,9/0,6) = 1
- *   L_grupo = redondear_abajo(min(2 252 307,69; 2 400 000), 1000) = 2 252 000
+ * Techo del grupo del fixture (`limiteGrupo`, §9, decisión 47): dos empresas de 100 000 €/mes de
+ * tamaño, score 82 (banda A), confianza 0,9 y pilar A 80.
+ *   Σ tamaño = 200 000 ⇒ limite_op = 0,8 × 200 000 × 3 = 480 000
+ *   score ponderado = 82 → banda A (factor 1) · conf 0,9 → min(1; 0,9/0,6) = 1 · factor_A = 1
+ *   L_grupo = 480 000, exactamente Σ de los dos límites individuales (240 000 cada uno).
  */
-const L_GRUPO = 2_252_000;
+const L_GRUPO = 480_000;
 
 function serie(company: string, patch: (i: number) => Partial<ScoreRow>): ScoreRow[] {
   return CALENDAR.map((month, i) =>
@@ -43,11 +37,9 @@ function serie(company: string, patch: (i: number) => Partial<ScoreRow>): ScoreR
       month,
       groupId: "g",
       score: 82,
-      ...flujosCapacidad(10_000),
       cobrosOpMedia3m: 100_000,
       confianza: 0.9,
       D1: 0.5,
-      ...grupo,
       ...patch(i),
     }),
   );
@@ -61,13 +53,34 @@ test("rows respect the contract; sana opens and holds; state carries", () => {
   assert.equal(rows.length, CALENDAR.length);
   for (const r of rows) decisionRowSchema.parse(r);
   assert.equal(rows[0].accion, "abrir");
-  assert.equal(rows[0].LVigente, 120_000);
+  assert.equal(rows[0].LVigente, 240_000);
+  assert.equal(rows[0].tamano, 100_000);
+  assert.equal(rows[0].factorA, 1);
+  assert.equal(rows[0].limiteOp, 240_000);
   assert.equal(rows[1].accion, "mantener");
   assert.equal(rows[5].menu.length, 5);
   assert.equal(rows[0].bandaPred3mUsada, null); // sin previsión
   assert.equal(rows[0].motor, "v1");
   assert.equal(rows[0].versionParametros, params.version);
-  assert.equal(rows[1].estado.LPrev, 120_000);
+  assert.equal(rows[1].estado.LPrev, 240_000);
+});
+
+test("decisión 46: el menú de la fila sana es la rampa hasta L en 180 d", () => {
+  const rows = decideGroup(
+    serie("a", () => ({})),
+    params,
+  );
+  assert.deepEqual(
+    rows[0].menu.map((o) => [o.plazo, o.cantidadMax]),
+    [
+      [30, 40_000],
+      [60, 80_000],
+      [90, 120_000],
+      [120, 160_000],
+      [180, 240_000],
+    ],
+  );
+  assert.equal(rows[0].plazoNaturalAnticipo, P.plazoNaturalDefecto);
 });
 
 test("no eligible ⇒ cerrar with reason and L_vigente 0", () => {
@@ -83,13 +96,48 @@ test("no eligible ⇒ cerrar with reason and L_vigente 0", () => {
   assert.equal(rows[4].accion, "abrir");
 });
 
-test("group: ceiling prorates and a big sibling closing lowers the others one band and closes them next month", () => {
+test("decisión 44: una alerta sola cierra el grifo, sin mirar ninguna variable cruda", () => {
+  const casos: [AlertTipo, RegExp][] = [
+    ["impago_obligaciones", /^Impago de obligaciones \(alerta\)$/],
+    ["deficit_persistente", /^Déficit persistente \(alerta\)$/],
+    ["vencido_alto", /^Vencido alto \(alerta\)$/],
+  ];
+  for (const [tipo, motivo] of casos) {
+    const rows = decideGroup(
+      serie("a", (i) => (i === 2 ? { alertas: alertas(tipo) } : {})),
+      params,
+    );
+    assert.equal(rows[2].elegible, false, tipo);
+    assert.match(rows[2].motivo!, motivo);
+  }
+  // una alerta que no es de puerta no cierra nada
+  const deterioro = decideGroup(
+    serie("a", (i) => (i === 2 ? { alertas: alertas("deterioro") } : {})),
+    params,
+  );
+  assert.equal(deterioro[2].elegible, true);
+});
+
+test("decisión 45: el pilar A escala el límite de la fila real", () => {
+  // Por encima de la puerta (A ≥ 50) el pilar sigue recortando hasta `factorARef`: A 56 ⇒ 0,8.
+  const rows = decideGroup(
+    serie("a", (i) => (i === 2 ? { subscores: { A: 56, B: 80, C: 80 } } : {})),
+    params,
+  );
+  assert.equal(rows[0].factorA, 1);
+  assert.equal(rows[0].L, 240_000);
+  assert.equal(rows[2].factorA, 0.8);
+  assert.equal(rows[2].L, 192_000);
+  assert.equal(rows[2].elegible, true);
+});
+
+test("group: a big sibling closing lowers the others one band and closes them next month", () => {
   const a = serie("a", (i) => (i >= 3 ? { score: 40 } : {}));
   const b = serie("b", () => ({ D1: 0.5 }));
   const rows = decideGroup([...a, ...b], params);
   const bRows = rows.filter((r) => r.company === "b");
   assert.equal(bRows[3].bandaEfectiva, "B"); // escalón por cross-default en el mes de la caída
-  assert.equal(bRows[3].L, 84_000); // 120 000 × factor banda B (0,7)
+  assert.equal(bRows[3].L, 168_000); // 240 000 × factor banda B (0,7)
   assert.ok(bRows[3].LVigente < bRows[2].LVigente);
   assert.equal(bRows[3].accion, "reducir"); // sin histéresis: la caída de la hermana es señal dura
   assert.equal(bRows[4].accion, "cerrar"); // puerta grupo
@@ -102,7 +150,7 @@ test("Σ L_vigente ≤ L_grupo and determinism", () => {
   const rows = decideGroup([...serie("a", () => ({})), ...serie("b", () => ({}))], params);
   const byMonth = new Map<string, number>();
   for (const r of rows) byMonth.set(r.month, (byMonth.get(r.month) ?? 0) + r.LVigente);
-  for (const suma of byMonth.values()) assert.ok(suma <= L_GRUPO + 1e-6); // techo del fixture: ver limiteGrupo
+  for (const suma of byMonth.values()) assert.ok(suma <= L_GRUPO + 1e-6); // techo del fixture
   assert.deepEqual(
     rows,
     decideGroup([...serie("a", () => ({})), ...serie("b", () => ({}))], params),
@@ -180,7 +228,7 @@ test("a one-month sibling fall does not deadlock the group", () => {
     "b debe reabrir",
   );
   // y a partir de ahí ninguna de las dos se queda cerrada el resto del calendario
-  for (const r of [...aRows.slice(8), ...bRows.slice(8)]) {
+  for (const r of [...aRows.slice(9), ...bRows.slice(9)]) {
     assert.notEqual(r.accion, "cerrar", `${r.company} ${r.month}`);
     assert.ok(r.LVigente > 0, `${r.company} ${r.month}`);
   }
@@ -204,121 +252,117 @@ test("a cause that never reopens still lets the sibling back after reaperturaMes
   for (const r of bRows.slice(reapertura)) assert.ok(r.LVigente > 0, `${r.month}`);
 });
 
-const techo = {
-  cobrosOpGrupoMedia6m: 300_000,
-  pagosOpGrupoMedia6m: 100_000,
-  servicioDeudaGrupoMedia6m: 0,
-};
-
-/** Grupo con techo mordiente: L_grupo = 720 000 frente a Σ L = 1 200 000. */
-function serieTecho(company: string): ScoreRow[] {
+/**
+ * Grupo con techo mordiente (decisión 47). El techo solo puede morder cuando la banda del grupo
+ * es peor que la de quien tiene el límite: "a" con score 20 (banda D, L = 0) arrastra el score
+ * ponderado a 51 (banda C), así que
+ *   L_grupo = 0,8 × 200 000 × 3 × 0,4 = 192 000  frente a  Σ L = 240 000.
+ */
+function serieTecho(company: string, score: number): ScoreRow[] {
   return CALENDAR.map((month) =>
     scoreRowFixture({
       company,
       month,
       groupId: "g",
-      score: 82,
-      ...flujosCapacidad(50_000),
-      cobrosOpMedia3m: 1_000_000,
+      score,
+      cobrosOpMedia3m: 100_000,
       confianza: 0.9,
       D1: 0.1,
-      ...techo,
     }),
   );
 }
 
 test("the group ceiling binds: it prorates, is flagged and the action follows the capped limit", () => {
-  const rows = decideGroup([...serieTecho("a"), ...serieTecho("b")], params);
-  // capacidad_g = (0,9×300 000 − 1,05×100 000)/1,3 = 126 923 → limite_cap 1 523 077
-  // limite_op = 0,8 × 300 000 × 3 = 720 000 (manda) · banda A, conf 0,9 → sin recorte
-  const LGrupo = 720_000;
+  const rows = decideGroup([...serieTecho("a", 20), ...serieTecho("b", 82)], params);
+  const LGrupo = 192_000;
   const porMes = new Map<string, number>();
   for (const r of rows) {
-    assert.equal(r.L, 600_000); // min(50 000 × 12; 0,8 × 1 000 000 × 3)
-    assert.ok(r.motivoGrupo !== null, `${r.month}: el techo debería estar marcado`);
+    assert.ok(r.motivoGrupo !== null, `${r.company} ${r.month}: el techo debería estar marcado`);
+    assert.match(r.motivoGrupo!, /Techo de grupo: 192\.000 €/);
     porMes.set(r.month, (porMes.get(r.month) ?? 0) + r.LVigente);
   }
   for (const [month, suma] of porMes) assert.ok(suma <= LGrupo, `${month}: ${suma}`);
   const a = rows.filter((r) => r.company === "a");
-  assert.equal(a[0].accion, "abrir");
-  assert.equal(a[0].LVigente, 360_000);
+  const b = rows.filter((r) => r.company === "b");
+  assert.ok(a.every((r) => r.accion === "cerrar" && r.LVigente === 0));
+  assert.equal(b[0].accion, "abrir");
+  assert.equal(b[0].L, 240_000); // el límite propio, antes del techo
+  assert.equal(b[0].LVigente, 192_000);
   // mes 2: el reparto se come la subida entera, así que la fila dice "mantener", no "ampliar"
-  assert.equal(a[1].accion, "mantener");
-  assert.equal(a[1].LVigente, 360_000);
-  assert.ok(a.every((r) => r.LVigente === 360_000));
+  assert.equal(b[1].accion, "mantener");
+  assert.ok(b.every((r) => r.LVigente === 192_000));
 });
 
-test("two companies over a small ceiling both come out as reducir with the group reason", () => {
-  // el grupo encoge en el mes 2: L_grupo pasa de 480 000 a 120 000 con Σ L = 240 000
-  const grande = { cobrosOpGrupoMedia6m: 200_000, pagosOpGrupoMedia6m: 0 };
-  const pequeno = { cobrosOpGrupoMedia6m: 50_000, pagosOpGrupoMedia6m: 0 };
-  const serieT = (company: string) =>
-    CALENDAR.map((month, i) =>
+test("two companies over a shrinking ceiling both come out as reducir with the group reason", () => {
+  // Una tercera empresa grande y en banda D entra en el mes 2 y hunde el score ponderado del
+  // grupo: L_grupo pasa de 480 000 a 0,8 × 400 000 × 3 × 0,4 = 384 000 con Σ L = 480 000.
+  const sanas = ["a", "b"].flatMap((company) =>
+    CALENDAR.map((month) =>
       scoreRowFixture({
         company,
         month,
         groupId: "g",
         score: 82,
-        ...flujosCapacidad(10_000),
         cobrosOpMedia3m: 100_000,
         confianza: 0.9,
         D1: 0.1,
-        servicioDeudaGrupoMedia6m: 0,
-        ...(i === 0 ? grande : pequeno),
       }),
-    );
-  const rows = decideGroup([...serieT("a"), ...serieT("b")], params);
-  const mes2 = rows.filter((r) => r.month === CALENDAR[1]);
+    ),
+  );
+  const lastre = CALENDAR.slice(1).map((month) =>
+    scoreRowFixture({
+      company: "c",
+      month,
+      groupId: "g",
+      score: 20,
+      cobrosOpMedia3m: 200_000,
+      confianza: 0.9,
+      D1: 0.1,
+    }),
+  );
+  const rows = decideGroup([...sanas, ...lastre], params);
+  const mes1 = rows.filter((r) => r.month === CALENDAR[0]);
+  assert.equal(mes1.length, 2);
+  for (const r of mes1) assert.equal(r.LVigente, 240_000); // sin lastre el techo no muerde
+  const mes2 = rows.filter((r) => r.month === CALENDAR[1] && r.company !== "c");
   assert.equal(mes2.length, 2);
   for (const r of mes2) {
     assert.equal(r.accion, "reducir", r.company);
-    assert.equal(r.LVigente, 60_000);
-    assert.match(r.motivoGrupo!, /Techo de grupo: 120\.000 €/);
+    assert.equal(r.LVigente, 192_000);
+    assert.match(r.motivoGrupo!, /Techo de grupo: 384\.000 €/);
     assert.match(r.motivoAccion, /techo de grupo/);
   }
-  assert.equal(mes2[0].LVigente + mes2[1].LVigente, 120_000);
+  assert.equal(mes2[0].LVigente + mes2[1].LVigente, 384_000);
 });
 
-/** Grupo cuyos flujos consolidados no dan capacidad: pagos > cobros (decisión 41). */
-const sinCapacidadGrupo = {
-  cobrosOpGrupoMedia6m: 100_000,
-  pagosOpGrupoMedia6m: 200_000,
-  servicioDeudaGrupoMedia6m: 0,
-};
-
-function serieSinCapacidadGrupo(company: string): ScoreRow[] {
+/** Grupo sin tamaño: Σ tamaño = 0 (decisión 47). */
+function serieSinTamano(company: string): ScoreRow[] {
   return CALENDAR.map((month) =>
     scoreRowFixture({
       company,
       month,
       groupId: "g",
       score: 82,
-      ...flujosCapacidad(10_000),
-      cobrosOpMedia3m: 100_000,
+      cobrosOpMedia3m: 0,
       confianza: 0.9,
       D1: 0.1,
-      ...sinCapacidadGrupo,
     }),
   );
 }
 
-test("decisión 41: con capacidad consolidada 0 el grupo baja una banda y el grifo sigue abierto", () => {
-  const rows = decideGroup(
-    [...serieSinCapacidadGrupo("a"), ...serieSinCapacidadGrupo("b")],
-    params,
-  );
-  // L_grupo = min(0 × 12; 0,8 × 100 000 × 3) = 0: el prorrateo habría cerrado a las dos.
+test("decisión 47: con Σ tamaño = 0 el techo es 0, pero no cierra a nadie: no había línea", () => {
+  const rows = decideGroup([...serieSinTamano("a"), ...serieSinTamano("b")], params);
   for (const r of rows) {
-    assert.equal(r.banda, "A");
-    assert.equal(r.bandaEfectiva, "B", `${r.company} ${r.month}`);
-    assert.equal(r.LVigente, 84_000, `${r.company} ${r.month}`); // 120 000 × factor banda B
-    assert.equal(r.motivoGrupo, MOTIVO_TECHO_CERO);
+    assert.equal(r.L, 0, `${r.company} ${r.month}`);
+    assert.equal(r.LVigente, 0);
+    // El techo cero de la decisión 41 se queda sin objeto: no hay nada que prorratear ni banda
+    // que bajar, porque el límite individual de cada miembro ya es 0 por la misma razón.
+    assert.equal(r.motivoGrupo, null, `${r.company} ${r.month}`);
     assert.notEqual(r.accion, "cerrar");
-    assert.ok(r.elegible, `${r.company} ${r.month}`);
+    assert.equal(r.banda, "A"); // el score sigue siendo el de una empresa sana
+    assert.equal(r.bandaEfectiva, "A");
+    assert.equal(r.motivo, "Límite a cero");
   }
-  const a = rows.filter((r) => r.company === "a");
-  assert.equal(a[0].accion, "abrir");
-  assert.equal(a[1].accion, "mantener");
 });
 
 test("decisión 42: una puerta blanda mantiene la línea un mes y cierra al siguiente", () => {
@@ -332,7 +376,7 @@ test("decisión 42: una puerta blanda mantiene la línea un mes y cierra al sigu
   assert.equal(rows[2].accion, "mantener");
   assert.equal(rows[2].cierrePendiente, true);
   assert.equal(rows[2].elegible, false);
-  assert.equal(rows[2].LVigente, 120_000);
+  assert.equal(rows[2].LVigente, 240_000);
   assert.equal(rows[2].L, 0);
   assert.match(rows[2].motivo!, /Historial insuficiente/);
   assert.match(rows[2].motivoAccion, /^Pendiente confirmar cierre: Historial insuficiente/);
@@ -344,30 +388,52 @@ test("decisión 42: una puerta blanda mantiene la línea un mes y cierra al sigu
   assert.equal(rows[3].estado.mesesPuertaBlandaSeguidos, 2);
 });
 
-test("decisión 42: una puerta dura cierra el mismo mes, sin mes de gracia", () => {
-  const rows = decideGroup(
-    serie("a", (i) => (i === 2 ? { rachaB2: 2 } : {})),
+test("decisión 42 + 44: el umbral del pilar A es blando y la alerta de déficit es dura", () => {
+  const pilar = decideGroup(
+    serie("a", (i) => (i >= 2 ? { subscores: { A: 40, B: 80, C: 80 } } : {})),
     params,
   );
-  assert.equal(rows[2].accion, "cerrar");
-  assert.equal(rows[2].cierrePendiente, false);
-  assert.equal(rows[2].LVigente, 0);
-  assert.equal(rows[2].estado.mesesPuertaBlandaSeguidos, 0);
+  assert.equal(pilar[2].accion, "mantener");
+  assert.equal(pilar[2].cierrePendiente, true);
+  assert.match(pilar[2].motivo!, /Capacidad de deuda 40,0 por debajo de 50/);
+  assert.equal(pilar[3].accion, "cerrar");
+
+  const alerta = decideGroup(
+    serie("a", (i) => (i === 2 ? { alertas: alertas("deficit_persistente") } : {})),
+    params,
+  );
+  assert.equal(alerta[2].accion, "cerrar");
+  assert.equal(alerta[2].cierrePendiente, false);
+  assert.equal(alerta[2].LVigente, 0);
+  assert.equal(alerta[2].estado.mesesPuertaBlandaSeguidos, 0);
 });
 
-/** §13, propiedades 1 y 3 sobre todas las filas de un dataset (+ menú y motivo, §7 y §10). */
+/** §13, propiedades 1, 2 y 3 sobre todas las filas de un dataset (+ menú y motivo, §7 y §10). */
 function compruebaPropiedades(nombre: string, rows: DecisionRow[]): void {
   const porEmpresa = new Map<string, DecisionRow[]>();
   for (const r of rows) {
     decisionRowSchema.parse(r);
     // §13 propiedad 1 con sus dos excepciones: el mes de gracia de una puerta blanda (decisión 42)
-    // y la fila que pasa las seis puertas pero se queda sin menú (§7: `T_max = 0` o capacidad por
-    // debajo del escalón de `redondeo_L` en todos los plazos). En los dos casos la línea viva no
-    // se cierra: lo que falta es grifo que abrir este mes, no solvencia.
+    // y la fila que pasa las seis puertas pero se queda sin menú (§7: `T_max = 0` o un límite por
+    // debajo del escalón de `redondeo_L` en todos los plazos de la rampa). En los dos casos la
+    // línea viva no se cierra: lo que falta es grifo que abrir este mes, no solvencia.
     assert.ok(
       r.elegible || r.LVigente === 0 || r.cierrePendiente || r.puertasFallidas.length === 0,
       `${nombre} ${r.company} ${r.month}: P1`,
     );
+    // §13 propiedad 2 + decisión 46: el menú no decrece y respeta la rampa.
+    for (let i = 0; i < r.menu.length; i++) {
+      const o = r.menu[i];
+      assert.ok(o.cantidadMax <= r.LVigente, `${nombre} ${r.company} ${r.month}: menú > L`);
+      assert.ok(
+        o.cantidadMax <= (r.LVigente * o.plazo) / P.rampaDias + 1e-6,
+        `${nombre} ${r.company} ${r.month}: rampa @ ${o.plazo}`,
+      );
+      assert.equal(o.cantidadMax % P.redondeoL, 0);
+      if (i === 0) continue;
+      assert.ok(o.cantidadMax >= r.menu[i - 1].cantidadMax, `${nombre}: P2 cantidad`);
+      assert.ok(o.tae >= r.menu[i - 1].tae, `${nombre}: P2 tae`);
+    }
     // §7: sin menú no hay grifo que abrir, así que la fila no puede salir elegible.
     assert.ok(
       r.menu.length > 0 || !r.elegible,
@@ -402,7 +468,7 @@ function compruebaPropiedades(nombre: string, rows: DecisionRow[]): void {
   }
 }
 
-test("§13 properties 1 and 3 hold on every fixture", () => {
+test("§13 properties 1, 2 and 3 hold on every fixture", () => {
   compruebaPropiedades(
     "sana",
     decideGroup(
@@ -417,15 +483,25 @@ test("§13 properties 1 and 3 hold on every fixture", () => {
       params,
     ),
   );
-  compruebaPropiedades("techo", decideGroup([...serieTecho("a"), ...serieTecho("b")], params));
   compruebaPropiedades(
-    "techo_cero",
-    decideGroup([...serieSinCapacidadGrupo("a"), ...serieSinCapacidadGrupo("b")], params),
+    "techo",
+    decideGroup([...serieTecho("a", 20), ...serieTecho("b", 82)], params),
+  );
+  compruebaPropiedades(
+    "sin_tamano",
+    decideGroup([...serieSinTamano("a"), ...serieSinTamano("b")], params),
   );
   compruebaPropiedades(
     "puerta_blanda",
     decideGroup(
       serie("a", (i) => (i >= 2 && i <= 5 ? { confianza: 0.3 } : {})),
+      params,
+    ),
+  );
+  compruebaPropiedades(
+    "pilar_a",
+    decideGroup(
+      serie("a", (i) => (i >= 2 ? { subscores: { A: 20, B: 80, C: 80 } } : {})),
       params,
     ),
   );

@@ -1,16 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { decisionInputFixture } from "@/lib/features/decision/__fixtures__/decision-input";
 import type { CausaReduccion } from "@/lib/features/decision/action";
 import { dec, eur, motivoAccion, motivoPuerta, pct } from "@/lib/features/decision/motivos";
 import type { Accion, Banda } from "@/lib/features/decision/types";
-import { scoreRowFixture } from "@/lib/features/scoring/__fixtures__/score-row";
 
-const r = scoreRowFixture({
+const r = decisionInputFixture({
   score: 72,
-  deltaContrib: [
-    { id: "A1", delta: -3.21 },
-    { id: "C5", delta: 0.4 },
-  ],
+  tend3m: { A: -3.21, B: 0.4, C: null },
 });
 
 type Ctx = Parameters<typeof motivoAccion>[2];
@@ -37,11 +34,11 @@ test("formatters use Spanish separators", () => {
 test("the five motivoAccion branches", () => {
   const casos: [Accion, Partial<Ctx>, RegExp][] = [
     ["abrir", {}, /^Elegible: score 72 \(banda A\), límite 120\.000 € hasta 180 d$/],
-    ["ampliar", {}, /^Límite sube de 100\.000 € a 120\.000 €: A1 -3,2$/],
+    ["ampliar", {}, /^Límite sube de 100\.000 € a 120\.000 €: A -3,2$/],
     [
       "reducir",
       { LVigente: 75_000, causaReduccion: "estructural" },
-      /^Límite baja de 100\.000 € a 75\.000 €: deterioro estructural, A1 -3,2$/,
+      /^Límite baja de 100\.000 € a 75\.000 €: deterioro estructural, A -3,2$/,
     ],
     ["mantener", { LVigente: 100_000 }, /^Sin cambios: score 72, límite 100\.000 €$/],
     ["cerrar", { motivoCierre: "Score 40 por debajo de 45" }, /^Score 40 por debajo de 45$/],
@@ -85,68 +82,73 @@ test("the four mantener variants", () => {
 test("the four causaReduccion variants", () => {
   const causa = (c: CausaReduccion, p: Partial<Ctx> = {}) =>
     motivoAccion("reducir", r, ctx({ LVigente: 75_000, causaReduccion: c, ...p }));
-  assert.match(causa("estructural"), /deterioro estructural, A1 -3,2$/);
-  assert.match(causa("confirmada"), /2 meses por debajo, A1 -3,2$/);
-  assert.match(causa("prevision", { bandaPred: "C" }), /previsión: banda C en 3 meses, A1 -3,2$/);
-  assert.match(
-    causa("grupo", { causaCrossDefault: "COMP_X" }),
-    /cross-default de COMP_X, A1 -3,2$/,
-  );
+  assert.match(causa("estructural"), /deterioro estructural, A -3,2$/);
+  assert.match(causa("confirmada"), /2 meses por debajo, A -3,2$/);
+  assert.match(causa("prevision", { bandaPred: "C" }), /previsión: banda C en 3 meses, A -3,2$/);
+  assert.match(causa("grupo", { causaCrossDefault: "COMP_X" }), /cross-default de COMP_X, A -3,2$/);
   // "grupo" sin empresa causante es el prorrateo del techo, no un cross-default
-  assert.match(causa("grupo"), /techo de grupo, A1 -3,2$/);
-  assert.match(causa(null), /2 meses por debajo, A1 -3,2$/);
-  // el sufijo no repite la causa: con causa "grupo" se salta la contribución `grupo`
-  const conGrupo = scoreRowFixture({
-    deltaContrib: [
-      { id: "grupo", delta: 4.2 },
-      { id: "A1", delta: -3.21 },
-    ],
-  });
-  assert.match(
-    motivoAccion("reducir", conGrupo, ctx({ LVigente: 75_000, causaReduccion: "grupo" })),
-    /techo de grupo, A1 -3,2$/,
-  );
-  assert.match(
-    motivoAccion("reducir", conGrupo, ctx({ LVigente: 75_000, causaReduccion: "estructural" })),
-    /deterioro estructural, grupo \+4,2$/,
-  );
+  assert.match(causa("grupo"), /techo de grupo, A -3,2$/);
+  assert.match(causa(null), /2 meses por debajo, A -3,2$/);
 });
 
-test("motivoPuerta interpolates the parameters and reads C4 when the gate fails", () => {
+test("decisión 43: el sufijo sale de la tendencia, no de la cascada de scoring", () => {
+  // el pilar que más se mueve manda, con su signo
+  assert.match(
+    motivoAccion("ampliar", decisionInputFixture({ tend3m: { A: 1.2, B: -4.5, C: 0.1 } }), ctx()),
+    /: B -4,5$/,
+  );
+  assert.match(
+    motivoAccion("ampliar", decisionInputFixture({ tend3m: { A: null, B: null, C: 6 } }), ctx()),
+    /: C \+6,0$/,
+  );
+  // sin tendencia por pilar se cae al movimiento del score
+  assert.match(
+    motivoAccion("ampliar", decisionInputFixture({ tendScore3m: -2.5 }), ctx()),
+    /: score -2,5$/,
+  );
+  // y sin ninguna tendencia, el texto lo dice
+  assert.match(motivoAccion("ampliar", decisionInputFixture(), ctx()), /: sin cambios$/);
+});
+
+test("decisión 44: cada puerta tiene el texto de su alerta y el de su umbral de pilar", () => {
   assert.equal(
-    motivoPuerta("historia", scoreRowFixture({ confianza: 0.3 }), null),
+    motivoPuerta("historia", decisionInputFixture({ confianza: 0.3 }), null),
     "Historial insuficiente: confianza 0,30 < 0,4",
   );
   assert.equal(
-    motivoPuerta("estado", scoreRowFixture({ score: 40 }), null),
+    motivoPuerta("estado", decisionInputFixture({ score: 40 }), null),
     "Score 40 por debajo de 45",
   );
   assert.equal(
-    motivoPuerta("fiabilidad", scoreRowFixture({ rachaB2: 2 }), null),
-    "2 meses seguidos sin pagar obligaciones",
+    motivoPuerta("fiabilidad", decisionInputFixture({ alertas: ["impago_obligaciones"] }), null),
+    "Impago de obligaciones (alerta)",
   );
   assert.equal(
-    motivoPuerta("caja", scoreRowFixture({ rachaDeficit: 3 }), null),
-    "3 meses seguidos en déficit",
+    motivoPuerta("fiabilidad", decisionInputFixture({ subscores: { A: 80, B: 42, C: 80 } }), null),
+    "Fiabilidad 42,0 por debajo de 60",
   );
   assert.equal(
-    motivoPuerta("caja", scoreRowFixture({ cobrosOpMedia6m: 0 }), null),
-    "Caja estresada no cubre cuotas actuales",
+    motivoPuerta("caja", decisionInputFixture({ alertas: ["deficit_persistente"] }), null),
+    "Déficit persistente (alerta)",
   );
   assert.equal(
-    motivoPuerta("clientes", scoreRowFixture({ C4: 0.55 }), null),
-    "55 % de facturas vencidas sin cobrar",
+    motivoPuerta("caja", decisionInputFixture({ subscores: { A: 31.5, B: 80, C: 80 } }), null),
+    "Capacidad de deuda 31,5 por debajo de 50",
   );
   assert.equal(
-    motivoPuerta("grupo", scoreRowFixture({ D1: 0.5 }), "COMP_X"),
+    motivoPuerta("clientes", decisionInputFixture({ alertas: ["vencido_alto"] }), null),
+    "Vencido alto (alerta)",
+  );
+  assert.equal(
+    motivoPuerta("clientes", decisionInputFixture({ subscores: { A: 80, B: 80, C: 12 } }), null),
+    "Clientes 12,0 por debajo de 50",
+  );
+  assert.equal(
+    motivoPuerta("grupo", decisionInputFixture({ D1: 0.5 }), "COMP_X"),
     "Cierre de COMP_X (50 % del grupo)",
   );
-  assert.match(motivoPuerta("grupo", scoreRowFixture({ D1: 0.5 }), null), /una empresa del grupo/);
-});
-
-test("topDelta falls back when there are no contributions", () => {
   assert.match(
-    motivoAccion("ampliar", scoreRowFixture({ deltaContrib: [] }), ctx()),
-    /: sin cambios$/,
+    motivoPuerta("grupo", decisionInputFixture({ D1: 0.5 }), null),
+    /una empresa del grupo/,
   );
 });
