@@ -6,6 +6,8 @@ import Link from "next/link";
 import {
   CompanyDecisionTab,
   CompanyGroupTab,
+  CompanyPredictionTab,
+  CompanyRcaTab,
   CompanyScoreTab,
 } from "@/components/grifo/company/company-file-tabs";
 import { CompanyAvatar } from "@/components/grifo/company-avatar";
@@ -37,11 +39,19 @@ export function CompanySheet({
   const { data } = useCompanyFile(companyId, month);
   const { company, latest, peers } = data;
   const hasGroup = latest.group !== null && peers.length > 0;
+  const hasForecast = latest.forecast !== null;
+  const hasRca = Boolean(data.rca);
   const unknown = latest.estado === "sin_datos";
+  const validTab =
+    (tab === "grupo" && !hasGroup) ||
+    (tab === "prediccion" && !hasForecast) ||
+    (tab === "rca" && !hasRca)
+      ? "decision"
+      : tab;
 
   return (
     <Tabs
-      value={hasGroup || tab !== "grupo" ? tab : "decision"}
+      value={validTab}
       onValueChange={(value) => onTabChange(value as SheetTab)}
       className="flex h-full min-h-0 flex-col gap-0"
     >
@@ -106,6 +116,16 @@ export function CompanySheet({
             Grupo
           </TabsTrigger>
         ) : null}
+        {hasForecast ? (
+          <TabsTrigger value="prediccion" className="px-0 text-sm after:!bottom-[-1px]">
+            Predicción
+          </TabsTrigger>
+        ) : null}
+        {hasRca ? (
+          <TabsTrigger value="rca" className="px-0 text-sm after:!bottom-[-1px]">
+            Revisión
+          </TabsTrigger>
+        ) : null}
       </TabsList>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
@@ -124,6 +144,18 @@ export function CompanySheet({
               onOpenCompany={onOpenCompany}
               onOpenGroup={onOpenGroup}
             />
+          </TabsContent>
+        ) : null}
+
+        {hasForecast ? (
+          <TabsContent value="prediccion" className="flex flex-col gap-4">
+            <CompanyPredictionTab file={data} />
+          </TabsContent>
+        ) : null}
+
+        {hasRca ? (
+          <TabsContent value="rca" className="flex flex-col gap-4">
+            <CompanyRcaTab file={data} />
           </TabsContent>
         ) : null}
       </div>

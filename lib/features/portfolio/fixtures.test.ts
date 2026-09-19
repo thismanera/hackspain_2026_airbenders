@@ -91,15 +91,23 @@ test("la banda se corresponde con el score", () => {
 });
 
 test("la cartera devuelve filas ordenadas por quién necesita atención", () => {
-  const { rows, summary } = portfolioFrom(dataset);
+  const { rows, hot, summary } = portfolioFrom(dataset);
   assert.ok(rows.length > 0);
   assert.equal(summary.total, rows.length);
+
+  const hotIds = hot.map((row) => row.company.id);
+  assert.deepEqual(
+    rows.slice(0, hot.length).map((row) => row.company.id),
+    hotIds,
+    "las hot van primero en la tabla",
+  );
 
   const priority = { cerrar: 0, reducir: 1, abrir: 2, ampliar: 3, mantener: 4 };
   const rank = (row: (typeof rows)[number]) =>
     !row.changed && row.action === "cerrar" ? 5 : priority[row.action];
-  for (let index = 1; index < rows.length; index++) {
-    assert.ok(rank(rows[index - 1]) <= rank(rows[index]), "el orden por acción se ha roto");
+  const rest = rows.slice(hot.length);
+  for (let index = 1; index < rest.length; index++) {
+    assert.ok(rank(rest[index - 1]) <= rank(rest[index]), "el orden por acción se ha roto");
   }
 });
 

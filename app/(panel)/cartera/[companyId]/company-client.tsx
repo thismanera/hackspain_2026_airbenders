@@ -3,6 +3,8 @@
 import {
   CompanyDecisionTab,
   CompanyGroupTab,
+  CompanyPredictionTab,
+  CompanyRcaTab,
   CompanyScoreTab,
 } from "@/components/grifo/company/company-file-tabs";
 import { CompanyFacts } from "@/components/grifo/company/company-facts";
@@ -21,7 +23,14 @@ export function CompanyClient({ companyId, month }: { companyId: string; month: 
 
   const unknown = latest.estado === "sin_datos";
   const hasGroup = latest.group !== null && peers.length > 0;
-  const tab = hasGroup || pestana !== "grupo" ? pestana : "decision";
+  const hasForecast = latest.forecast !== null;
+  const hasRca = Boolean(data.rca);
+  const tab =
+    (pestana === "grupo" && !hasGroup) ||
+    (pestana === "prediccion" && !hasForecast) ||
+    (pestana === "rca" && !hasRca)
+      ? "decision"
+      : pestana;
 
   return (
     <Tabs
@@ -70,6 +79,16 @@ export function CompanyClient({ companyId, month }: { companyId: string; month: 
               Grupo
             </TabsTrigger>
           ) : null}
+          {hasForecast ? (
+            <TabsTrigger value="prediccion" className="px-0 text-sm after:!bottom-[-1px]">
+              Predicción
+            </TabsTrigger>
+          ) : null}
+          {hasRca ? (
+            <TabsTrigger value="rca" className="px-0 text-sm after:!bottom-[-1px]">
+              Revisión
+            </TabsTrigger>
+          ) : null}
         </TabsList>
       </header>
 
@@ -82,6 +101,16 @@ export function CompanyClient({ companyId, month }: { companyId: string; month: 
       {hasGroup ? (
         <TabsContent value="grupo" className="flex flex-col gap-4 pt-4">
           <CompanyGroupTab file={data} />
+        </TabsContent>
+      ) : null}
+      {hasForecast ? (
+        <TabsContent value="prediccion" className="flex flex-col gap-4 pt-4">
+          <CompanyPredictionTab file={data} />
+        </TabsContent>
+      ) : null}
+      {hasRca ? (
+        <TabsContent value="rca" className="flex flex-col gap-4 pt-4">
+          <CompanyRcaTab file={data} />
         </TabsContent>
       ) : null}
     </Tabs>

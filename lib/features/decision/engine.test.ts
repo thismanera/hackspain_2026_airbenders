@@ -395,7 +395,7 @@ test("decisión 42 + 44: el umbral del pilar A es blando y la alerta de déficit
   );
   assert.equal(pilar[2].accion, "mantener");
   assert.equal(pilar[2].cierrePendiente, true);
-  assert.match(pilar[2].motivo!, /Capacidad de deuda 40,0 por debajo de 50/);
+  assert.match(pilar[2].motivo!, /Estado de caja 40,0 por debajo de 50/);
   assert.equal(pilar[3].accion, "cerrar");
 
   const alerta = decideGroup(

@@ -34,16 +34,19 @@ function GateRow({ gate }: { gate: Gate }) {
  * noticia; las que pasan quedan detrás de un detalle, no envuelven el cierre
  * con seis ticks verdes.
  */
-export function GatesPanel({ gates }: { gates: Gate[] }) {
+export function GatesPanel({
+  gates,
+  inset = false,
+}: {
+  gates: Gate[];
+  inset?: boolean;
+}) {
   const failedGates = gates.filter((gate) => !gate.passed);
   const passedGates = gates.filter((gate) => gate.passed);
   const failed = failedGates.length;
 
-  return (
-    <Panel
-      title={failed === 0 ? "Puertas" : "Por qué no hay línea"}
-      bodyClassName="p-0"
-    >
+  const body = (
+    <>
       <ul className="divide-y">
         {(failed === 0 ? gates : failedGates).map((gate) => (
           <GateRow key={gate.id} gate={gate} />
@@ -61,6 +64,16 @@ export function GatesPanel({ gates }: { gates: Gate[] }) {
           </ul>
         </details>
       ) : null}
+    </>
+  );
+
+  if (inset) {
+    return <div className="-mx-4 -my-3">{body}</div>;
+  }
+
+  return (
+    <Panel title={failed === 0 ? "Puertas" : "Por qué no hay línea"} bodyClassName="p-0">
+      {body}
     </Panel>
   );
 }

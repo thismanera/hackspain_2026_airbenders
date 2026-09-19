@@ -14,6 +14,10 @@ import { unstable_cache } from "next/cache";
 
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/core/db";
+import { analizarReaccionPostInflexion } from "@/lib/features/rca/engine";
+import type { AnalisisPostInflexion } from "@/lib/features/rca/types";
+import { scoreRowSchema } from "@/lib/features/scoring/contracts";
+import type { ScoreRow } from "@/lib/features/scoring/types";
 
 import { ScoringUnavailableError } from "./dataset";
 import {
@@ -79,6 +83,30 @@ const cachedSnapshot = unstable_cache(readSnapshot, ["portfolio-snapshot"], {
   revalidate: false,
   tags: ["portfolio-snapshot"],
 });
+
+/**
+ * Filas crudas del motor para una empresa, sin pasar por `MonthScore`: el RCA
+ * necesita la inflexión y las aportaciones por variable, que la traducción a
+ * `MonthScore` no conserva. Acotado a una empresa (unas pocas decenas de
+ * filas), no a la cartera entera, así que no repite el coste que evita
+ * `portfolio_snapshots`.
+ */
+async function readCompanyScoreRows(runId: string, companyId: string): Promise<ScoreRow[]> {
+  const rows = await prisma.companyMonthScore
+    .findMany({
+      where: { runId, companyId },
+      select: { data: true },
+      orderBy: { month: "asc" },
+    })
+    .catch(unavailableIfUnreachable);
+  return rows.map((row) => scoreRowSchema.parse(row.data));
+}
+
+const cachedCompanyScoreRows = unstable_cache(
+  readCompanyScoreRows,
+  ["portfolio-company-score-rows"],
+  { revalidate: false, tags: ["portfolio-snapshot"] },
+);
 
 /**
  * La cartera se cachea ya recortada: la fila materializada entera ronda los 2 MB
@@ -149,12 +177,26 @@ export async function getPortfolioExport(
   return filtered((payload as PortfolioSnapshotPayload | null) ?? missingSnapshot(), filters);
 }
 
+/** Reacción observada desde la última inflexión autónoma; `null` si no hay una que explicar. */
+async function companyRca(
+  companyId: string,
+  month: string,
+): Promise<AnalisisPostInflexion | null> {
+  const run = await currentRun();
+  const rows = await cachedCompanyScoreRows(run.id, companyId);
+  if (!rows.length) return null;
+  return analizarReaccionPostInflexion(rows, month);
+}
+
 export async function getCompanyFile(
   companyId: string,
   requestedMonth?: string,
 ): Promise<CompanyFileResponse | null> {
   const found = await snapshot<CompanySnapshot>(SNAPSHOT_KIND.company, companyId);
-  return found ? companyFileFromSnapshot(found, resolveMonth(requestedMonth)) : null;
+  if (!found) return null;
+  const month = resolveMonth(requestedMonth);
+  const file = companyFileFromSnapshot(found, month);
+  return file && { ...file, rca: await companyRca(companyId, month) };
 }
 
 export async function getGroupFile(

@@ -63,7 +63,7 @@ export function activeFilterCount(state: PortfolioSearchState): number {
   return count;
 }
 
-export const SHEET_TABS = ["decision", "score", "grupo"] as const;
+export const SHEET_TABS = ["decision", "score", "grupo", "prediccion", "rca"] as const;
 export type SheetTab = (typeof SHEET_TABS)[number];
 
 /** La ficha completa: mes y pestaña, las mismas que en la hoja. */

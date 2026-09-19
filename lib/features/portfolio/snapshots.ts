@@ -22,11 +22,13 @@ import {
   liteRow,
   matches,
   portfolioFrom,
+  sortPortfolioRows,
   summarise,
   type CohortStats,
   type PortfolioFilters,
   type PortfolioLiteRow,
 } from "./derive";
+import { withCompleteForecast } from "./forecast-rows";
 import { peerMapFrom } from "./peer-map";
 import { readingsFor } from "./reading";
 import type {
@@ -170,7 +172,7 @@ export function listRow(row: PortfolioRow): PortfolioListRow {
  * una cartera de 1.300 empresas, y solo el CSV la necesita entera.
  */
 export function leanPortfolio(full: PortfolioSnapshotPayload): PortfolioResponse {
-  return { ...full, rows: full.rows.map(listRow) };
+  return { ...full, rows: sortPortfolioRows(full.rows).map(listRow) };
 }
 
 /**
@@ -185,7 +187,7 @@ export function portfolioFromSnapshot<T extends PortfolioResponse | PortfolioSna
 ): T {
   if (!hasFilters(filters)) return full;
   const keep = matches(filters);
-  const rows = full.rows.filter(keep);
+  const rows = sortPortfolioRows(full.rows.filter(keep));
   const history = CALENDAR.slice(0, CALENDAR.indexOf(full.month) + 1).map((past) =>
     past === full.month
       ? summarise(full.month, rows)
@@ -206,13 +208,14 @@ export function companyFileFromSnapshot(
 ): CompanyFileResponse | null {
   const index = snapshot.history.findIndex((point) => point.month === month);
   if (index === -1) return null;
+  const history = snapshot.history.map(withCompleteForecast);
   return {
     company: snapshot.company,
     month,
     months: CALENDAR,
-    latest: snapshot.history[index],
-    previous: index > 0 ? snapshot.history[index - 1] : null,
-    history: snapshot.history.slice(0, index + 1),
+    latest: history[index],
+    previous: index > 0 ? history[index - 1] : null,
+    history: history.slice(0, index + 1),
     peers: snapshot.peersByMonth[month] ?? [],
   };
 }

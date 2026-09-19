@@ -44,12 +44,24 @@ type ForecastRow = ReturnType<typeof forecastRowSchema.parse>;
 type GateId = "historia" | "estado" | "fiabilidad" | "caja" | "clientes" | "grupo";
 const GATE_IDS: GateId[] = ["historia", "estado", "fiabilidad", "caja", "clientes", "grupo"];
 const GATE_LABELS = {
-  historia: "Historia suficiente",
-  estado: "Estado autónomo",
-  fiabilidad: "Obligaciones",
-  caja: "Caja",
-  clientes: "Morosidad comercial",
+  historia: "Historial suficiente",
+  estado: "Score mínimo",
+  fiabilidad: "Pago de obligaciones",
+  caja: "Estado de caja",
+  clientes: "Morosidad de clientes",
   grupo: "Riesgo del grupo",
+} satisfies Record<GateId, string>;
+
+/** Texto estático cuando la puerta pasa: el dataset persistido no trae los valores
+ * crudos (score, subscores, confianza) para una empresa que no falla, así que el
+ * detalle positivo no puede ser dinámico como el negativo (`motivoPuerta`). */
+const GATE_PASS_DETAIL = {
+  historia: "Historial suficiente para fiarse del score",
+  estado: "Score mínimo cumplido",
+  fiabilidad: "Pago de obligaciones al día",
+  caja: "Caja suficiente para cubrir el servicio de deuda",
+  clientes: "Sin morosidad relevante de clientes",
+  grupo: "Sin riesgo de arrastre del grupo",
 } satisfies Record<GateId, string>;
 
 const CRITICAL_ALERTS = new Set(["impago_obligaciones", "vencido_alto"]);
@@ -65,7 +77,7 @@ export function monthScore(
     id,
     label: GATE_LABELS[id],
     passed: !failed.has(id),
-    detail: failed.has(id) ? (decision?.motivo ?? "Puerta no superada") : "Superada",
+    detail: failed.has(id) ? (decision?.motivo ?? "Puerta no superada") : GATE_PASS_DETAIL[id],
   }));
   const menu =
     decision?.menu.map((option) => ({

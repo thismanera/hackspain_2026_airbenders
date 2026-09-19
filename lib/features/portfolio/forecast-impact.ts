@@ -22,6 +22,14 @@ function round1(value: number): number {
 }
 
 /**
+ * El motor guarda la TAE en tanto por uno (0,065); las tablas de banda y los
+ * fixtures del panel, en puntos (6,5). Las cuentas de impacto van en puntos.
+ */
+function asPercentagePoints(apr: number): number {
+  return apr > 0 && apr <= 1 ? round1(apr * 100) : apr;
+}
+
+/**
  * Qué condiciones tocarían con la banda prevista, manteniendo todo lo demás de
  * la decisión de hoy. El límite se reescala por el factor de banda; la TAE
  * cambia solo su tramo base. Banda D: sin oferta.
@@ -30,7 +38,7 @@ export function forecastImpact(decision: Decision, scorePred: number): ForecastI
   const bandNow = decision.band;
   const bandPred = deriveBanda(scorePred);
   const limitNow = decision.eligible ? decision.limit : 0;
-  const aprNow = decision.eligible ? decision.apr : null;
+  const aprNow = decision.eligible ? asPercentagePoints(decision.apr) : null;
 
   const factorNow = BANDA[bandNow].factor;
   const factorPred = BANDA[bandPred].factor;
