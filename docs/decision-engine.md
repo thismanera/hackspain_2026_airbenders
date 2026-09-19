@@ -191,7 +191,8 @@ function tae(fila, plazo_dias, P):
     if fila.confianza < 0.7: t += P.prima_confianza_pp
     if fila.direccion == "mejora":    t += P.ajuste_mejora_pp
     if fila.direccion == "deterioro": t += P.ajuste_deterioro_pp
-    if prev.banda_pred_3m < b:        t += P.prima_prevision_pp      # decisión 37
+    # decisión 37 / SOURCE §3.3: se compara con la banda ACTUAL, no con la efectiva
+    if prev.banda_pred_3m < banda(fila.score): t += P.prima_prevision_pp
     return round(t, 4)
 
 function coste(cantidad, tae, plazo_dias, P):
@@ -321,8 +322,25 @@ function grupo(filas_grupo, decisiones, P):
 
 - El aval en puntos ya lo quita el motor de score (recalcula `aval_grupo`
   sin la empresa caída). Aquí solo se aplica el escalón de banda y el techo.
-- `cross_default_activo` se levanta cuando la empresa caída vuelve a
-  `abrir` o cuando lleva `reapertura_meses` sin ser la causa.
+- **Desviación documentada de §4**: el `limite_op` del grupo es
+  `cobros_op_grupo_media6m × anticipo_pct × anticipo_meses`. No existe una media
+  de 3 meses consolidada en `ScoreRow`, así que se usa la de 6 meses (más
+  estable y algo más conservadora en un grupo que crece).
+- La banda del grupo sale de la media de `score` **ponderada por
+  `cobros_op_media6m`** de cada empresa, y el recorte por confianza usa la media
+  de `confianza` con ese mismo peso (`min(1, conf_grupo / conf_ref)`): quien
+  mueve el dinero del grupo es quien manda en la banda y en el recorte. Si nadie
+  tiene cobros, se cae a la media simple.
+- Una **caída** es un cierre nuevo y propio: no cuentan los cierres cuya única
+  puerta fallida es `grupo` (eso es el contagio que causó otra empresa) ni los de
+  una empresa que ya llegaba cerrada al mes. Sin estas dos exclusiones A tumba a
+  B, el cierre de B vuelve a marcar a A y ninguna de las dos reabre nunca.
+- `cross_default_activo` se levanta con cualquiera de las dos reglas: cuando la
+  empresa caída vuelve a `abrir` (`L_vigente > 0`) o cuando la afectada lleva
+  `reapertura_meses` meses seguidos con la bandera encendida
+  (`meses_con_cross_default`). Si la causante no tiene fila ese mes, la bandera
+  se levanta (fail-open). Al levantarse, la empresa vuelve por el camino normal
+  de reapertura.
 
 ## 10. Salida: contrato
 
@@ -387,7 +405,7 @@ Resultado esperado por mes escrito en el fixture, no calculado.
 | --- | --- | --- |
 | `sana` | score 82, conf 0,9, estable, cap 10 k/mes, cobros 100 k/mes | A · L = min(120 k, 240 k) = 120 k · T_max 180 · menú 30 d → 10 k, 60 d → 20 k … 180 d → 60 k · TAE 5 % → 7,5 % |
 | `mejora` | score 62→74 en 3 m, dirección mejora | B · `ampliar` cuando L > 1,15·Lp · TAE con −0,5 pp |
-| `deterioro_estructural` | score 70→58, estructural desde mes 4 | mes 4: banda C efectiva, `reducir` inmediato, T_max 30 · mes 5: si sigue, C estructural → T_max 0 → cerrar |
+| `deterioro_estructural` | score 70→68, estructural desde mes 4 | mes 4: banda C efectiva (B recortada un escalón), `reducir` inmediato, T_max 30 · mes 5: si sigue, C estructural → T_max 0 → cerrar. Con 58 la banda sería D y el recorte dejaría L = 0, que no es lo que el fixture ilustra |
 | `bache_temporal` | un mes con score −8 y vuelve | `mantener` (histéresis y 2 meses de confirmación), nunca `reducir` |
 | `historial_corto` | conf 0,3 | no elegible, motivo "historia", L = 0 pero `limite_cap` calculado |
 | `prevision_peor` | score 72 estable (A), `banda_pred_3m = C` desde mes 2 | mes 2: `mantener`, `meses_pred_peor_seguidos = 1`, T_max 60 (peor banda), TAE +0,5 pp · mes 3: `reducir` preventivo a L con factor 0,4 acotado por histéresis · nunca `ampliar` mientras `banda_pred_3m < A` |
@@ -397,7 +415,10 @@ Tests de propiedades (sobre todas las filas del dataset):
 
 1. `elegible = false ⇒ L_vigente = 0`.
 2. `cantidad_max` y `tae` no decrecen con el plazo dentro de un menú.
-3. `|L_vigente − L_prev| ≤ 25 % · L_prev` salvo `cerrar` o `reducir` estructural.
+3. `|L_vigente − L_prev| ≤ 25 % · L_prev` salvo `cerrar`, `reducir` por
+   deterioro estructural o `reducir` por `grupo` (escalón de cross-default y
+   prorrateo del techo consolidado: los dos se aplican el mismo mes, sin
+   histéresis).
 4. `Σ L_vigente del grupo ≤ L_grupo`.
 5. Mismo input dos veces → misma salida (sin aleatoriedad, sin fecha del sistema).
 6. Cambiar cualquier parámetro cambia `version_parametros`.
