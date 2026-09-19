@@ -575,6 +575,79 @@ test("a forecast in shadow mode cannot alter the decision", () => {
   assert.deepEqual(withShadow, baseline);
 });
 
+test("pignoración bloquea ampliaciones, limita el plazo y publica el cortafuegos", () => {
+  const rows = decideGroup(
+    serie("a", (i) =>
+      i === 0
+        ? { cobrosOpMedia3m: 50_000 }
+        : { cobrosOpMedia3m: 100_000, alertaPignoracionCaja: true },
+    ),
+    params,
+  );
+  assert.equal(rows[1].accion, "mantener");
+  assert.equal(rows[1].TMax, P.alertaPignoracionPlazoMaxDias);
+  assert.match(rows[1].motivoAccion, /Requiere Pignoración de Caja \/ Cortafuegos/);
+
+  const ewiRows = decideGroup(
+    serie("a", (i) =>
+      i === 0
+        ? { cobrosOpMedia3m: 50_000 }
+        : {
+            cobrosOpMedia3m: 100_000,
+            alertaPignoracionCaja: true,
+            evaluacionEwi: {
+              ...scoreRowFixture().evaluacionEwi,
+              revisionStage2Candidata: true,
+            },
+          },
+    ),
+    params,
+  );
+  assert.equal(ewiRows[1].TMax, P.revisionStage2PlazoDias);
+});
+
+test("una caída prevista de cinco puntos bloquea una ampliación dentro de la misma banda", () => {
+  const scores = serie("a", (i) =>
+    i === 0 ? { cobrosOpMedia3m: 50_000 } : { cobrosOpMedia3m: 100_000 },
+  );
+  const forecast = new Map<string, PrevisionInput>([
+    [
+      `a|${CALENDAR[1]}`,
+      {
+        bandaPred3m: "A",
+        scorePred3m: 77,
+        direccionPred: "estable",
+        probDeterioro6m: 0,
+        metodo: "v1_proyeccion",
+      },
+    ],
+  ]);
+  const rows = decideGroup(scores, params, forecast);
+  assert.equal(rows[1].accion, "mantener");
+  assert.equal(rows[1].scorePredSolo3m, 77);
+});
+
+test("un cierre exclusivo por techo de grupo no impone cuarentena de reapertura", () => {
+  const healthy = serie("a", (i) => (i === 1 ? { cobrosOpMedia3m: 100_000 } : {}));
+  const largeD = [
+    scoreRowFixture({
+      company: "d",
+      month: CALENDAR[1],
+      groupId: "g",
+      scoreSolo: 20,
+      cobrosOpMedia3m: 900_000,
+      confianza: 0.9,
+      D1: 0.1,
+    }),
+  ];
+  const rows = decideGroup([...healthy, ...largeD], params);
+  const month2 = rows.find((row) => row.company === "a" && row.month === CALENDAR[1])!;
+  const month3 = rows.find((row) => row.company === "a" && row.month === CALENDAR[2])!;
+  assert.equal(month2.accion, "cerrar");
+  assert.match(month2.motivoAccion, /Techo de grupo/);
+  assert.equal(month3.accion, "abrir");
+});
+
 test("an aval cannot override a persistent deficit door", () => {
   const rows = decideGroup(
     serie("a", (i) =>

@@ -1,7 +1,7 @@
 # Motor de previsión dual — especificación para desarrollo v1.0
 
 > Estado implementado: parámetros de forecast revisión 2, vinculados a
-> `scoreSolo-holding-v6`. El ajuste de conexión se recalibra después de cada cambio de
+> `scoreSolo-holding-v7`. El ajuste de conexión se recalibra después de cada cambio de
 > contrato y no reutiliza artefactos de versiones anteriores.
 
 > Implementa §2 de [`SOURCE.md`](./SOURCE.md) (decisiones 34-38, validadas

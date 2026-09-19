@@ -1,6 +1,6 @@
 # Motor de decisión — especificación para desarrollo v1.0
 
-> Estado implementado: consume scoring `scoreSolo-holding-v6`. El apoyo positivo del holding
+> Estado implementado: consume scoring `scoreSolo-holding-v7`. El apoyo positivo del holding
 > puede abrir una ruta condicionada a aval cuando `scoreSolo < 45`, `scoreGrupo ≥ 45` y el
 > `ajusteHolding` es positivo, aunque no alcance el umbral habitual de `requiereAvalMatriz`.
 
@@ -15,6 +15,22 @@ La ruta de aval conserva las puertas duras: impagos, morosidad grave, déficit p
 cross-default y falta de evidencia no pueden ser superados por el holding. Cuando la ruta se
 activa, la fila publica `condicionAvalMatriz` y añade `[Requiere Aval Solidario de Matriz]` al
 motivo de acción.
+
+Una `alertaPignoracionCaja` impide `ampliar`, limita el plazo a 90 días y añade
+`[Alerta: Requiere Pignoración de Caja / Cortafuegos]`. La revisión EWI mantiene el tope de
+60 días, por lo que ambos límites se combinan con el mínimo. Un forecast autónomo conectado que
+cae 5 puntos o más también bloquea una ampliación aunque conserve la misma banda; un forecast en
+sombra no modifica la decisión.
+
+Si el techo consolidado prorratea una línea elegible hasta cero, el cierre es exclusivo del grupo
+y no inicia la cuarentena de reapertura. Una puerta de elegibilidad propia sí conserva la
+cuarentena configurada.
+
+La postura de riesgo observada para el banco pertenece a un playbook separado. Puede usar el
+historial de `DecisionRow` para describir la reacción de la empresa ante alertas, pero no es una
+puerta adicional ni puede relajar una decisión de `elegibilidad`. La empresa recibe el playbook
+operativo; el partner financiero recibe además la clasificación `prudente`, `equilibrada`,
+`tolerante` o `no_evaluable`, siempre con su evidencia y confianza.
 
 `revisionStage2Candidata` es una señal interna de revisión. Impide ampliar y limita a 60 días
 el plazo tanto de líneas vivas como de nuevas aperturas; no se presenta como clasificación

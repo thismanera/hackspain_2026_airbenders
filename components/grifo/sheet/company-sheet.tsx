@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Building2 } from "lucide-react";
+import { ArrowUpRight, Building2, Orbit } from "lucide-react";
 import Link from "next/link";
 
 import {
@@ -207,9 +207,30 @@ export function CompanySheet({
               <span className="text-foreground font-medium tabular-nums">
                 {formatPercent(latest.confidence, 0)}
               </span>
-            </span>
-            <span>{formatMonthShort(month)}</span>
-          </SheetDescription>
+              <span aria-hidden>·</span>
+              <span>{formatMonthShort(month)}</span>
+            </SheetDescription>
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              size="sm"
+              nativeButton={false}
+              render={<Link href={`/pares?empresas=${company.id}&mes=${month}`} />}
+            >
+              <Orbit aria-hidden />
+              Comparar
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              nativeButton={false}
+              render={<Link href={`/cartera/${company.id}?mes=${month}`} />}
+            >
+              Ficha completa
+              <ArrowUpRight aria-hidden />
+            </Button>
+          </div>
         </div>
 
         <TabsList variant="line" className="h-9 gap-4 p-0">

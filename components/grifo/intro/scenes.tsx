@@ -7,12 +7,12 @@ import {
   Coins,
   Gauge,
   HandCoins,
+  Handshake,
   Landmark,
-  Lock,
-  LockOpen,
   Network,
   Receipt,
-  SlidersHorizontal,
+  ShieldCheck,
+  TrendingDown,
   Truck,
   X,
   type LucideIcon,
@@ -344,59 +344,42 @@ function ScoreIdea() {
   );
 }
 
-/* Animación del candado: solo el icono cerrándose, sin card ni efectos artificiales */
-function HeroLock() {
-  return (
-    <div className="intro-rise mb-3 flex items-center justify-center">
-      <span aria-hidden="true" className="relative flex size-12 items-center justify-center sm:size-14">
-        <LockOpen className="lock-open-out text-muted-foreground/60 absolute size-10 sm:size-12" strokeWidth={1.75} />
-        <Lock className="lock-closed-in text-[#0F1331] absolute size-10 sm:size-12" strokeWidth={1.75} />
-      </span>
-    </div>
-  );
-}
-
-/* 6 · Primero la empresa: la nota es suya y 100% privada. */
+/* 6 · Para la empresa: beneficios claros, sin cards ni ruido. */
 function Ownership() {
-  const cards = [
+  const benefits = [
     {
       icon: Gauge,
       title: "Score privado",
-      desc: "Conoce su salud financiera sin que ningún banco la vea.",
+      desc: "Conoce su salud cada mes, sin que ningún banco la vea.",
     },
     {
-      icon: SlidersHorizontal,
-      title: "Recomendaciones",
-      desc: "Sabe qué hacer para mejorar su nota y sus condiciones.",
+      icon: TrendingDown,
+      title: "Cómo pagar menos",
+      desc: "Sabe qué mejorar para abaratar su coste de crédito.",
     },
     {
       icon: HandCoins,
-      title: "Financiación",
-      desc: "Decide cuándo es el mejor momento para pedir financiación.",
+      title: "Oferta preaprobada",
+      desc: "Sabe de antemano qué puede esperar.",
     },
   ];
 
   return (
-    <>
-      <div className="intro-rise mx-auto mt-10 grid w-full max-w-2xl gap-4 text-center sm:grid-cols-3 [animation-delay:180ms]">
-        {cards.map((card) => (
-          <div
-            key={card.title}
-            className="bg-card flex flex-col items-center gap-3 rounded-[14px] border p-6 shadow-xs"
-          >
-            <card.icon className="text-foreground size-8" strokeWidth={1.5} />
-            <div>
-              <p className="text-base font-semibold tracking-[-0.01em]">{card.title}</p>
-              <p className="text-muted-foreground mt-1.5 text-xs sm:text-sm leading-relaxed text-balance">
-                {card.desc}
-              </p>
-            </div>
+    <div className="intro-rise mx-auto mt-12 grid w-full max-w-2xl grid-cols-1 gap-8 text-center sm:grid-cols-3 sm:gap-6 [animation-delay:180ms]">
+      {benefits.map((item) => (
+        <div key={item.title} className="flex flex-col items-center gap-3">
+          <span className="bg-muted text-foreground flex size-12 items-center justify-center rounded-full">
+            <item.icon className="size-5.5" strokeWidth={1.75} />
+          </span>
+          <div>
+            <p className="text-base font-semibold tracking-[-0.01em]">{item.title}</p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed text-balance">
+              {item.desc}
+            </p>
           </div>
-        ))}
-      </div>
-
-      
-    </>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -416,11 +399,11 @@ function Consent() {
         {/* Cursor que entra, se posa sobre el botón y hace click con onda expansiva */}
         <div
           aria-hidden="true"
-          className="consent-cursor-anim pointer-events-none absolute top-1/2 left-1/2"
+          className="consent-cursor-anim pointer-events-none absolute top-1/2 left-1/2 opacity-0"
         >
           <div className="relative">
             {/* Onda expansiva circular que brota de la punta del cursor al hacer click */}
-            <div className="consent-click-wave pointer-events-none absolute -top-2 -left-2 size-6 rounded-full border-2 border-white/90 bg-white/20" />
+            <div className="consent-click-wave pointer-events-none absolute -top-2 -left-2 size-6 rounded-full border-2 border-white/90 bg-white/20 opacity-0" />
 
             {/* Puntero de ratón estándar limpio y nítido (blanco sólido con borde oscuro) */}
             <svg
@@ -443,13 +426,52 @@ function Consent() {
       </div>
 
       <p className="text-muted-foreground mt-4 text-sm">
-        Se comparte la decisión con el banco y su evolución de score mensual.
+        La empresa comparte la decisión con el partner financiero de Embat y su evolución de score mensual.
       </p>
     </div>
   );
 }
 
-/* 8 · Mientras dura: el crédito sigue a la empresa. */
+/* 8 · Quien financia: la perspectiva del partner, limpia y sin cards. */
+function PartnerView() {
+  const points = [
+    {
+      icon: ShieldCheck,
+      title: "Solo con permiso",
+      desc: "Solo ve a empresas que han solicitado financiación.",
+    },
+    {
+      icon: Gauge,
+      title: "Score al día",
+      desc: "Riesgo calculado cada mes con datos reales de tesorería.",
+    },
+    {
+      icon: Clock,
+      title: "Decisión inmediata",
+      desc: "Presta con datos verificados, sin semanas de análisis.",
+    },
+  ];
+
+  return (
+    <div className="intro-rise mx-auto mt-12 grid w-full max-w-2xl grid-cols-1 gap-8 text-center sm:grid-cols-3 sm:gap-6 [animation-delay:180ms]">
+      {points.map((item) => (
+        <div key={item.title} className="flex flex-col items-center gap-3">
+          <span className="bg-muted text-foreground flex size-12 items-center justify-center rounded-full">
+            <item.icon className="size-5.5" strokeWidth={1.75} />
+          </span>
+          <div>
+            <p className="text-base font-semibold tracking-[-0.01em]">{item.title}</p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed text-balance">
+              {item.desc}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* 9 · Mientras dura: el crédito sigue a la empresa. */
 function Adapts() {
   return (
     <>
@@ -554,11 +576,10 @@ export const SCENES: Scene[] = [
     body: <ScoreIdea />,
   },
   {
-    kicker: "Primero, la empresa",
-    heroVisual: <HeroLock />,
+    kicker: "Para la empresa",
     title: (
       <>
-        Su score es privado. <Accent>La empresa decide cuándo compatirlo.</Accent>
+        La empresa consigue mejor financiación <Accent>sin esperar a fin de año.</Accent>
       </>
     ),
     body: <Ownership />,
@@ -571,6 +592,20 @@ export const SCENES: Scene[] = [
       </>
     ),
     body: <Consent />,
+  },
+  {
+    kicker: "Quién financia",
+    heroVisual: (
+      <div className="intro-rise flex justify-center">
+        <Handshake className="text-foreground size-10" strokeWidth={1.75} />
+      </div>
+    ),
+    title: (
+      <>
+        El partner financiero ve la salud de la empresa <Accent>mes a mes, en directo.</Accent>
+      </>
+    ),
+    body: <PartnerView />,
   },
   {
     kicker: "Mientras dura el crédito",
