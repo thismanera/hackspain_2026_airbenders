@@ -1,6 +1,5 @@
 import {
   ArrowLeftRight,
-  Building2,
   CalendarDays,
   Camera,
   CircleDollarSign,
@@ -8,11 +7,12 @@ import {
   Coins,
   Gauge,
   HandCoins,
+  Handshake,
   Landmark,
-  Lock,
-  LockOpen,
   Network,
   Receipt,
+  ShieldCheck,
+  TrendingDown,
   Truck,
   X,
   type LucideIcon,
@@ -344,75 +344,41 @@ function ScoreIdea() {
   );
 }
 
-/* Animación del candado: solo el icono cerrándose, sin card ni efectos artificiales */
-function HeroLock() {
-  return (
-    <div className="intro-rise mb-3 flex items-center justify-center">
-      <span aria-hidden="true" className="relative flex size-12 items-center justify-center sm:size-14">
-        <LockOpen className="lock-open-out text-muted-foreground/60 absolute size-10 sm:size-12" strokeWidth={1.75} />
-        <Lock className="lock-closed-in text-[#0F1331] absolute size-10 sm:size-12" strokeWidth={1.75} />
-      </span>
-    </div>
-  );
-}
-
-/* 6 · Primero la empresa: la nota es suya y 100% privada. */
+/* 6 · Para la empresa: beneficios claros, sin cards ni ruido. */
 function Ownership() {
+  const benefits = [
+    {
+      icon: Gauge,
+      title: "Score privado",
+      desc: "Conoce su salud cada mes, sin que ningún banco la vea.",
+    },
+    {
+      icon: TrendingDown,
+      title: "Cómo pagar menos",
+      desc: "Sabe qué mejorar para abaratar su coste de crédito.",
+    },
+    {
+      icon: HandCoins,
+      title: "Oferta preaprobada",
+      desc: "Sabe de antemano qué puede esperar.",
+    },
+  ];
+
   return (
-    <div className="intro-rise mx-auto mt-8 grid w-full max-w-2xl gap-4 text-left sm:grid-cols-3 [animation-delay:180ms]">
-      {/* 1. Score privado */}
-      <div className="bg-card flex flex-col justify-between gap-4 rounded-[14px] border p-5 shadow-xs">
-        <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold tracking-tight text-foreground">82</span>
-            <span className="text-muted-foreground text-xs font-normal">/100</span>
+    <div className="intro-rise mx-auto mt-12 grid w-full max-w-2xl grid-cols-1 gap-8 text-center sm:grid-cols-3 sm:gap-6 [animation-delay:180ms]">
+      {benefits.map((item) => (
+        <div key={item.title} className="flex flex-col items-center gap-3">
+          <span className="bg-muted text-foreground flex size-12 items-center justify-center rounded-full">
+            <item.icon className="size-5.5" strokeWidth={1.75} />
+          </span>
+          <div>
+            <p className="text-base font-semibold tracking-[-0.01em]">{item.title}</p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed text-balance">
+              {item.desc}
+            </p>
           </div>
-          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-            +4 este mes
-          </span>
         </div>
-        <div>
-          <p className="text-base font-semibold tracking-[-0.01em]">Score privado</p>
-          <p className="text-muted-foreground mt-1 text-xs sm:text-sm leading-relaxed">
-            Salud calculada cada mes con tus movimientos, sin que ningún banco la vea.
-          </p>
-        </div>
-      </div>
-
-      {/* 2. Pagar menos intereses */}
-      <div className="bg-card flex flex-col justify-between gap-4 rounded-[14px] border p-5 shadow-xs">
-        <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-muted-foreground text-xs font-medium line-through">5,4%</span>
-            <span className="text-2xl font-bold tracking-tight text-foreground">3,8%</span>
-          </div>
-          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-            -1,6% TAE
-          </span>
-        </div>
-        <div>
-          <p className="text-base font-semibold tracking-[-0.01em]">Pagar menos intereses</p>
-          <p className="text-muted-foreground mt-1 text-xs sm:text-sm leading-relaxed">
-            Palancas en cobros y pagos para mejorar tu nota y conseguir mejor precio.
-          </p>
-        </div>
-      </div>
-
-      {/* 3. Financiación disponible */}
-      <div className="bg-card flex flex-col justify-between gap-4 rounded-[14px] border p-5 shadow-xs">
-        <div className="flex items-center justify-between">
-          <span className="text-2xl font-bold tracking-tight text-foreground">180k €</span>
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-            Preaprobado
-          </span>
-        </div>
-        <div>
-          <p className="text-base font-semibold tracking-[-0.01em]">Línea disponible</p>
-          <p className="text-muted-foreground mt-1 text-xs sm:text-sm leading-relaxed">
-            Listo para pedir a golpe de click cuando quieras, sin esperar a final de año.
-          </p>
-        </div>
-      </div>
+      ))}
     </div>
   );
 }
@@ -433,11 +399,11 @@ function Consent() {
         {/* Cursor que entra, se posa sobre el botón y hace click con onda expansiva */}
         <div
           aria-hidden="true"
-          className="consent-cursor-anim pointer-events-none absolute top-1/2 left-1/2"
+          className="consent-cursor-anim pointer-events-none absolute top-1/2 left-1/2 opacity-0"
         >
           <div className="relative">
             {/* Onda expansiva circular que brota de la punta del cursor al hacer click */}
-            <div className="consent-click-wave pointer-events-none absolute -top-2 -left-2 size-6 rounded-full border-2 border-white/90 bg-white/20" />
+            <div className="consent-click-wave pointer-events-none absolute -top-2 -left-2 size-6 rounded-full border-2 border-white/90 bg-white/20 opacity-0" />
 
             {/* Puntero de ratón estándar limpio y nítido (blanco sólido con borde oscuro) */}
             <svg
@@ -460,69 +426,47 @@ function Consent() {
       </div>
 
       <p className="text-muted-foreground mt-4 text-sm">
-        Se comparte la decisión con el banco y su evolución de score mensual.
+        La empresa comparte la decisión con el partner financiero de Embat y su evolución de score mensual.
       </p>
     </div>
   );
 }
 
-/* 8 · Quien financia: la perspectiva del partner al recibir la solicitud. */
+/* 8 · Quien financia: la perspectiva del partner, limpia y sin cards. */
 function PartnerView() {
+  const points = [
+    {
+      icon: ShieldCheck,
+      title: "Solo con permiso",
+      desc: "Solo ve a empresas que han solicitado financiación.",
+    },
+    {
+      icon: Gauge,
+      title: "Score al día",
+      desc: "Riesgo calculado cada mes con datos reales de tesorería.",
+    },
+    {
+      icon: Clock,
+      title: "Decisión inmediata",
+      desc: "Presta con datos verificados, sin semanas de análisis.",
+    },
+  ];
+
   return (
-    <div className="intro-rise mx-auto mt-8 flex w-full max-w-xl flex-col items-center gap-4 [animation-delay:180ms]">
-      <div className="bg-card w-full overflow-hidden rounded-[14px] border text-left shadow-xs">
-        {/* Cabecera de la ficha */}
-        <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-3.5">
-          <div className="flex items-center gap-3">
-            <span className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg">
-              <Building2 className="size-4.5" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold tracking-[-0.01em]">Northbrook Industrial</p>
-              <p className="text-muted-foreground text-xs">Distribución B2B · Cliente Embat</p>
-            </div>
-          </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-            <span className="size-1.5 rounded-full bg-emerald-500" />
-            Score 82 · Sano
+    <div className="intro-rise mx-auto mt-12 grid w-full max-w-2xl grid-cols-1 gap-8 text-center sm:grid-cols-3 sm:gap-6 [animation-delay:180ms]">
+      {points.map((item) => (
+        <div key={item.title} className="flex flex-col items-center gap-3">
+          <span className="bg-muted text-foreground flex size-12 items-center justify-center rounded-full">
+            <item.icon className="size-5.5" strokeWidth={1.75} />
           </span>
-        </div>
-
-        {/* Métricas clave que ve el partner */}
-        <div className="grid grid-cols-3 divide-x p-5 text-center">
-          <div className="px-2">
-            <p className="text-muted-foreground text-xs font-medium">Límite asignable</p>
-            <p className="mt-1 text-lg font-bold tracking-tight text-foreground sm:text-xl">
-              180.000 €
+          <div>
+            <p className="text-base font-semibold tracking-[-0.01em]">{item.title}</p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed text-balance">
+              {item.desc}
             </p>
-            <p className="text-muted-foreground mt-0.5 text-[11px]">según ventas reales</p>
-          </div>
-          <div className="px-2">
-            <p className="text-muted-foreground text-xs font-medium">Coste y plazo</p>
-            <p className="mt-1 text-lg font-bold tracking-tight text-foreground sm:text-xl">
-              3,8% TAE
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-[11px]">hasta 180 días</p>
-          </div>
-          <div className="px-2">
-            <p className="text-muted-foreground text-xs font-medium">Riesgo continuo</p>
-            <p className="mt-1 text-lg font-bold tracking-tight text-emerald-600 sm:text-xl">
-              0 alertas
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-[11px]">+3 meses en mejora</p>
           </div>
         </div>
-
-        {/* Barra de garantía y privacidad */}
-        <div className="flex items-center justify-between border-t bg-muted/20 px-5 py-2.5 text-[11px] text-muted-foreground">
-          <span>Opt-in verificado: solicitado por la empresa</span>
-          <span className="font-mono">Sin acceso a extractos ni facturas</span>
-        </div>
-      </div>
-
-      <p className="text-muted-foreground text-center text-sm sm:whitespace-nowrap">
-        El partner presta <Accent>viendo</Accent>. Sin burocracia, sin meses de espera y sin cuentas anuales viejas.
-      </p>
+      ))}
     </div>
   );
 }
@@ -632,11 +576,10 @@ export const SCENES: Scene[] = [
     body: <ScoreIdea />,
   },
   {
-    kicker: "Primero, la empresa",
-    heroVisual: <HeroLock />,
+    kicker: "Para la empresa",
     title: (
       <>
-        Su score es privado. <Accent>La empresa decide cuándo compartirlo.</Accent>
+        La empresa consigue mejor financiación <Accent>sin esperar a fin de año.</Accent>
       </>
     ),
     body: <Ownership />,
@@ -652,6 +595,11 @@ export const SCENES: Scene[] = [
   },
   {
     kicker: "Quién financia",
+    heroVisual: (
+      <div className="intro-rise flex justify-center">
+        <Handshake className="text-foreground size-10" strokeWidth={1.75} />
+      </div>
+    ),
     title: (
       <>
         El partner financiero ve la salud de la empresa <Accent>mes a mes, en directo.</Accent>

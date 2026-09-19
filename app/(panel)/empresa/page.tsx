@@ -9,8 +9,9 @@ import { MonthSelect } from "@/components/grifo/month-select";
 import { PageHeader } from "@/components/grifo/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getQueryClient } from "@/lib/core/react-query";
+import { getCompanyFileLive } from "@/lib/features/portfolio/live";
 import { portfolioKeys } from "@/lib/features/portfolio/queries";
-import { getBenchmark, getCompanyFile } from "@/lib/features/portfolio/source";
+import { getBenchmark, getCompanyFile, getPeerMap } from "@/lib/features/portfolio/source";
 import { loadPymeSearchParams } from "@/lib/features/portfolio/search-params";
 
 import { EmpresaClient } from "./empresa-client";
@@ -25,14 +26,23 @@ export default async function EmpresaPage({
   searchParams: Promise<SearchParams>;
 }) {
   const state = await loadPymeSearchParams(searchParams);
-  const file = state.empresa ? getCompanyFile(state.empresa, state.mes) : null;
+  // Misma fuente que la ficha del partner: el score que ve la empresa y el que
+  // ve el analista tienen que ser el mismo número.
+  const file = state.empresa
+    ? ((await getCompanyFileLive(state.empresa, state.mes)) ??
+      getCompanyFile(state.empresa, state.mes))
+    : null;
   const benchmark = file ? getBenchmark(state.empresa, state.mes) : null;
-  if (state.empresa && !file) redirect(`/empresa?mes=${state.mes}`);
+  if (state.empresa && (!file || !benchmark)) redirect(`/empresa?mes=${state.mes}`);
 
   const queryClient = getQueryClient();
   if (file && benchmark) {
     queryClient.setQueryData(portfolioKeys.company(state.empresa, state.mes), file);
     queryClient.setQueryData(portfolioKeys.benchmark(state.empresa, state.mes), benchmark);
+    queryClient.setQueryData(
+      portfolioKeys.peers(state.mes, "embat", state.empresa),
+      getPeerMap({ month: state.mes, scope: "embat", company: state.empresa }),
+    );
   }
 
   return (

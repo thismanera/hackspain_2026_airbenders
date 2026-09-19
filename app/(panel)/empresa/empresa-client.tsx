@@ -1,17 +1,24 @@
 "use client";
 
-import { Building2, Check, HandCoins, Lock, Send, Users } from "lucide-react";
+import { Building2, HandCoins } from "lucide-react";
 import { useState } from "react";
 
 import { AlertsTimeline } from "@/components/grifo/company/alerts-timeline";
+import { BandLadderCard } from "@/components/grifo/company/band-ladder-card";
+import { BenchmarkExplorer } from "@/components/grifo/company/benchmark-explorer";
 import { Cascade } from "@/components/grifo/company/cascade";
-import { OfferMenu } from "@/components/grifo/company/offer-menu";
+import { CoveragePanel } from "@/components/grifo/company/coverage-panel";
+import { GatesPanel } from "@/components/grifo/company/gates";
+import { GroupPanel } from "@/components/grifo/company/group-panel";
+import { LoanSimulator } from "@/components/grifo/company/loan-simulator";
+import { NegotiationReport } from "@/components/grifo/company/negotiation-report";
+import { OutlookPanel } from "@/components/grifo/company/outlook-panel";
+import { PymeKpis } from "@/components/grifo/company/pyme-kpis";
 import { ScoreTrend } from "@/components/grifo/company/score-trend";
 import { CompanyPicker } from "@/components/grifo/company-picker";
 import { Figure, Panel } from "@/components/grifo/panel";
+import { PeerSpace } from "@/components/grifo/peers/peer-space";
 import { PageIntro } from "@/components/grifo/stat-card";
-import { StatusBadge } from "@/components/grifo/status-badge";
-import { TrendDelta } from "@/components/grifo/trend";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -21,6 +28,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { cn } from "@/lib/core/utils";
+import { nextBand } from "@/lib/features/portfolio/band-ladder";
 import {
   formatApr,
   formatDays,
@@ -28,204 +36,118 @@ import {
   formatIndicatorValue,
   formatMonthLong,
   formatPercent,
+  formatDecimal,
   formatScore,
 } from "@/lib/features/portfolio/format";
-import { useBenchmark, useCompanyFile, usePymeState } from "@/lib/features/portfolio/hooks";
+import {
+  useBenchmark,
+  useCompanyFile,
+  usePeers,
+  usePymeState,
+} from "@/lib/features/portfolio/hooks";
 import { indicator } from "@/lib/features/portfolio/indicators";
-import type { BenchmarkResponse, CompanyFileResponse } from "@/lib/features/portfolio/types";
-
-function ordinal(percentile: number): string {
-  return `percentil ${Math.round(percentile * 100)}`;
-}
-
-function BenchmarkPanel({ benchmark }: { benchmark: BenchmarkResponse }) {
-  const rows = benchmark.rows.filter((row) => row.percentile !== null);
-  return (
-    <Panel
-      title="Frente a empresas parecidas"
-      description={`Percentil por indicador entre ${benchmark.cohort} empresas comparables.`}
-      bodyClassName="p-0"
-    >
-      <ul className="divide-y">
-        {rows.map((row) => {
-          const meta = indicator(row.indicator);
-          if (!meta || row.percentile === null) return null;
-          const good = row.percentile >= 0.5;
-          return (
-            <li
-              key={row.indicator}
-              className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-4 py-2.5 sm:grid-cols-[1.4fr_1fr_1fr_6rem]"
-            >
-              <span className="flex flex-col leading-tight">
-                <span className="text-sm">{meta.label}</span>
-                <span className="text-muted-foreground text-xs">{meta.question}</span>
-              </span>
-              <span className="text-right text-sm tabular-nums sm:text-left">
-                <span className="text-muted-foreground mr-1 text-xs sm:hidden">Tú</span>
-                {formatIndicatorValue(row.raw, meta.format)}
-              </span>
-              <span className="text-muted-foreground col-span-2 text-xs tabular-nums sm:col-span-1 sm:text-sm">
-                Mediana {formatIndicatorValue(row.medianRaw, meta.format)}
-              </span>
-              <span className="col-span-2 flex items-center gap-2 sm:col-span-1">
-                <span
-                  aria-hidden
-                  className="bg-muted relative h-1.5 flex-1 overflow-hidden rounded-full"
-                >
-                  <span
-                    className={cn(
-                      "absolute inset-y-0 left-0 rounded-full",
-                      good ? "bg-status-healthy" : "bg-status-watch",
-                    )}
-                    style={{ width: `${Math.max(4, row.percentile * 100)}%` }}
-                  />
-                </span>
-                <span className="w-8 text-right text-xs tabular-nums">
-                  p{Math.round(row.percentile * 100)}
-                </span>
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </Panel>
-  );
-}
+import { useOptIn } from "@/lib/features/portfolio/opt-in";
 
 /**
- * El opt-in de PRODUCT §3.1: hasta que la empresa pulsa, nadie fuera de Embat
- * ve nada. Aquí la solicitud vive solo en la sesión del navegador: no hay
- * backend de peticiones, y se dice.
+ * Vista de Empresa (Pyme / Mid-Market): Cuadro de mando ejecutivo donde el CFO
+ * o tesorero monitoriza su score, explora su oferta preaprobada, analiza su
+ * posición frente a la cohorte y cuantifica su ahorro bancario.
  */
-function OfferPanel({ file }: { file: CompanyFileResponse }) {
-  const [requested, setRequested] = useState(false);
-  const { decision } = file.latest;
-
-  if (!decision.eligible) {
-    const failed = decision.gates.filter((gate) => !gate.passed);
-    return (
-      <Panel title="Tu oferta este mes" description="Sin circulante preaprobado este mes.">
-        <p className="text-sm text-pretty">{decision.reason}</p>
-        {failed.length > 0 ? (
-          <ul className="mt-3 flex flex-col gap-1.5">
-            {failed.map((gate) => (
-              <li key={gate.id} className="flex gap-2 text-sm">
-                <Lock aria-hidden className="text-status-risk-fg mt-0.5 size-3.5 shrink-0" />
-                <span>
-                  <span className="font-medium">{gate.label}.</span>{" "}
-                  <span className="text-muted-foreground">{gate.detail}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </Panel>
-    );
-  }
-
-  return (
-    <Panel
-      title="Tu oferta este mes"
-      description="Preaprobada; nadie la ve fuera de Embat hasta que la pidas."
-    >
-      <dl className="grid grid-cols-3 gap-4">
-        <Figure label="Hasta" value={formatEuros(decision.limit)} hint={`Banda ${decision.band}`} />
-        <Figure label="Plazo máximo" value={formatDays(decision.maxTenorDays)} />
-        <Figure label="TAE" value={formatApr(decision.apr)} />
-      </dl>
-
-      <div className="mt-4 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-        {requested ? (
-          <p className="text-status-healthy-fg flex items-center gap-2 text-sm font-medium">
-            <Check aria-hidden className="size-4" />
-            Solicitud enviada: el partner ya puede ver tu score y tu límite.
-          </p>
-        ) : (
-          <p className="text-muted-foreground text-sm text-pretty">
-            Al pedir, el partner ve tu score, tu límite y las alertas de cambio. Nada más.
-          </p>
-        )}
-        <Button
-          size="sm"
-          onClick={() => setRequested(true)}
-          disabled={requested}
-          className="shrink-0"
-        >
-          {requested ? (
-            <Check aria-hidden className="size-4" />
-          ) : (
-            <Send aria-hidden className="size-4" />
-          )}
-          {requested ? "Pedido" : "Pedir circulante"}
-        </Button>
-      </div>
-      {requested ? (
-        <p className="text-muted-foreground mt-2 text-xs">
-          Demostración: no se guarda; al recargar vuelve a privado.
-        </p>
-      ) : null}
-    </Panel>
-  );
-}
-
-function CompanyView({ companyId, month }: { companyId: string; month: string }) {
+function CompanyView({
+  companyId,
+  month,
+  onSelectCompany,
+}: {
+  companyId: string;
+  month: string;
+  onSelectCompany: (companyId: string) => void;
+}) {
   const { data: file } = useCompanyFile(companyId, month);
   const { data: benchmark } = useBenchmark(companyId, month);
+  const { data: peers } = usePeers(month, "embat", companyId);
   const { latest } = file;
+  const own = peers?.points.find((point) => point.company === companyId);
+  const ownCluster =
+    peers && own && own.cluster !== null
+      ? peers.clusters.find((cluster) => cluster.id === own.cluster)
+      : undefined;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-5">
-      <div className="bg-card flex flex-col gap-4 rounded-xl border p-5 lg:col-span-2">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <span
-              aria-hidden
-              className="bg-secondary flex size-9 items-center justify-center rounded-lg"
-            >
-              <Building2 className="size-4" strokeWidth={2} />
-            </span>
-            <span className="flex flex-col leading-tight">
-              <span className="font-mono text-sm font-medium">{file.company.id}</span>
-              <span className="text-muted-foreground text-xs">
-                {file.company.groupId}
-                {file.company.groupSize > 1 ? ` · ${file.company.groupSize} empresas` : ""}
-              </span>
-            </span>
-          </div>
-          <StatusBadge estado={latest.estado} size="lg" />
+    <div className="flex flex-col gap-5">
+      {/* 1. Strip Superior de 4 KPIs Ejecutivos con Mini Sparklines */}
+      <PymeKpis file={file} benchmark={benchmark} requested={requestedMonth !== null} />
+
+      {/* 2. Hero de Decisión: Score con Escalera de Bandas y Simulador de Circulante */}
+      <div className="grid gap-4 lg:grid-cols-5">
+        <div className="lg:col-span-2">
+          <BandLadderCard file={file} benchmark={benchmark} month={month} />
         </div>
-        <div>
-          <p className="text-muted-foreground text-xs">Tu score en {formatMonthLong(month)}</p>
-          <p className="mt-1 text-5xl leading-none font-semibold tracking-[-0.03em] tabular-nums">
-            {formatScore(latest.score)}
-            <span className="text-muted-foreground ml-1 text-lg font-normal">/ 100</span>
-          </p>
-          <div className="mt-2 flex items-center gap-3 text-sm">
-            <TrendDelta trend3m={latest.trend3m} direction={latest.direction} showWindow />
-            <span className="text-muted-foreground text-xs tabular-nums">
-              Confianza {formatPercent(latest.confidence, 0)}
-            </span>
-          </div>
+        <div className="lg:col-span-3">
+          <LoanSimulator file={file} />
         </div>
-        <p className="text-muted-foreground border-t pt-3 text-xs text-pretty">
-          <Users aria-hidden className="mr-1 inline size-3.5 align-[-2px]" />
-          {ordinal(benchmark.scorePercentile)}: mejor que el{" "}
-          {formatPercent(benchmark.scorePercentile, 0)} de {benchmark.cohort} empresas comparables.
-        </p>
       </div>
 
-      <div className="lg:col-span-3">
-        <OfferPanel file={file} />
+      {/* 3. Inteligencia Comparativa & Financiera */}
+      <div className="grid gap-4 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <BenchmarkExplorer benchmark={benchmark} />
+        </div>
+        <div className="lg:col-span-2">
+          <NegotiationReport file={file} />
+        </div>
       </div>
 
-      <div className="lg:col-span-3">
-        <BenchmarkPanel benchmark={benchmark} />
+      {/* 4. Trayectoria Temporal & Alertas */}
+      <div className="grid gap-4 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <ScoreTrend history={file.history} />
+        </div>
+        <div className="flex flex-col gap-4 lg:col-span-2">
+          <OutlookPanel month={latest} />
+          <AlertsTimeline alerts={latest.alerts} />
+          {!latest.decision.eligible ? (
+            <GatesPanel gates={latest.decision.gates} />
+          ) : null}
+        </div>
       </div>
-      <div className="flex flex-col gap-4 lg:col-span-2">
-        {latest.decision.eligible ? <OfferMenu options={latest.decision.menu} /> : null}
-        <ScoreTrend history={file.history} />
-        <AlertsTimeline alerts={latest.alerts} />
+
+      {/* 5. Contexto de Grupo y Calidad del Dato */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {latest.group && file.peers.length > 0 ? (
+          <GroupPanel
+            group={latest.group}
+            peers={file.peers}
+            month={month}
+            onSelect={onSelectCompany}
+          />
+        ) : null}
+        <div className={latest.group && file.peers.length > 0 ? "" : "lg:col-span-2"}>
+          <CoveragePanel coverage={latest.coverage} confidence={latest.confidence} />
+        </div>
       </div>
+
+      {peers ? (
+        <PeerSpace
+          data={peers}
+          scope="embat"
+          focus={companyId}
+          title="Empresas como la tuya"
+          description="Tu punto lleva nombre; el resto son siluetas. La estela es tu último año."
+          className="lg:col-span-5"
+          caption={
+            ownCluster ? (
+              <>
+                Estás en el grupo «{ownCluster.label}» con otras{" "}
+                {Math.max(0, ownCluster.size - 1)} empresas
+                {ownCluster.medianScore !== null
+                  ? ` (score mediano ${formatScore(ownCluster.medianScore)})`
+                  : ""}
+                .
+              </>
+            ) : undefined
+          }
+        />
+      ) : null}
 
       <div className="lg:col-span-5">
         <Cascade month={latest} />
@@ -242,7 +164,7 @@ export function EmpresaClient() {
     <div className="flex flex-col gap-4">
       <PageIntro
         title="Lo que ve la empresa antes de pedir nada"
-        description="Score, comparación con empresas parecidas y oferta preaprobada. Privado hasta que la empresa pide."
+        description="Score financiero, comparación con empresas parecidas y oferta preaprobada. Privado hasta que decidas solicitarlo."
         aside={
           <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
             <Building2 aria-hidden className="size-4" />
@@ -252,7 +174,11 @@ export function EmpresaClient() {
       />
 
       {state.empresa ? (
-        <CompanyView companyId={state.empresa} month={state.mes} />
+        <CompanyView
+          companyId={state.empresa}
+          month={state.mes}
+          onSelectCompany={(companyId) => void setState({ empresa: companyId })}
+        />
       ) : (
         <Empty className="bg-card rounded-xl border">
           <EmptyHeader>

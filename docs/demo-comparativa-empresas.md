@@ -15,19 +15,19 @@ La comparativa debe responder cuatro preguntas:
 
 ## Resumen ejecutivo
 
-| Indicador | Northbrook Industrial | Velasco Distribución |
-|---|---:|---:|
-| `scoreSolo` | **62** | **62** |
-| Estado autónomo | Vigilar | Vigilar |
-| Trayectoria | Mejora | Deterioro temporal |
-| `ajusteHolding` | **+16** | **−16** |
-| `scoreGrupo` | **78** | **46** |
-| Previsión Solo a 3 meses | 68 | 55 |
-| Previsión Grupo a 3 meses | 82 | 39 |
-| Revisión EWI interna | No | Sí |
-| Hardcore revolving | No | Sí |
+| Indicador                   |                   Northbrook Industrial |                      Velasco Distribución |
+| --------------------------- | --------------------------------------: | ----------------------------------------: |
+| `scoreSolo`                 |                                  **62** |                                    **62** |
+| Estado autónomo             |                                 Vigilar |                                   Vigilar |
+| Trayectoria                 |                                  Mejora |                        Deterioro temporal |
+| `ajusteHolding`             |                                 **+16** |                                   **−16** |
+| `scoreGrupo`                |                                  **78** |                                    **46** |
+| Previsión Solo a 3 meses    |                                      68 |                                        55 |
+| Previsión Grupo a 3 meses   |                                      82 |                                        39 |
+| Revisión EWI interna        |                                      No |                                        Sí |
+| Hardcore revolving          |                                      No |                                        Sí |
 | Oportunidad para la empresa | Reducir el desfase entre cobros y pagos | Sanear el circulante y recuperar liquidez |
-| Orientación de decisión | Oferta condicionada a aval | Revisar y reducir exposición |
+| Orientación de decisión     |              Oferta condicionada a aval |              Revisar y reducir exposición |
 
 **Lectura para la demo:** el empate de 62 solo describe la salud autónoma observada en agosto. Northbrook está recuperándose y recibe apoyo verificable del grupo. Velasco se deteriora y transfiere caja al holding mientras mantiene un uso crónico de la línea.
 
@@ -37,17 +37,17 @@ Estos valores alimentan dos series en el gráfico principal: una línea continua
 
 ### Northbrook Industrial
 
-| Mes | `scoreSolo` | `scoreGrupo` | Lectura |
-|---|---:|---:|---|
-| 2026-02 | 66 | 70 | Situación estable |
-| 2026-03 | 57 | 64 | Comienza la contracción de caja |
-| 2026-04 | 48 | 57 | Suelo de la trayectoria |
-| 2026-05 | 52 | 64 | Primer mes de recuperación |
-| 2026-06 | 56 | 70 | Mejora de margen y cobros |
-| 2026-07 | 59 | 74 | Recuperación sostenida |
-| 2026-08 | **62** | **78** | Cierre observado |
-| 2026-11, previsto | **68** | **82** | Forecast a 3 meses |
-| 2027-02, previsto | **71** | **84** | Forecast a 6 meses |
+| Mes               | `scoreSolo` | `scoreGrupo` | Lectura                         |
+| ----------------- | ----------: | -----------: | ------------------------------- |
+| 2026-02           |          66 |           70 | Situación estable               |
+| 2026-03           |          57 |           64 | Comienza la contracción de caja |
+| 2026-04           |          48 |           57 | Suelo de la trayectoria         |
+| 2026-05           |          52 |           64 | Primer mes de recuperación      |
+| 2026-06           |          56 |           70 | Mejora de margen y cobros       |
+| 2026-07           |          59 |           74 | Recuperación sostenida          |
+| 2026-08           |      **62** |       **78** | Cierre observado                |
+| 2026-11, previsto |      **68** |       **82** | Forecast a 3 meses              |
+| 2027-02, previsto |      **71** |       **84** | Forecast a 6 meses              |
 
 Intervalos ilustrativos:
 
@@ -58,17 +58,17 @@ Intervalos ilustrativos:
 
 ### Velasco Distribución
 
-| Mes | `scoreSolo` | `scoreGrupo` | Lectura |
-|---|---:|---:|---|
-| 2026-02 | 73 | 70 | Situación favorable |
-| 2026-03 | 76 | 72 | Pico de la trayectoria |
-| 2026-04 | 72 | 66 | Empieza el deterioro |
-| 2026-05 | 69 | 60 | Aumenta la tensión de circulante |
-| 2026-06 | 67 | 55 | Mayor drenaje hacia el grupo |
-| 2026-07 | 64 | 50 | Persistencia del deterioro |
-| 2026-08 | **62** | **46** | Cierre observado |
-| 2026-11, previsto | **55** | **39** | Forecast a 3 meses |
-| 2027-02, previsto | **51** | **35** | Forecast a 6 meses |
+| Mes               | `scoreSolo` | `scoreGrupo` | Lectura                          |
+| ----------------- | ----------: | -----------: | -------------------------------- |
+| 2026-02           |          73 |           70 | Situación favorable              |
+| 2026-03           |          76 |           72 | Pico de la trayectoria           |
+| 2026-04           |          72 |           66 | Empieza el deterioro             |
+| 2026-05           |          69 |           60 | Aumenta la tensión de circulante |
+| 2026-06           |          67 |           55 | Mayor drenaje hacia el grupo     |
+| 2026-07           |          64 |           50 | Persistencia del deterioro       |
+| 2026-08           |      **62** |       **46** | Cierre observado                 |
+| 2026-11, previsto |      **55** |       **39** | Forecast a 3 meses               |
+| 2027-02, previsto |      **51** |       **35** | Forecast a 6 meses               |
 
 Intervalos ilustrativos:
 
@@ -83,12 +83,12 @@ Intervalos ilustrativos:
 
 El score autónomo se construye exclusivamente con los bloques A–C. Las aportaciones ponderadas suman exactamente 62 puntos en ambas empresas, aunque la composición es diferente.
 
-| Bloque | Peso | Northbrook | Velasco |
-|---|---:|---:|---:|
-| A. Liquidez y cobertura | 45 % | 28,8 | 29,7 |
-| B. Cumplimiento de pagos | 30 % | 19,5 | 19,2 |
-| C. Calidad del circulante | 25 % | 13,7 | 13,1 |
-| **Total `scoreSolo`** | **100 %** | **62,0** | **62,0** |
+| Bloque                    |      Peso | Northbrook |  Velasco |
+| ------------------------- | --------: | ---------: | -------: |
+| A. Liquidez y cobertura   |      45 % |       28,8 |     29,7 |
+| B. Cumplimiento de pagos  |      30 % |       19,5 |     19,2 |
+| C. Calidad del circulante |      25 % |       13,7 |     13,1 |
+| **Total `scoreSolo`**     | **100 %** |   **62,0** | **62,0** |
 
 ### Lectura de Northbrook
 
@@ -106,15 +106,15 @@ El score autónomo se construye exclusivamente con los bloques A–C. Las aporta
 
 ## Factores explicativos
 
-| Explicación | Northbrook | Velasco |
-|---|---|---|
-| Factor determinante autónomo | A1: mejora del margen de caja | C4: aumento de facturas vencidas |
-| Delta de aportación mensual | +2,1 puntos | −1,9 puntos |
-| Factor incluyendo holding | Holding: +3,0 puntos | Holding: −2,5 puntos |
-| Canario en la mina | No detectado | C6: aumento de recibos devueltos |
-| Alerta temprana | No | Sí |
-| Inflexión autónoma | Suelo alcista en abril | Pico bajista en marzo |
-| Detonante observado | A1: primer aumento de aportación | C4: primera caída de aportación |
+| Explicación                  | Northbrook                       | Velasco                          |
+| ---------------------------- | -------------------------------- | -------------------------------- |
+| Factor determinante autónomo | A1: mejora del margen de caja    | C4: aumento de facturas vencidas |
+| Delta de aportación mensual  | +2,1 puntos                      | −1,9 puntos                      |
+| Factor incluyendo holding    | Holding: +3,0 puntos             | Holding: −2,5 puntos             |
+| Canario en la mina           | No detectado                     | C6: aumento de recibos devueltos |
+| Alerta temprana              | No                               | Sí                               |
+| Inflexión autónoma           | Suelo alcista en abril           | Pico bajista en marzo            |
+| Detonante observado          | A1: primer aumento de aportación | C4: primera caída de aportación  |
 
 El texto de la web debe hablar de **cambios observados**. Por ejemplo: “La aportación de C4 comenzó a caer después del pico de marzo”. No debe afirmar que una decisión concreta de la dirección causó el deterioro.
 
@@ -143,10 +143,10 @@ La lectura para el banco es que parte de la caja disponible puede no permanecer 
 ## Forecast
 
 | Horizonte | Northbrook Solo | Northbrook Grupo | Velasco Solo | Velasco Grupo |
-|---|---:|---:|---:|---:|
-| Observado | 62 | 78 | 62 | 46 |
-| 3 meses | 68 | 82 | 55 | 39 |
-| 6 meses | 71 | 84 | 51 | 35 |
+| --------- | --------------: | ---------------: | -----------: | ------------: |
+| Observado |              62 |               78 |           62 |            46 |
+| 3 meses   |              68 |               82 |           55 |            39 |
+| 6 meses   |              71 |               84 |           51 |            35 |
 
 ### Drivers previstos de Northbrook
 
@@ -164,15 +164,15 @@ La interfaz debe indicar para cada objetivo si el forecast está **aplicado a de
 
 ## Señales EWI y ciclo de caja
 
-| Señal | Northbrook | Velasco |
-|---|---|---|
-| Impago tributario o recurrente | No | No |
-| Morosidad comercial | No | Sí |
-| Tensión de cobertura | No | Sí |
-| Déficit persistente | No | No |
-| Revisión Stage 2 candidata | **No** | **Sí: 2 de 4** |
-| Gap de ciclo | +42 días | +35 días |
-| Hardcore revolving | No | Sí |
+| Señal                          | Northbrook | Velasco        |
+| ------------------------------ | ---------- | -------------- |
+| Impago tributario o recurrente | No         | No             |
+| Morosidad comercial            | No         | Sí             |
+| Tensión de cobertura           | No         | Sí             |
+| Déficit persistente            | No         | No             |
+| Revisión Stage 2 candidata     | **No**     | **Sí: 2 de 4** |
+| Gap de ciclo                   | +42 días   | +35 días       |
+| Hardcore revolving             | No         | Sí             |
 
 `revisionStage2Candidata` es una regla interna de revisión temprana. No debe presentarse como una clasificación regulatoria formal.
 
@@ -232,12 +232,12 @@ Texto para la web:
 
 ### Cambios significativos observados
 
-| Variable | Delta de aportación | Lectura | Clasificación |
-|---|---:|---|---|
-| A1 | +4,8 | Mejora del margen de caja | Acierto observado |
-| C4 | +2,6 | Reducción de facturas vencidas | Acierto observado |
-| B3 | +1,7 | Mejora del plazo de pago a proveedores | Acierto observado |
-| A5 | −1,6 | Mayor utilización de la línea | Error o presión observada |
+| Variable | Delta de aportación | Lectura                                | Clasificación             |
+| -------- | ------------------: | -------------------------------------- | ------------------------- |
+| A1       |                +4,8 | Mejora del margen de caja              | Acierto observado         |
+| C4       |                +2,6 | Reducción de facturas vencidas         | Acierto observado         |
+| B3       |                +1,7 | Mejora del plazo de pago a proveedores | Acierto observado         |
+| A5       |                −1,6 | Mayor utilización de la línea          | Error o presión observada |
 
 Los cambios seleccionados no descomponen necesariamente los 14 puntos completos. El resto puede proceder de variables sin plantilla, movimientos menores o cambios de confianza.
 
@@ -266,6 +266,22 @@ Los cambios seleccionados no descomponen necesariamente los 14 puntos completos.
 
 El holding se muestra por separado y no participa en el diagnóstico autónomo del playbook.
 
+## Lectura bancaria de postura de riesgo
+
+Esta lectura es interna del partner financiero y se construye con el histórico de scoring y de
+decisiones. No se muestra a la empresa ni sustituye las puertas de elegibilidad.
+
+| Empresa               | Conducta observada tras las alertas                                                             | Postura cualitativa | Control contextual                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------- |
+| Northbrook Industrial | Redujo exposición después del deterioro de cobros, recuperó C4 y no mantuvo una racha de B2.    | `prudente`          | Monitorización normal si las puertas siguen abiertas.           |
+| Velasco Distribución  | Mantuvo la línea con C4/B2 persistentes, uso crónico de A5 y dependencia creciente del holding. | `tolerante`         | Plazo corto, sin ampliación automática y revisión condicionada. |
+
+El mismo `scoreSolo = 62` no implica la misma postura de riesgo: el score describe la capacidad
+autónoma al cierre, mientras la postura describe cómo se gestionó la exposición durante el
+deterioro. La clasificación se publicaría con confianza, meses observados y los eventos que la
+sustentan. Si el histórico no permite observar una reacción comparable, el resultado sería
+`no_evaluable`, nunca una inferencia negativa por falta de datos.
+
 ## Playbook de Velasco
 
 ### Diagnóstico post-inflexión
@@ -281,13 +297,13 @@ El holding se muestra por separado y no participa en el diagnóstico autónomo d
 
 ### Cambios significativos observados
 
-| Variable | Delta de aportación | Lectura | Clasificación |
-|---|---:|---|---|
-| C4 | −4,2 | Aumento de facturas vencidas | Error o presión observada |
-| A5 | −3,0 | Uso más intenso y persistente de la línea | Error o presión observada |
-| B3 | −2,1 | Aumento del retraso a proveedores | Error o presión observada |
-| C6 | −1,8 | Aumento de recibos devueltos | Error o presión observada |
-| A1 | +1,6 | Mejora puntual del margen de caja | Acierto observado |
+| Variable | Delta de aportación | Lectura                                   | Clasificación             |
+| -------- | ------------------: | ----------------------------------------- | ------------------------- |
+| C4       |                −4,2 | Aumento de facturas vencidas              | Error o presión observada |
+| A5       |                −3,0 | Uso más intenso y persistente de la línea | Error o presión observada |
+| B3       |                −2,1 | Aumento del retraso a proveedores         | Error o presión observada |
+| C6       |                −1,8 | Aumento de recibos devueltos              | Error o presión observada |
+| A1       |                +1,6 | Mejora puntual del margen de caja         | Acierto observado         |
 
 La suma de impactos desfavorables supera el impacto favorable. El diagnóstico utiliza puntos de aportación, no el número de variables.
 

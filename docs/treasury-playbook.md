@@ -32,22 +32,25 @@ El resultado contiene:
 | `aciertos`, `errores`                                | Hallazgos materiales con plantilla y evidencia comparable.                            |
 | `diagnosticoRespuesta`                               | `reaccion_resiliente`, `reaccion_destructiva`, `reaccion_pasiva` o `en_recuperacion`. |
 | `scoreRecuperableEstimado`                           | Escenario contable de recuperación de pérdidas autónomas seleccionadas.               |
+| `scoreRecuperableGrupoEstimado`                      | Escenario autónomo más el drenaje negativo actual del holding, limitado a 100.        |
 | `playbook`                                           | Acciones para mantener, evitar y ejecutar de inmediato.                               |
 | `contextoHolding`                                    | Cambio y observación del holding, separado del diagnóstico autónomo.                  |
 
 `scoreRecuperableEstimado` suma al score actual el valor absoluto de los errores significativos
-seleccionados y queda limitado a 100. Es una simulación de restitución de aportaciones al origen:
-no es un forecast, una probabilidad de impago, una financiación garantizada ni una entrada del
-motor de decisión.
+seleccionados y queda limitado a 100. `scoreRecuperableGrupoEstimado` añade únicamente
+`max(0, -aportacionGrupo)` del mes actual. Ambos son escenarios contables de restitución de
+aportaciones al nivel de origen: no son forecasts, probabilidades de impago, financiación
+garantizada ni entradas del motor de decisión.
 
 ## Evidencia comparable
 
-El diccionario cubre A1, A2, A3, A4, A5, B1, B2, B3, C3, C4 y C6. Cada hallazgo exige:
+El diccionario cubre A1, A2, A3, A4, A5, B1, B2, B3, C1, C2, C3, C4, C5 y C6. Cada hallazgo exige:
 
 - valor bruto, subnota y aportación observados en todos los meses del período;
 - aplicabilidad activa durante todo el período;
 - peso efectivo constante;
-- cambio de aportación de al menos `+1,5` o como máximo `−1,5` puntos, antes de redondear.
+- cambio de aportación material según `max(0,30; 1,5 × pesoEfectivo / 0,10)`, o una variación
+  absoluta de subnota de al menos 25 puntos, antes de redondear.
 
 Los hallazgos se ordenan por impacto absoluto. Los empates usan el orden canónico de las
 variables. Las categorías son:
@@ -59,6 +62,11 @@ variables. Las categorías son:
 
 Cada hallazgo publica un `canal`: `operativo`, `financiero`, `comercial` o `holding`. El holding
 solo aparece en `contextoHolding`, y nunca altera el saldo de aciertos y errores autónomos.
+
+Cada decisión incluye `productoSugerido`. Factoring se reserva para C3/C4, confirming para B3,
+reestructuración para A3/A4/A5, gestión de cobros para C6 y cortafuegos para el holding. A1,
+A2, B1, B2, C1, C2 y C5 usan `ninguno`: el playbook propone una revisión empresarial sin
+atribuir automáticamente un producto.
 
 ## Diagnóstico
 
@@ -93,6 +101,61 @@ para ejecutarlas, pero la oportunidad pertenece a la empresa:
 `accionesInmediatas` incluye los errores por impacto y el mayor acierto, elimina duplicados y
 mantiene el lenguaje observacional. El equipo financiero puede convertir esas acciones en tareas,
 pero el módulo no afirma que ya se hayan ejecutado.
+
+## Playbook bancario: postura de riesgo observada
+
+El playbook de la empresa y la lectura para el banco son productos distintos. El primero ayuda a
+la empresa a aprender de sus aciertos y errores. El segundo es un bloque interno del partner
+financiero que resume cómo ha reaccionado la empresa cuando aparecieron señales de tensión. No se
+publica en la ficha de la empresa ni se mezcla con `contextoHolding`.
+
+La postura no describe una intención ni una personalidad. Es una clasificación de conducta
+observada y necesita dos fuentes:
+
+- `ScoreRow[]` para conocer las señales, su persistencia, confianza y recuperación;
+- `DecisionRow[]` para saber si la empresa abrió, mantuvo, amplió o redujo exposición mientras
+  esas señales estaban activas.
+
+El contrato previsto para el canal bancario es:
+
+```ts
+type PosturaRiesgoBanco = {
+  nivelAversion: "prudente" | "equilibrada" | "tolerante" | "no_evaluable";
+  confianza: number;
+  mesesObservados: number;
+  evidencia: Array<{
+    id: string;
+    descripcion: string;
+    mesesPersistencia: number;
+    impacto: number;
+  }>;
+  conductaExposicion: string;
+  controlSugerido: "normal" | "monitorizar" | "condicionada" | "restringir";
+};
+```
+
+La etiqueta solo se calcula con al menos seis meses observados, una confianza mediana de al menos
+0,5 y un episodio de tensión identificable (`alertaTempranaDeterioro`, deterioro, déficit,
+impago, vencido o una acción de reducción/cierre). Si no se cumplen esas condiciones, el resultado
+es `no_evaluable` y no se usa la falta de datos como señal de tolerancia al riesgo.
+
+| Nivel          | Evidencia observada                                                                                                                                         | Control contextual para el banco                                       |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `prudente`     | Reduce o mantiene la exposición cuando aparecen alertas, regulariza obligaciones y mejora caja o cobros en un máximo de dos meses, sin repetir el episodio. | `normal`, si las puertas duras siguen abiertas.                        |
+| `equilibrada`  | Responde a parte de las señales, pero deja alguna presión abierta o necesita más de dos meses para corregirla.                                              | `monitorizar`, con revisión mensual.                                   |
+| `tolerante`    | Mantiene o amplía exposición con alertas activas, repite B2/C4/C6/A5 o solo recupera la nota mediante apoyo del holding.                                    | `condicionada` o `restringir`, según las puertas y la exposición viva. |
+| `no_evaluable` | Historia corta, confianza insuficiente o ausencia de un episodio de tensión comparable.                                                                     | Sin ajuste conductual; se aplican las reglas ordinarias.               |
+
+La postura es informativa y nunca supera impagos, morosidad grave, déficit persistente,
+cross-default, falta de datos ni el resto de puertas de decisión. `scoreSolo` mide capacidad
+autónoma y `scoreGrupo` describe el contexto del holding; ninguno sustituye la evidencia de
+conducta de `DecisionRow`.
+
+Ejemplo con el empate de la demo: Northbrook y Velasco terminan con `scoreSolo = 62`, pero
+Northbrook reduce exposición y recupera C4 tras su alerta, por lo que su postura observada es
+`prudente`. Velasco mantiene la línea con C4/B2 persistentes y uso crónico de A5, por lo que su
+postura es `tolerante`. La diferencia explica un control bancario distinto sin cambiar el score
+autónomo ni afirmar causalidad económica.
 
 ## Ejemplo de lectura
 

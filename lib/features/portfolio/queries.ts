@@ -1,3 +1,4 @@
+import type { Reading, ReadingKind } from "./reading";
 import type {
   AlertsResponse,
   BacktestResponse,
@@ -5,7 +6,9 @@ import type {
   CompanyFileResponse,
   GroupFileResponse,
   GroupsResponse,
+  PeerMapResponse,
   PortfolioResponse,
+  Scope,
 } from "./types";
 import type { PortfolioSearchState } from "./search-params";
 
@@ -25,7 +28,24 @@ export const portfolioKeys = {
   backtest: (month: string) => ["portfolio", "backtest", month] as const,
   benchmark: (companyId: string, month: string) =>
     ["portfolio", "benchmark", companyId, month] as const,
+  peers: (month: string, scope: Scope, companyId?: string) =>
+    ["portfolio", "peers", month, scope, companyId ?? ""] as const,
 };
+
+export function fetchPeers(
+  month: string,
+  scope: Scope,
+  companyId?: string,
+  baseUrl = "",
+): Promise<PeerMapResponse> {
+  const params = new URLSearchParams({ month, scope });
+  if (companyId) params.set("empresa", companyId);
+  return getJson(
+    `${baseUrl}/api/portfolio/peers?${params}`,
+    "Empresa no encontrada",
+    "No se ha podido cargar el espacio de pares",
+  );
+}
 
 async function getJson<T>(url: string, notFound: string, failed: string): Promise<T> {
   const res = await fetch(url, { cache: "no-store" });
@@ -67,6 +87,19 @@ export function fetchBenchmark(
     `${baseUrl}/api/portfolio/companies/${encodeURIComponent(companyId)}/benchmark?month=${month}`,
     "Empresa no encontrada",
     "No se ha podido cargar el benchmark",
+  );
+}
+
+export function fetchReading(
+  companyId: string,
+  month: string,
+  kind: ReadingKind,
+  baseUrl = "",
+): Promise<Reading> {
+  return getJson(
+    `${baseUrl}/api/portfolio/companies/${encodeURIComponent(companyId)}/reading?month=${month}&kind=${kind}`,
+    "Empresa no encontrada",
+    "No se ha podido cargar la lectura",
   );
 }
 

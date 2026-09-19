@@ -48,7 +48,10 @@ export const ACCION = {
 export const DIRECCION = {
   mejora: { label: "Mejora", description: "El score sube 6 puntos o más respecto a hace 3 meses." },
   estable: { label: "Estable", description: "El score se mueve menos de 6 puntos en 3 meses." },
-  deterioro: { label: "Deterioro", description: "El score baja 6 puntos o más respecto a hace 3 meses." },
+  deterioro: {
+    label: "Deterioro",
+    description: "El score baja 6 puntos o más respecto a hace 3 meses.",
+  },
 } satisfies Record<Direccion, Entry>;
 
 export const NATURALEZA = {
@@ -57,7 +60,10 @@ export const NATURALEZA = {
     description:
       "Dos meses en la misma dirección, con dos o más variables moviéndose igual y alguna de nivel de caja entre ellas.",
   },
-  temporal: { label: "Temporal", description: "El movimiento no persiste ni arrastra a las variables de caja." },
+  temporal: {
+    label: "Temporal",
+    description: "El movimiento no persiste ni arrastra a las variables de caja.",
+  },
   sin_cambio: { label: "Sin cambio", description: "El score no se ha movido de forma apreciable." },
 } satisfies Record<Naturaleza, Entry>;
 
@@ -65,7 +71,13 @@ export const BANDA = {
   A: { label: "A", description: "Score 75 o más.", factor: 1, baseApr: 5, maxTenor: 180 },
   B: { label: "B", description: "Score entre 60 y 75.", factor: 0.7, baseApr: 7, maxTenor: 120 },
   C: { label: "C", description: "Score entre 45 y 60.", factor: 0.4, baseApr: 10, maxTenor: 60 },
-  D: { label: "D", description: "Score por debajo de 45. No se presta.", factor: 0, baseApr: 0, maxTenor: 0 },
+  D: {
+    label: "D",
+    description: "Score por debajo de 45. No se presta.",
+    factor: 0,
+    baseApr: 0,
+    maxTenor: 0,
+  },
 } satisfies Record<Banda, Entry & { factor: number; baseApr: number; maxTenor: number }>;
 
 /**
@@ -78,6 +90,19 @@ export function deriveEstado(score: number, confidence: number, delayStreak: num
   if (score < 45 || delayStreak >= 2) return "riesgo";
   if (score < 70) return "vigilar";
   return confidence >= 0.5 ? "sana" : "vigilar";
+}
+
+/**
+ * Si la decisión de un mes es noticia. Mantener no lo es, y seguir sin línea una
+ * empresa que nunca la tuvo tampoco: solo se cierra lo que estaba abierto.
+ *
+ * La regla vive aquí porque la usan los dos lados: el origen de datos para
+ * contar los movimientos del mes, y las tablas para decidir qué acción se lleva
+ * tinta y qué acción se queda en gris.
+ */
+export function isDecisionNews(decision: { action: Accion; previousLimit: number }): boolean {
+  if (decision.action === "mantener") return false;
+  return !(decision.action === "cerrar" && decision.previousLimit === 0);
 }
 
 export function deriveBanda(score: number): Banda {

@@ -24,7 +24,14 @@ const BAND_LINES = [
   { value: 45, label: "C" },
 ];
 
-export function ScoreTrend({ history }: { history: MonthScore[] }) {
+export function ScoreTrend({
+  history,
+  /** Dentro de otro contenedor: sin tarjeta propia, porque no se anidan. */
+  inset = false,
+}: {
+  history: MonthScore[];
+  inset?: boolean;
+}) {
   // Antes del primer mes con movimientos el motor rellena nota 50 con confianza 0
   // (SOURCE §1.0). Pintar ese tramo dibujaría dos años de estabilidad inventada en
   // una empresa de la que no sabemos nada, así que la serie empieza donde empiezan
@@ -42,21 +49,23 @@ export function ScoreTrend({ history }: { history: MonthScore[] }) {
   // Con uno o dos puntos no hay serie: una rejilla vacía con un punto suelto
   // aparenta un fallo de carga, y además sugiere una tendencia que no existe.
   if (observed.length < 3) {
-    return (
+    const empty = (
+      <p className="text-muted-foreground py-8 text-center text-sm text-pretty">
+        Solo {observed.length} {observed.length === 1 ? "mes observado" : "meses observados"}. La
+        serie aparecerá cuando haya al menos tres.
+      </p>
+    );
+    return inset ? (
+      empty
+    ) : (
       <Panel title="Evolución del score" description="Hace falta histórico para dibujar una serie.">
-        <p className="text-muted-foreground py-8 text-center text-sm text-pretty">
-          Solo {observed.length} {observed.length === 1 ? "mes observado" : "meses observados"}. La
-          serie aparecerá cuando haya al menos tres.
-        </p>
+        {empty}
       </Panel>
     );
   }
 
-  return (
-    <Panel
-      title="Evolución del score"
-      description="Las líneas horizontales son las fronteras de banda: cruzarlas cambia el importe y el precio."
-    >
+  const body = (
+    <>
       <ChartContainer config={config} className="aspect-auto h-56 w-full">
         <LineChart data={data} margin={{ top: 8, right: 28, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -118,6 +127,8 @@ export function ScoreTrend({ history }: { history: MonthScore[] }) {
         <span className="text-foreground">{NATURALEZA[latest.nature].label.toLowerCase()}</span>:{" "}
         {NATURALEZA[latest.nature].description}
       </p>
-    </Panel>
+    </>
   );
+
+  return inset ? body : <Panel title="Evolución del score">{body}</Panel>;
 }

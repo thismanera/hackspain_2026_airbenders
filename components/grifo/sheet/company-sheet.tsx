@@ -1,8 +1,14 @@
 "use client";
 
-import { ArrowUpRight, Building2 } from "lucide-react";
+import { ArrowUpRight, Building2, Orbit } from "lucide-react";
 import Link from "next/link";
 
+import {
+  ConditionsTable,
+  FeaturedAlert,
+  ScoreBlocks,
+  TaeSplit,
+} from "@/components/grifo/company/sheet-panels";
 import { ActionBadge } from "@/components/grifo/action-badge";
 import { AlertsTimeline } from "@/components/grifo/company/alerts-timeline";
 import { CompanyAvatar } from "@/components/grifo/company-avatar";
@@ -12,9 +18,9 @@ import { GatesPanel } from "@/components/grifo/company/gates";
 import { GroupPanel } from "@/components/grifo/company/group-panel";
 import { OfferMenu } from "@/components/grifo/company/offer-menu";
 import { ScoreTrend } from "@/components/grifo/company/score-trend";
-import { NarrativeCard } from "@/components/grifo/narrative-card";
-import { Figure } from "@/components/grifo/panel";
-import { StatusBadge } from "@/components/grifo/status-badge";
+import { DeclaredReading } from "@/components/grifo/declared-reading";
+import { DetailRow, DetailStack } from "@/components/grifo/panel";
+import { StatusDot, statusTextClass } from "@/components/grifo/status-badge";
 import { TrendDelta } from "@/components/grifo/trend";
 import { Button } from "@/components/ui/button";
 import { SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -30,12 +36,12 @@ import {
 import { useCompanyFile } from "@/lib/features/portfolio/hooks";
 import {
   decisionNarrative,
-  improvementNarrative,
+  holdingNarrative,
   scoreNarrative,
 } from "@/lib/features/portfolio/narrative";
 import type { SheetTab } from "@/lib/features/portfolio/search-params";
 import type { CompanyFileResponse, MonthScore } from "@/lib/features/portfolio/types";
-import { ACCION, BANDA } from "@/lib/features/portfolio/vocabulary";
+import { ESTADO, isDecisionNews } from "@/lib/features/portfolio/vocabulary";
 
 const CONDITION_MONTHS = 6;
 
@@ -43,13 +49,7 @@ const CONDITION_MONTHS = 6;
 function ConditionsHistory({ history }: { history: MonthScore[] }) {
   const rows = history.slice(-CONDITION_MONTHS).reverse();
   return (
-    <section className="bg-card rounded-xl border">
-      <div className="border-b px-4 py-3">
-        <h3 className="text-sm font-medium">Condiciones mes a mes</h3>
-        <p className="text-muted-foreground mt-0.5 text-xs">
-          El límite, el precio y el plazo se recalculan cada cierre. Esto es lo que se ofreció.
-        </p>
-      </div>
+    <div className="-mx-4 -my-3">
       <table className="w-full text-sm">
         <thead>
           <tr className="text-muted-foreground border-b text-xs">
@@ -76,17 +76,15 @@ function ConditionsHistory({ history }: { history: MonthScore[] }) {
             return (
               <tr key={month.month} className={cn(index === 0 && "font-medium")}>
                 <td className="px-4 py-2 tabular-nums">{formatMonthShort(month.month)}</td>
+                {/* Seis meses seguidos de pastillas serían ruido, pero
+                    ActionBadge apaga los meses en que no pasó nada: la tinta
+                    queda justo en el cierre que el analista viene a buscar. */}
                 <td className="px-2 py-2">
-                  <span
-                    className={cn(
-                      decision.action === "cerrar" && "text-status-risk-fg",
-                      decision.action === "reducir" && "text-status-watch-fg",
-                      (decision.action === "ampliar" || decision.action === "abrir") &&
-                        "text-status-healthy-fg",
-                    )}
-                  >
-                    {ACCION[decision.action].label}
-                  </span>
+                  <ActionBadge
+                    action={decision.action}
+                    changed={isDecisionNews(decision)}
+                    className="-ml-1.5"
+                  />
                 </td>
                 <td className="px-2 py-2 text-right tabular-nums">
                   {decision.eligible ? formatEuros(decision.limit) : "—"}
@@ -102,54 +100,38 @@ function ConditionsHistory({ history }: { history: MonthScore[] }) {
           })}
         </tbody>
       </table>
-    </section>
+    </div>
   );
 }
 
+/**
+ * La decisión del mes: primero la frase redactada, en su caja azul, y debajo
+ * las tres condiciones que cambian con el aviso que más pesa. Todo lo demás es
+ * evidencia y va detrás, plegado.
+ */
 function DecisionLead({ file }: { file: CompanyFileResponse }) {
-  const { decision } = file.latest;
-  const changed = decision.action !== "mantener";
-  const limitChange =
-    decision.previousLimit > 0 && decision.limit > 0
-      ? Math.round((decision.limit / decision.previousLimit - 1) * 100)
-      : null;
+  const { alerts } = file.latest;
 
   return (
-    <section aria-label="Decisión de este mes" className="flex flex-col gap-4">
-      <ActionBadge action={decision.action} changed={changed} />
-      <NarrativeCard
-        narrative={decisionNarrative(file)}
-        question={{ label: "¿Qué tendría que mejorar?", answer: improvementNarrative(file) }}
+    <>
+      <DeclaredReading
+        kind="decision"
+        companyId={file.company.id}
+        month={file.month}
+        fallback={decisionNarrative(file)}
       />
-      {decision.eligible ? (
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-          <Figure
-            label="Límite"
-            value={formatEuros(decision.limit)}
-            hint={
-              limitChange !== null && limitChange !== 0 ? (
-                <span
-                  className={limitChange > 0 ? "text-status-healthy-fg" : "text-status-watch-fg"}
-                >
-                  {limitChange > 0 ? "+" : ""}
-                  {limitChange} % desde {formatEuros(decision.previousLimit)}
-                </span>
-              ) : undefined
-            }
-          />
-          <Figure label="Banda" value={decision.band} hint={BANDA[decision.band].description} />
-          <Figure
-            label="Plazo máximo"
-            value={decision.maxTenorDays > 0 ? `${decision.maxTenorDays} d` : "—"}
-          />
-          <Figure
-            label="TAE desde"
-            value={formatApr(decision.apr)}
-            hint={`Base ${formatApr(decision.baseApr)} de banda`}
-          />
-        </dl>
-      ) : null}
-    </section>
+      <section
+        aria-label="Condiciones de este mes"
+        className="bg-card overflow-hidden rounded-xl border"
+      >
+        <ConditionsTable file={file} />
+        {alerts.length > 0 ? (
+          <div className="border-t px-4 py-2.5">
+            <FeaturedAlert alerts={alerts} />
+          </div>
+        ) : null}
+      </section>
+    </>
   );
 }
 
@@ -179,81 +161,87 @@ export function CompanySheet({
       onValueChange={(value) => onTabChange(value as SheetTab)}
       className="flex h-full min-h-0 flex-col gap-0"
     >
-      <header className="flex flex-col gap-3 border-b px-5 pt-5 pb-0">
-        <div className="flex items-start justify-between gap-4 pr-8">
-          <div className="min-w-0">
-            <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
-              {company.groupSize > 1 ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenGroup(company.groupId)}
-                  className="hover:text-foreground focus-visible:ring-ring inline-flex items-center gap-1 rounded-sm font-mono transition-colors duration-150 focus-visible:ring-2 focus-visible:outline-none"
-                >
-                  <Building2 aria-hidden className="size-3" />
-                  {company.groupId}
-                  <span className="font-sans">
-                    · {company.groupSize} empresas
-                  </span>
-                </button>
-              ) : (
-                <span>
-                  <span className="font-mono">{company.groupId}</span>
-                  {" · única del grupo"}
-                </span>
+      <header className="flex flex-col gap-2 border-b px-5 pt-4 pb-0">
+        <div className="min-w-0 pr-8">
+          <div className="flex items-center gap-2">
+            <CompanyAvatar companyId={company.id} />
+            <SheetTitle className="font-mono text-lg font-semibold tracking-[-0.01em]">
+              {company.id}
+            </SheetTitle>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 text-xs font-medium",
+                statusTextClass(latest.estado),
               )}
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-2.5">
-              <CompanyAvatar companyId={company.id} />
-              <SheetTitle className="font-mono text-lg font-semibold tracking-[-0.01em]">
-                {company.id}
-              </SheetTitle>
-              <StatusBadge estado={latest.estado} />
-            </div>
-            <SheetDescription className="mt-1 flex flex-wrap items-center gap-x-2 text-xs">
-              <span>
-                Score{" "}
-                <span
-                  className={cn(
-                    "text-foreground font-medium tabular-nums",
-                    unknown && "text-muted-foreground",
-                  )}
-                >
-                  {formatScore(latest.score)}
-                </span>
+            >
+              <StatusDot estado={latest.estado} />
+              {ESTADO[latest.estado].label}
+            </span>
+            <Button
+              aria-label="Abrir ficha completa"
+              variant="ghost"
+              size="sm"
+              nativeButton={false}
+              render={<Link href={`/cartera/${company.id}?mes=${month}`} />}
+              className="ml-auto shrink-0 px-2 sm:px-3"
+            >
+              <span className="hidden sm:inline">Abrir ficha</span>
+              <ArrowUpRight aria-hidden />
+            </Button>
+          </div>
+          <SheetDescription className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <span>
+              Score{" "}
+              <span
+                className={cn(
+                  "text-foreground font-medium tabular-nums",
+                  unknown && "text-muted-foreground",
+                )}
+              >
+                {formatScore(latest.score)}
               </span>
-              <TrendDelta trend3m={latest.trend3m} direction={latest.direction} showWindow />
-              <span aria-hidden>·</span>
-              <span>
-                Confianza{" "}
-                <span className="text-foreground font-medium tabular-nums">
-                  {formatPercent(latest.confidence, 0)}
-                </span>
+            </span>
+            <TrendDelta trend3m={latest.trend3m} direction={latest.direction} showWindow />
+            <span>
+              Confianza{" "}
+              <span className="text-foreground font-medium tabular-nums">
+                {formatPercent(latest.confidence, 0)}
               </span>
               <span aria-hidden>·</span>
               <span>{formatMonthShort(month)}</span>
             </SheetDescription>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            nativeButton={false}
-            render={<Link href={`/cartera/${company.id}?mes=${month}`} />}
-            className="shrink-0"
-          >
-            Ficha completa
-            <ArrowUpRight aria-hidden />
-          </Button>
+          <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              size="sm"
+              nativeButton={false}
+              render={<Link href={`/pares?empresas=${company.id}&mes=${month}`} />}
+            >
+              <Orbit aria-hidden />
+              Comparar
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              nativeButton={false}
+              render={<Link href={`/cartera/${company.id}?mes=${month}`} />}
+            >
+              Ficha completa
+              <ArrowUpRight aria-hidden />
+            </Button>
+          </div>
         </div>
 
-        <TabsList variant="line" className="-mb-px h-9 gap-4 p-0">
-          <TabsTrigger value="decision" className="px-0 text-sm">
+        <TabsList variant="line" className="h-9 gap-4 p-0">
+          <TabsTrigger value="decision" className="px-0 text-sm after:!bottom-[-1px]">
             Decisión
           </TabsTrigger>
-          <TabsTrigger value="score" className="px-0 text-sm">
+          <TabsTrigger value="score" className="px-0 text-sm after:!bottom-[-1px]">
             Score
           </TabsTrigger>
           {hasGroup ? (
-            <TabsTrigger value="grupo" className="px-0 text-sm">
+            <TabsTrigger value="grupo" className="px-0 text-sm after:!bottom-[-1px]">
               Grupo
             </TabsTrigger>
           ) : null}
@@ -263,7 +251,6 @@ export function CompanySheet({
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         <TabsContent value="decision" className="flex flex-col gap-4">
           <DecisionLead file={data} />
-          <ConditionsHistory history={history} />
           {latest.decision.eligible ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <OfferMenu options={latest.decision.menu} />
@@ -272,19 +259,62 @@ export function CompanySheet({
           ) : (
             <GatesPanel gates={latest.decision.gates} />
           )}
-          {latest.alerts.length > 1 ? <AlertsTimeline alerts={latest.alerts} /> : null}
+          <DetailStack label="Detalle de la decisión">
+            <DetailRow title="Histórico de condiciones" aside={`${CONDITION_MONTHS} cierres`}>
+              <ConditionsHistory history={history} />
+            </DetailRow>
+            {latest.decision.eligible ? (
+              <DetailRow title="Desglose de la TAE" aside={formatApr(latest.decision.apr)}>
+                <TaeSplit decision={latest.decision} />
+              </DetailRow>
+            ) : null}
+            {latest.alerts.length > 1 ? (
+              <DetailRow title="Todas las alertas" aside={`${latest.alerts.length}`}>
+                <AlertsTimeline inset alerts={latest.alerts} />
+              </DetailRow>
+            ) : null}
+          </DetailStack>
         </TabsContent>
 
         <TabsContent value="score" className="flex flex-col gap-4">
-          <NarrativeCard narrative={scoreNarrative(data)} />
-          <ScoreTrend history={history} />
-          <Cascade month={latest} />
-          <CoveragePanel coverage={latest.coverage} confidence={latest.confidence} />
+          <DeclaredReading
+            kind="score"
+            companyId={company.id}
+            month={data.month}
+            fallback={scoreNarrative(data)}
+          />
+          <section
+            aria-label="Los cuatro bloques de la nota"
+            className="bg-card rounded-xl border px-4 py-3"
+          >
+            <ScoreBlocks month={latest} />
+          </section>
+          <Cascade bare month={latest} />
+          <DetailStack label="Detalle del score">
+            <DetailRow title="Evolución del score">
+              <ScoreTrend history={history} inset />
+            </DetailRow>
+            <DetailRow title="Cobertura del dato" aside={formatPercent(latest.confidence, 0)}>
+              <CoveragePanel inset coverage={latest.coverage} confidence={latest.confidence} />
+            </DetailRow>
+          </DetailStack>
         </TabsContent>
 
         {hasGroup && latest.group ? (
           <TabsContent value="grupo" className="flex flex-col gap-4">
-            <GroupPanel group={latest.group} peers={peers} month={month} onSelect={onOpenCompany} />
+            <DeclaredReading
+              kind="grupo"
+              companyId={company.id}
+              month={data.month}
+              fallback={holdingNarrative(data)}
+            />
+            <GroupPanel
+              cards
+              group={latest.group}
+              peers={peers}
+              month={month}
+              onSelect={onOpenCompany}
+            />
             <Button
               variant="outline"
               className="w-fit"

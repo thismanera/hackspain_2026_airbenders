@@ -4,11 +4,10 @@ import { AlertTriangle, ChevronRight } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
-import { CompanyAvatar } from "@/components/grifo/company-avatar";
+import { ReadingBox } from "@/components/grifo/declared-reading";
 import { GroupFlow } from "@/components/grifo/group/group-flow";
-import { NarrativeCard } from "@/components/grifo/narrative-card";
 import { Figure, Panel } from "@/components/grifo/panel";
-import { StatusBadge, StatusDot } from "@/components/grifo/status-badge";
+import { StatusDot } from "@/components/grifo/status-badge";
 import {
   ChartContainer,
   ChartTooltip,
@@ -72,102 +71,96 @@ function MembersTable({
   onOpenCompany: (companyId: string) => void;
 }) {
   return (
-    <Panel
-      title="Las empresas del grupo"
-      description="El crédito se concede a cada una; el grupo solo pone el techo y el contexto."
-      bodyClassName="p-0"
-    >
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-muted-foreground border-b text-xs">
-            <th scope="col" className="px-4 py-2 text-left font-medium">
-              Empresa
-            </th>
-            <th scope="col" className="px-2 py-2 text-right font-medium">
-              Peso
-            </th>
-            <th scope="col" className="px-2 py-2 text-right font-medium">
-              Score
-            </th>
-            <th scope="col" className="px-2 py-2 text-right font-medium">
-              Límite
-            </th>
-            <th scope="col" className="px-2 py-2 text-left font-medium">
-              Acción
-            </th>
-            <th scope="col" className="w-8 px-2 py-2">
-              <span className="sr-only">Abrir</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {group.members.map((member) => (
-            <tr
-              key={member.id}
-              className="hover:bg-muted/40 relative transition-colors duration-150"
-            >
-              <td className="px-4 py-2.5">
-                <div className="flex items-center gap-2.5">
-                  <CompanyAvatar companyId={member.id} size="sm" />
+    <Panel title="Las empresas del grupo" bodyClassName="p-0">
+      {/* En la hoja estrecha la fila no cabe entera, y el panel la recorta:
+          mejor que se desplace a que se pierda. */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-muted-foreground border-b text-xs">
+              <th scope="col" className="px-4 py-2 text-left font-medium">
+                Empresa
+              </th>
+              <th scope="col" className="px-2 py-2 text-right font-medium">
+                Peso
+              </th>
+              <th scope="col" className="px-2 py-2 text-right font-medium">
+                Score
+              </th>
+              <th scope="col" className="px-2 py-2 text-right font-medium">
+                Límite
+              </th>
+              <th scope="col" className="px-2 py-2 text-left font-medium">
+                Acción
+              </th>
+              <th scope="col" className="w-8 px-2 py-2">
+                <span className="sr-only">Abrir</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {group.members.map((member) => (
+              <tr
+                key={member.id}
+                className="hover:bg-muted/40 relative transition-colors duration-150"
+              >
+                <td className="px-4 py-2.5">
                   <button
                     type="button"
                     onClick={() => onOpenCompany(member.id)}
-                    className="focus-visible:ring-ring flex flex-col items-start text-left leading-tight after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
+                    className="focus-visible:ring-ring flex items-center gap-2 text-left after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
                   >
-                    <span className="flex items-center gap-2 font-mono font-medium">
-                      {member.id}
-                      {member.alertCount > 0 ? (
-                        <span className="text-status-watch-fg inline-flex items-center gap-0.5 text-xs">
-                          <AlertTriangle aria-hidden className="size-3" />
-                          <span className="tabular-nums">{member.alertCount}</span>
-                          <span className="sr-only">alertas</span>
-                        </span>
-                      ) : null}
-                    </span>
-                    <StatusBadge estado={member.estado} className="mt-1" />
+                    <StatusDot estado={member.estado} />
+                    <span className="font-mono font-medium">{member.id}</span>
+                    <span className="sr-only">{ESTADO[member.estado].label}</span>
+                    {member.alertCount > 0 ? (
+                      <span className="text-status-watch-fg inline-flex items-center gap-0.5 text-xs">
+                        <AlertTriangle aria-hidden className="size-3" />
+                        <span className="tabular-nums">{member.alertCount}</span>
+                        <span className="sr-only">alertas</span>
+                      </span>
+                    ) : null}
                   </button>
-                </div>
-              </td>
-              <td className="px-2 py-2.5 text-right tabular-nums">
-                {formatPercent(member.share, 0)}
-              </td>
-              <td className="px-2 py-2.5 text-right">
-                <span className="flex flex-col items-end leading-tight">
-                  <span className="font-medium tabular-nums">{formatScore(member.score)}</span>
-                  {Math.abs(member.adjustment) >= 0.5 ? (
-                    <span
-                      className={cn(
-                        "text-xs tabular-nums",
-                        member.adjustment > 0 ? "text-status-healthy-fg" : "text-status-risk-fg",
-                      )}
-                    >
-                      {formatSigned(member.adjustment)} grupo
-                    </span>
-                  ) : null}
-                </span>
-              </td>
-              <td className="px-2 py-2.5 text-right tabular-nums">
-                {member.eligible ? (
-                  formatEuros(member.limit)
-                ) : (
-                  <span className="text-muted-foreground">Sin línea</span>
-                )}
-              </td>
-              <td className="px-2 py-2.5">
-                <span className="flex flex-col items-start gap-0.5 leading-tight">
-                  <ActionBadge action={member.action} changed={member.changed} />
-                  {member.blockedBy ? (
-                    <span className="text-muted-foreground px-2 text-xs">{member.blockedBy}</span>
-                  ) : null}
-                </span>
-              </td>
-              <td className="px-2 py-2.5">
-                <ChevronRight aria-hidden className="text-muted-foreground size-4" />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                </td>
+                <td className="px-2 py-2.5 text-right tabular-nums">
+                  {formatPercent(member.share, 0)}
+                </td>
+                {/* Lo que el grupo suma o resta al score es la columna de la
+                    pestaña Score, con su barra. Aquí solo hace falta el score
+                    con el que se decide. */}
+                <td className="px-2 py-2.5 text-right font-medium tabular-nums">
+                  {formatScore(member.score)}
+                </td>
+                <td className="px-2 py-2.5 text-right tabular-nums">
+                  {member.eligible ? (
+                    formatEuros(member.limit)
+                  ) : (
+                    <span className="text-muted-foreground">Sin línea</span>
+                  )}
+                </td>
+                {/* La columna del límite ya ha dicho "Sin línea": repetirlo como
+                    acción era el ruido de la fila. Si no hay nada que hacer, lo
+                    útil es qué puerta lo impide; si lo hay, la pastilla, que
+                    solo se tiñe cuando la acción es noticia. */}
+                <td className="px-2 py-2.5">
+                  {member.eligible || member.changed ? (
+                    <ActionBadge
+                      action={member.action}
+                      changed={member.changed}
+                      className="-ml-1.5"
+                    />
+                  ) : (
+                    <span className="text-muted-foreground">{member.blockedBy ?? "—"}</span>
+                  )}
+                </td>
+                <td className="px-2 py-2.5">
+                  <ChevronRight aria-hidden className="text-muted-foreground size-4" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Panel>
   );
 }
@@ -179,10 +172,7 @@ function GroupScoreTrend({ group }: { group: GroupFileResponse }) {
   }));
 
   return (
-    <Panel
-      title="Score consolidado"
-      description="Media de las empresas ponderada por su peso en el grupo, mes a mes."
-    >
+    <Panel title="Score consolidado" description="Media de las empresas, ponderada por su peso.">
       <ChartContainer config={config} className="h-48 w-full">
         <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -228,6 +218,11 @@ function GroupScoreTrend({ group }: { group: GroupFileResponse }) {
   );
 }
 
+/* La barra es la única columna prescindible: en pantalla estrecha desaparece
+   para que el identificador y las tres cifras quepan sin truncarse. */
+const MEMBER_SCORE_GRID =
+  "grid w-full grid-cols-[minmax(0,1fr)_2rem_1.75rem_2.25rem] items-center gap-2 px-4 text-xs sm:grid-cols-[minmax(0,1fr)_3rem_3rem_minmax(0,6rem)_3.5rem] sm:gap-3 sm:text-sm";
+
 function MemberScores({
   group,
   onOpenCompany,
@@ -236,31 +231,46 @@ function MemberScores({
   onOpenCompany: (companyId: string) => void;
 }) {
   return (
-    <Panel
-      title="Quién aporta y quién pesa"
-      description="Cada barra es el score de una empresa; al lado, lo que el grupo le suma o resta."
-      bodyClassName="p-0"
-    >
+    <Panel title="Quién aporta y quién pesa" bodyClassName="p-0">
+      {/* Una fila de cabecera nombra las cuatro columnas de una vez, en lugar de
+          una frase que las describa por debajo del título. */}
+      <div
+        className={cn(
+          MEMBER_SCORE_GRID,
+          "text-muted-foreground border-b py-2 font-medium sm:text-xs",
+        )}
+      >
+        <span>Empresa</span>
+        <span className="text-right">Peso</span>
+        <span className="text-right sm:col-span-2 sm:text-left">Score</span>
+        <span className="text-right">Grupo</span>
+      </div>
       <ul className="divide-y">
         {group.members.map((member) => (
           <li key={member.id}>
             <button
               type="button"
               onClick={() => onOpenCompany(member.id)}
-              className="hover:bg-muted/50 focus-visible:ring-ring grid w-full grid-cols-[minmax(0,1fr)_3rem_minmax(0,8rem)_4rem] items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 focus-visible:ring-2 focus-visible:-outline-offset-2 focus-visible:outline-none"
+              className={cn(
+                MEMBER_SCORE_GRID,
+                "hover:bg-muted/50 focus-visible:ring-ring py-2.5 text-left transition-colors duration-150 focus-visible:ring-2 focus-visible:-outline-offset-2 focus-visible:outline-none",
+              )}
             >
               <span className="flex min-w-0 items-center gap-2">
-                <CompanyAvatar companyId={member.id} size="sm" className="shrink-0" />
                 <StatusDot estado={member.estado} />
-                <span className="truncate font-mono text-sm">{member.id}</span>
-                <span className="text-muted-foreground text-xs tabular-nums">
-                  {formatPercent(member.share, 0)}
-                </span>
+                <span className="truncate font-mono">{member.id}</span>
+                <span className="sr-only">{ESTADO[member.estado].label}</span>
               </span>
-              <span className="text-right text-sm font-medium tabular-nums">
+              <span className="text-muted-foreground text-right tabular-nums">
+                {formatPercent(member.share, 0)}
+              </span>
+              <span className="text-right font-medium tabular-nums">
                 {formatScore(member.score)}
               </span>
-              <span aria-hidden className="bg-muted flex h-1.5 overflow-hidden rounded-full">
+              <span
+                aria-hidden
+                className="bg-muted hidden h-1.5 overflow-hidden rounded-full sm:flex"
+              >
                 <span
                   className={cn(
                     "h-full rounded-full",
@@ -275,7 +285,7 @@ function MemberScores({
               </span>
               <span
                 className={cn(
-                  "text-right text-xs tabular-nums",
+                  "text-right tabular-nums",
                   Math.abs(member.adjustment) < 0.5
                     ? "text-muted-foreground"
                     : member.adjustment > 0
@@ -316,10 +326,9 @@ export function GroupSheet({
       onValueChange={(value) => onTabChange(value as SheetTab)}
       className="flex h-full min-h-0 flex-col gap-0"
     >
-      <header className="flex flex-col gap-3 border-b px-5 pt-5 pb-0">
+      <header className="flex flex-col gap-2 border-b px-5 pt-4 pb-0">
         <div className="min-w-0 pr-8">
-          <p className="text-muted-foreground text-xs">Cartera / Grupo · no es prestatario</p>
-          <SheetTitle className="mt-1 font-mono text-lg font-semibold tracking-[-0.01em]">
+          <SheetTitle className="font-mono text-lg font-semibold tracking-[-0.01em]">
             {data.groupId}
           </SheetTitle>
           <SheetDescription
@@ -334,14 +343,14 @@ export function GroupSheet({
           </SheetDescription>
         </div>
 
-        <TabsList variant="line" className="-mb-px h-9 gap-4 p-0">
-          <TabsTrigger value="decision" className="px-0 text-sm">
+        <TabsList variant="line" className="h-9 gap-4 p-0">
+          <TabsTrigger value="decision" className="px-0 text-sm after:!bottom-[-1px]">
             Circulante
           </TabsTrigger>
-          <TabsTrigger value="score" className="px-0 text-sm">
+          <TabsTrigger value="score" className="px-0 text-sm after:!bottom-[-1px]">
             Score
           </TabsTrigger>
-          <TabsTrigger value="grupo" className="px-0 text-sm">
+          <TabsTrigger value="grupo" className="px-0 text-sm after:!bottom-[-1px]">
             Flujo
           </TabsTrigger>
         </TabsList>
@@ -349,7 +358,10 @@ export function GroupSheet({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         <TabsContent value="decision" className="flex flex-col gap-4">
-          <NarrativeCard title="Qué tienes que saber del grupo" narrative={groupNarrative(data)} />
+          {/* Sin Helmcode para grupo: el titular sale de la plantilla, pero se
+              presenta en la misma caja que en empresa para que la lectura se
+              reconozca igual en los dos lados. */}
+          <ReadingBox headline={groupNarrative(data).headline} source="plantilla" />
 
           <section aria-label="Cifras del grupo" className="bg-card rounded-xl border p-4">
             <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
@@ -370,14 +382,12 @@ export function GroupSheet({
                   )
                 }
               />
+              {/* La única cifra que se puede leer mal: el límite conjunto no es
+                  una línea del grupo. El aviso va aquí, pegado al número. */}
               <Figure
                 label="Con línea"
                 value={`${data.eligible} de ${data.members.length}`}
-                hint={
-                  data.crossDefault.length > 0
-                    ? `Cross-default: ${data.crossDefault.join(", ")}`
-                    : "Ninguna caída con peso relevante"
-                }
+                hint="El crédito es de cada empresa"
               />
               <Figure
                 label="Score consolidado"
@@ -393,7 +403,7 @@ export function GroupSheet({
                             : "text-status-risk-fg",
                       )}
                     >
-                      {formatSigned(scoreDelta)} frente al mes pasado
+                      {formatSigned(scoreDelta)} este mes
                     </span>
                   ) : undefined
                 }
@@ -401,7 +411,7 @@ export function GroupSheet({
               <Figure
                 label="Interdependencia"
                 value={formatPercent(data.interdependence, 0)}
-                hint="D5 medio, ponderado por peso"
+                hint="D5 ponderado por peso"
               />
             </dl>
           </section>

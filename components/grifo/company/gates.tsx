@@ -41,12 +41,7 @@ export function GatesPanel({ gates }: { gates: Gate[] }) {
 
   return (
     <Panel
-      title={failed === 0 ? "Puertas de elegibilidad" : "Por qué no hay línea"}
-      description={
-        failed === 0
-          ? `Pasa las ${gates.length}. Se puede prestar.`
-          : `Falla ${failed} de ${gates.length}. La primera que falla decide.`
-      }
+      title={failed === 0 ? "Puertas" : "Por qué no hay línea"}
       bodyClassName="p-0"
     >
       <ul className="divide-y">
