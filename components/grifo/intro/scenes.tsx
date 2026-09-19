@@ -1,6 +1,5 @@
 import {
   ArrowLeftRight,
-  Building2,
   CalendarDays,
   Camera,
   CircleDollarSign,
@@ -11,6 +10,7 @@ import {
   Landmark,
   Network,
   Receipt,
+  ShieldCheck,
   TrendingDown,
   Truck,
   X,
@@ -353,13 +353,13 @@ function Ownership() {
     },
     {
       icon: TrendingDown,
-      title: "Pagar menos",
+      title: "Cómo pagar menos",
       desc: "Sabe qué mejorar para abaratar su coste de crédito.",
     },
     {
       icon: HandCoins,
       title: "Oferta preaprobada",
-      desc: "Sabe de antemano cuánto puede tener, sin preparar dossiers.",
+      desc: "Sabe de antemano qué puede esperar.",
     },
   ];
 
@@ -425,69 +425,47 @@ function Consent() {
       </div>
 
       <p className="text-muted-foreground mt-4 text-sm">
-        Se comparte la decisión con el banco y su evolución de score mensual.
+        La empresa comparte la decisión con el partner financiero de Embat y su evolución de score mensual.
       </p>
     </div>
   );
 }
 
-/* 8 · Quien financia: la perspectiva del partner al recibir la solicitud. */
+/* 8 · Quien financia: la perspectiva del partner, limpia y sin cards. */
 function PartnerView() {
+  const points = [
+    {
+      icon: ShieldCheck,
+      title: "Solo con permiso",
+      desc: "Solo ve a empresas que han solicitado financiación.",
+    },
+    {
+      icon: Gauge,
+      title: "Score al día",
+      desc: "Riesgo calculado cada mes con datos reales de tesorería.",
+    },
+    {
+      icon: Clock,
+      title: "Decisión inmediata",
+      desc: "Presta con datos verificados, sin semanas de análisis.",
+    },
+  ];
+
   return (
-    <div className="intro-rise mx-auto mt-8 flex w-full max-w-xl flex-col items-center gap-4 [animation-delay:180ms]">
-      <div className="bg-card w-full overflow-hidden rounded-[14px] border text-left shadow-xs">
-        {/* Cabecera de la ficha */}
-        <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-3.5">
-          <div className="flex items-center gap-3">
-            <span className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg">
-              <Building2 className="size-4.5" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold tracking-[-0.01em]">Northbrook Industrial</p>
-              <p className="text-muted-foreground text-xs">Distribución B2B · Cliente Embat</p>
-            </div>
-          </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-            <span className="size-1.5 rounded-full bg-emerald-500" />
-            Score 82 · Sano
+    <div className="intro-rise mx-auto mt-12 grid w-full max-w-2xl grid-cols-1 gap-8 text-center sm:grid-cols-3 sm:gap-6 [animation-delay:180ms]">
+      {points.map((item) => (
+        <div key={item.title} className="flex flex-col items-center gap-3">
+          <span className="bg-muted text-foreground flex size-12 items-center justify-center rounded-full">
+            <item.icon className="size-5.5" strokeWidth={1.75} />
           </span>
-        </div>
-
-        {/* Métricas clave que ve el partner */}
-        <div className="grid grid-cols-3 divide-x p-5 text-center">
-          <div className="px-2">
-            <p className="text-muted-foreground text-xs font-medium">Límite asignable</p>
-            <p className="mt-1 text-lg font-bold tracking-tight text-foreground sm:text-xl">
-              180.000 €
+          <div>
+            <p className="text-base font-semibold tracking-[-0.01em]">{item.title}</p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed text-balance">
+              {item.desc}
             </p>
-            <p className="text-muted-foreground mt-0.5 text-[11px]">según ventas reales</p>
-          </div>
-          <div className="px-2">
-            <p className="text-muted-foreground text-xs font-medium">Coste y plazo</p>
-            <p className="mt-1 text-lg font-bold tracking-tight text-foreground sm:text-xl">
-              3,8% TAE
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-[11px]">hasta 180 días</p>
-          </div>
-          <div className="px-2">
-            <p className="text-muted-foreground text-xs font-medium">Riesgo continuo</p>
-            <p className="mt-1 text-lg font-bold tracking-tight text-emerald-600 sm:text-xl">
-              0 alertas
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-[11px]">+3 meses en mejora</p>
           </div>
         </div>
-
-        {/* Barra de garantía y privacidad */}
-        <div className="flex items-center justify-between border-t bg-muted/20 px-5 py-2.5 text-[11px] text-muted-foreground">
-          <span>Opt-in verificado: solicitado por la empresa</span>
-          <span className="font-mono">Sin acceso a extractos ni facturas</span>
-        </div>
-      </div>
-
-      <p className="text-muted-foreground text-center text-sm sm:whitespace-nowrap">
-        El partner presta <Accent>viendo</Accent>. Sin burocracia, sin meses de espera y sin cuentas anuales viejas.
-      </p>
+      ))}
     </div>
   );
 }
