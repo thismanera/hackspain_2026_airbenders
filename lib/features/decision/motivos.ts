@@ -1,11 +1,15 @@
+import { DECISION_PARAMS as P } from "@/lib/features/decision/params";
 import type { Accion, Banda, Puerta } from "@/lib/features/decision/types";
 import type { ScoreRow } from "@/lib/features/scoring/types";
+
+/** Un solo formateador para todos los importes: construirlo por llamada es caro. */
+const EUR = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 });
 
 export function pct(x: number): string {
   return `${Math.round(x * 100)} %`;
 }
 export function eur(x: number): string {
-  return `${Math.round(x).toLocaleString("es-ES")} €`;
+  return `${EUR.format(x)} €`;
 }
 export function dec(x: number, n = 2): string {
   return x.toFixed(n).replace(".", ",");
@@ -15,17 +19,18 @@ export function dec(x: number, n = 2): string {
 export function motivoPuerta(p: Puerta, r: ScoreRow, causaCrossDefault: string | null): string {
   switch (p) {
     case "historia":
-      return `Historial insuficiente: confianza ${dec(r.confianza)} < 0,5`;
+      return `Historial insuficiente: confianza ${dec(r.confianza)} < ${dec(P.confMin, 1)}`;
     case "estado":
-      return `Score ${Math.round(r.score)} por debajo de 45`;
+      return `Score ${Math.round(r.score)} por debajo de ${P.scoreMin}`;
     case "fiabilidad":
       return `${r.rachaB2} meses seguidos sin pagar obligaciones`;
     case "caja":
-      return r.rachaDeficit > 2
+      return r.rachaDeficit > P.rachaDeficitMax
         ? `${r.rachaDeficit} meses seguidos en déficit`
         : "Caja estresada no cubre cuotas actuales";
     case "clientes":
-      return `${pct(r.C4 ?? 0)} de facturas vencidas sin cobrar`;
+      // La puerta "clientes" solo falla con `C4` no nulo (eligibility.ts: `C4 === null` la pasa).
+      return `${pct(r.C4!)} de facturas vencidas sin cobrar`;
     case "grupo":
       return `Cierre de ${causaCrossDefault ?? "una empresa del grupo"} (${pct(r.D1)} del grupo)`;
   }
@@ -65,7 +70,9 @@ export function motivoAccion(
           : ctx.causaReduccion === "prevision"
             ? `previsión: banda ${ctx.bandaPred} en 3 meses`
             : ctx.causaReduccion === "grupo"
-              ? `cross-default de ${ctx.causaCrossDefault ?? "una empresa del grupo"}`
+              ? ctx.causaCrossDefault
+                ? `cross-default de ${ctx.causaCrossDefault}`
+                : "techo de grupo"
               : "2 meses por debajo";
       return `Límite baja de ${eur(ctx.LPrev)} a ${eur(ctx.LVigente)}: ${causa}, ${topDelta(r)}`;
     }

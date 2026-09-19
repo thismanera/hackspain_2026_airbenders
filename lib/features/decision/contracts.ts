@@ -31,6 +31,7 @@ const estado = z.object({
   cerradoDesde: mes.nullable(),
   crossDefaultActivo: z.boolean(),
   causaCrossDefault: z.string().nullable(),
+  mesesConCrossDefault: z.number().int().min(0),
 });
 
 export const decisionRowSchema = z.object({

@@ -16,6 +16,8 @@ export type EstadoDecision = {
   cerradoDesde: string | null;
   crossDefaultActivo: boolean;
   causaCrossDefault: string | null;
+  /** Meses seguidos con la bandera de cross-default encendida: a `reaperturaMeses` se levanta (§9). */
+  mesesConCrossDefault: number;
 };
 
 export const ESTADO_INICIAL: EstadoDecision = {
@@ -27,8 +29,15 @@ export const ESTADO_INICIAL: EstadoDecision = {
   cerradoDesde: null,
   crossDefaultActivo: false,
   causaCrossDefault: null,
+  mesesConCrossDefault: 0,
 };
 
+/**
+ * Descomposición aditiva de la TAE (§6): `tae = base + primaPlazo + primaConfianza +
+ * ajusteTendencia + primaPrevision`. **Todos** los campos son componentes en puntos porcentuales
+ * que se suman (el ajuste de tendencia es negativo cuando la dirección es de mejora); ninguno es
+ * un factor ni un total.
+ */
 export type DesgloseTae = {
   base: number;
   primaPlazo: number;

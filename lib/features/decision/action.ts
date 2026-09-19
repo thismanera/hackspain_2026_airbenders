@@ -1,15 +1,24 @@
 import type { Elegibilidad } from "@/lib/features/decision/eligibility";
-import { bandaEfectiva, limite, type Limite } from "@/lib/features/decision/limit";
+import { bandaEfectiva, esPeor, limite, type Limite } from "@/lib/features/decision/limit";
+import { redondearAbajo, redondearArriba } from "@/lib/features/decision/money";
 import { DECISION_PARAMS as P, type Banda } from "@/lib/features/decision/params";
 import type { Accion, EstadoDecision } from "@/lib/features/decision/types";
 import type { ScoreRow } from "@/lib/features/scoring/types";
 
-const ORDEN: Banda[] = ["A", "B", "C", "D"];
-function esPeor(a: Banda, b: Banda): boolean {
-  return ORDEN.indexOf(a) > ORDEN.indexOf(b);
-}
 function clip(x: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, x));
+}
+
+/**
+ * Banda de histéresis del mes, ya en el grid de `redondeo_L`: el techo se redondea abajo y el
+ * suelo arriba para que ningún `L_vigente` salga de la histéresis con un importe fuera del grid
+ * (y para que el redondeo nunca afloje el límite de ±25 %).
+ */
+function techoHisteresis(Lp: number): number {
+  return redondearAbajo(Lp * (1 + P.histeresisPct), P.redondeoL);
+}
+function sueloHisteresis(Lp: number): number {
+  return redondearArriba(Lp * (1 - P.histeresisPct), P.redondeoL);
 }
 
 /** §8 + §9: "grupo" es la bajada inmediata por cross-default (caída de una hermana). */
@@ -50,7 +59,9 @@ export function decidirAccion(
     escalonesExtra,
   } as const;
 
-  if (!e.elegible) return { ...base, accion: "cerrar", LVigente: 0 };
+  // No elegible: ni límite recomendado ni vigente (§13, propiedad 1). `limite` se conserva en
+  // `limiteCap`/`limiteOp` porque la ficha enseña la capacidad aunque la puerta cierre.
+  if (!e.elegible) return { ...base, accion: "cerrar", L: 0, LVigente: 0 };
 
   if (Lp === 0) {
     if (prev.cerradoDesde !== null && prev.mesesElegibleSeguidos + 1 < P.reaperturaMeses)
@@ -60,10 +71,12 @@ export function decidirAccion(
         LVigente: 0,
         mesesParaReapertura: P.reaperturaMeses - prev.mesesElegibleSeguidos - 1,
       };
+    // Desviación deliberada de §8: con L = 0 no hay nada que abrir (banda D o capacidad nula),
+    // así que la fila sale como `mantener` en 0 en vez de un `abrir` vacío.
     return { ...base, accion: L > 0 ? "abrir" : "mantener", LVigente: L };
   }
 
-  const LAcotado = clip(L, Lp * (1 - P.histeresisPct), Lp * (1 + P.histeresisPct));
+  const LAcotado = clip(L, sueloHisteresis(Lp), techoHisteresis(Lp));
   const estructural = r.direccion === "deterioro" && r.naturaleza === "estructural";
   if (estructural && L < Lp)
     return { ...base, accion: "reducir", LVigente: L, causaReduccion: "estructural" };
@@ -79,7 +92,7 @@ export function decidirAccion(
       return {
         ...base,
         accion: "reducir",
-        LVigente: Math.max(LPred, Lp * (1 - P.histeresisPct)),
+        LVigente: Math.max(LPred, sueloHisteresis(Lp)),
         causaReduccion: "prevision",
       };
   }
@@ -98,9 +111,9 @@ export function decidirAccion(
 /** Actualización del estado tras decidir (§8). */
 export function siguienteEstado(
   prev: EstadoDecision,
-  d: Decision & { elegible?: boolean },
+  d: Decision,
   r: ScoreRow,
-  bandaPred: Banda = "A",
+  bandaPred: Banda,
 ): EstadoDecision {
   const elegible = d.accion !== "cerrar";
   return {
@@ -111,7 +124,9 @@ export function siguienteEstado(
       prev.LPrev > 0 && d.L < P.reducirRatio * prev.LPrev ? prev.mesesReduccionSeguidos + 1 : 0,
     mesesPredPeorSeguidos: esPeor(bandaPred, d.bandaEfectiva) ? prev.mesesPredPeorSeguidos + 1 : 0,
     cerradoDesde: d.accion === "cerrar" ? r.month : d.accion === "abrir" ? null : prev.cerradoDesde,
+    // El bloque de cross-default lo recalcula el motor (§9) con el mes del grupo ya cerrado.
     crossDefaultActivo: prev.crossDefaultActivo,
     causaCrossDefault: prev.causaCrossDefault,
+    mesesConCrossDefault: prev.mesesConCrossDefault,
   };
 }
