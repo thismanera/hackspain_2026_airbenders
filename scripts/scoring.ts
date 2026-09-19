@@ -332,10 +332,52 @@ async function doImport() {
     throw new Error(`imported ${importedDecisions} decisions, expected ${manifest.rows}`);
   await prisma.scoreRun.update({
     where: { id: manifest.runId },
-    data: { status: "complete", completedAt: new Date(), metrics },
+    data: { metrics },
+  });
+  const snapshots = await doSnapshot(manifest.runId);
+  await prisma.scoreRun.update({
+    where: { id: manifest.runId },
+    data: { status: "complete", completedAt: new Date() },
   });
   await prisma.$disconnect();
-  console.log(JSON.stringify({ imported, importedDecisions, runId: manifest.runId }));
+  console.log(JSON.stringify({ imported, importedDecisions, snapshots, runId: manifest.runId }));
+}
+
+async function localRunId(): Promise<string> {
+  const params = parametersSchema.parse(JSON.parse(await readFile(parameterPath(), "utf8")));
+  const run = runDir(params, (await meta()).fingerprint);
+  const manifest = JSON.parse(await readFile(path.join(run, "manifest.json"), "utf8")) as {
+    runId: string;
+  };
+  return manifest.runId;
+}
+
+/**
+ * Materializa el panel de una ejecución ya importada: cada respuesta que la UI
+ * puede pedir queda como una fila en `portfolio_snapshots`. Sin `runId` usa la
+ * ejecución del run local. Se puede relanzar solo: borra y vuelve a escribir.
+ */
+async function doSnapshot(runId?: string): Promise<number> {
+  const { prisma } = await import("../lib/core/db");
+  const { buildDataset, runHeader } = await import("../lib/features/portfolio/load-dataset");
+  const { materialize } = await import("../lib/features/portfolio/snapshots");
+  const id = runId ?? (await localRunId());
+  const dataset = await buildDataset(await runHeader(id));
+  await prisma.portfolioSnapshot.deleteMany({ where: { runId: id } });
+  let written = 0;
+  let batch: { runId: string; kind: string; key: string; payload: never }[] = [];
+  async function flush() {
+    if (!batch.length) return;
+    await prisma.portfolioSnapshot.createMany({ data: batch });
+    written += batch.length;
+    batch = [];
+  }
+  for (const row of materialize(dataset)) {
+    batch.push({ runId: id, kind: row.kind, key: row.key, payload: row.payload as never });
+    if (batch.length >= 100) await flush();
+  }
+  await flush();
+  return written;
 }
 
 await mkdir(dir, { recursive: true });
@@ -344,4 +386,7 @@ else if (command === "score") await doScore();
 else if (command === "decide") await doDecide();
 else if (command === "backtest") await doBacktest();
 else if (command === "import") await doImport();
-else throw new Error("Usage: scoring.ts fit|score|decide|backtest|import");
+else if (command === "snapshot") {
+  const written = await doSnapshot(process.argv[3]);
+  console.log(JSON.stringify({ snapshots: written }));
+} else throw new Error("Usage: scoring.ts fit|score|decide|backtest|import|snapshot [runId]");

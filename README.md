@@ -19,11 +19,11 @@ pnpm db:setup
 pnpm dev
 ```
 
-`pnpm db:setup` crea `.env` si falta, levanta PostgreSQL, aplica el esquema
-Prisma y carga el dataset del motor de scoring. Es idempotente: si ya existe
-una ejecución completa, conserva el volumen y no vuelve a procesar los CSV.
-Cada compañero ejecuta el mismo comando después de clonar el repositorio; no
-se comparte ni se versiona un contenedor o volumen de Docker.
+`pnpm db:setup` crea `.env` si falta, aplica el esquema Prisma contra
+`DATABASE_URL` (Neon) y carga el dataset del motor de scoring. Es idempotente:
+si ya existe una ejecución completa, no vuelve a procesar los CSV. Cada
+compañero pega su propia connection string de Neon en `.env` (ver
+`.env.example`) y ejecuta el mismo comando después de clonar el repositorio.
 
 Abre [http://localhost:3000](http://localhost:3000) (sign in/up con Better
 Auth) y [http://localhost:3000/tasks](http://localhost:3000/tasks) (ejemplo
@@ -37,10 +37,8 @@ end-to-end de Prisma + API route + TanStack Query con prefetch SSR).
 | `pnpm build`              | Build de producción (standalone)                                      |
 | `pnpm start`              | Sirve el build de producción                                          |
 | `pnpm test`               | Tests (`node --test`, sin framework extra)                            |
-| `pnpm db:setup`           | Arranca Postgres, aplica Prisma e importa el scoring si hace falta    |
+| `pnpm db:setup`           | Aplica Prisma contra Neon e importa el scoring si hace falta          |
 | `pnpm db:setup:force`     | Recalcula e importa el scoring aunque ya exista una ejecución         |
-| `pnpm db:up`              | Arranca el Postgres local conservando sus datos                       |
-| `pnpm db:down`            | Detiene Postgres; el volumen y sus datos se conservan                 |
 | `pnpm helmcode:check`     | Comprueba la API key de Helmcode (lista modelos + chat de prueba)     |
 | `pnpm run lint`           | [oxlint](https://oxc.rs) (no ESLint, ver `AGENTS.md`)                 |
 | `pnpm run lint:fix`       | oxlint con `--fix`                                                    |
@@ -67,7 +65,8 @@ pnpm scoring:fit        # ingest por grupo, € y percentiles congelados
 pnpm scoring:score      # company_month_score (docs/scoring-engine.md §10)
 pnpm scoring:decide     # motor de decisión v1 (docs/decision-engine.md)
 pnpm scoring:backtest   # lead time, recall y falsas alarmas para scoreSolo y scoreGrupo, más métricas de decisión
-pnpm scoring:import     # Postgres
+pnpm scoring:import     # Postgres: filas del run + panel materializado (portfolio_snapshots)
+pnpm scoring:snapshot   # solo rematerializa el panel de un run ya importado
 ```
 
 `scoring:decide` corre el motor v1 entero sobre `scores.jsonl`: elegibilidad por

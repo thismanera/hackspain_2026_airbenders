@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { scoringResponse } from "@/lib/features/portfolio/http";
 import { getBenchmark } from "@/lib/features/portfolio/source";
 
 const querySchema = z.object({
@@ -19,10 +20,5 @@ export async function GET(
     return Response.json({ error: z.treeifyError(parsed.error) }, { status: 400 });
   }
 
-  const benchmark = getBenchmark(companyId, parsed.data.month);
-  if (!benchmark) {
-    return Response.json({ error: "Empresa no encontrada" }, { status: 404 });
-  }
-
-  return Response.json(benchmark);
+  return scoringResponse(() => getBenchmark(companyId, parsed.data.month), "Empresa no encontrada");
 }

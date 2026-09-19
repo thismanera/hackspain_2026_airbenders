@@ -1,7 +1,8 @@
 import { z } from "zod";
 
-import { getPortfolioLive } from "@/lib/features/portfolio/live";
-import { getPortfolio } from "@/lib/features/portfolio/source";
+import { SCORING_UNAVAILABLE } from "@/lib/features/portfolio/queries";
+import { getPortfolio, ScoringUnavailableError } from "@/lib/features/portfolio/source";
+import type { PortfolioResponse } from "@/lib/features/portfolio/types";
 import { ACCION, DIRECCION, ESTADO, NATURALEZA } from "@/lib/features/portfolio/vocabulary";
 
 const querySchema = z.object({
@@ -46,8 +47,16 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: z.treeifyError(parsed.error) }, { status: 400 });
   }
 
-  const live = await getPortfolioLive(parsed.data);
-  const { month, rows } = live ?? getPortfolio(parsed.data);
+  let month: string;
+  let rows: PortfolioResponse["rows"];
+  try {
+    ({ month, rows } = await getPortfolio(parsed.data));
+  } catch (error) {
+    if (error instanceof ScoringUnavailableError) {
+      return Response.json({ error: error.message, code: SCORING_UNAVAILABLE }, { status: 503 });
+    }
+    throw error;
+  }
 
   const body = rows.map((row) =>
     [

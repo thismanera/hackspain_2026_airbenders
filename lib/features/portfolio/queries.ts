@@ -1,3 +1,6 @@
+import { z } from "zod";
+
+import type { Reading, ReadingKind } from "./reading";
 import type {
   AlertsResponse,
   BacktestResponse,
@@ -5,9 +8,16 @@ import type {
   CompanyFileResponse,
   GroupFileResponse,
   GroupsResponse,
+  PeerMapResponse,
   PortfolioResponse,
+  Scope,
 } from "./types";
 import type { PortfolioSearchState } from "./search-params";
+
+/** Código estable de la API cuando no hay ejecución del motor compatible (HTTP 503). */
+export const SCORING_UNAVAILABLE = "SCORING_UNAVAILABLE";
+
+const errorBodySchema = z.object({ code: z.string().optional() });
 
 /**
  * Query keys tipadas. El prefetch del servidor y el hook del cliente comparten
@@ -25,12 +35,56 @@ export const portfolioKeys = {
   backtest: (month: string) => ["portfolio", "backtest", month] as const,
   benchmark: (companyId: string, month: string) =>
     ["portfolio", "benchmark", companyId, month] as const,
+  peers: (month: string, scope: Scope, companyId?: string) =>
+    ["portfolio", "peers", month, scope, companyId ?? ""] as const,
+  reading: (companyId: string, month: string, kind: string) =>
+    ["portfolio", "reading", companyId, month, kind] as const,
 };
+
+export function fetchPeers(
+  month: string,
+  scope: Scope,
+  companyId?: string,
+  baseUrl = "",
+): Promise<PeerMapResponse> {
+  const params = new URLSearchParams({ month, scope });
+  if (companyId) params.set("empresa", companyId);
+  return getJson(
+    `${baseUrl}/api/portfolio/peers?${params}`,
+    "Empresa no encontrada",
+    "No se ha podido cargar el espacio de pares",
+  );
+}
+
+/** Error de la API del panel con el código estable que devuelve la ruta (503 → motor no disponible). */
+export class PortfolioApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code: string | null,
+  ) {
+    super(message);
+    this.name = "PortfolioApiError";
+  }
+}
+
+export function isScoringUnavailable(error: unknown): boolean {
+  return error instanceof PortfolioApiError && error.code === SCORING_UNAVAILABLE;
+}
+
+async function fail(res: Response, notFound: string, failed: string): Promise<never> {
+  const body: unknown = await res.json().catch(() => null);
+  const parsed = errorBodySchema.safeParse(body);
+  const code = parsed.success ? (parsed.data.code ?? null) : null;
+  if (code === SCORING_UNAVAILABLE) {
+    throw new PortfolioApiError("Motor de scoring no disponible", res.status, code);
+  }
+  throw new PortfolioApiError(res.status === 404 ? notFound : failed, res.status, code);
+}
 
 async function getJson<T>(url: string, notFound: string, failed: string): Promise<T> {
   const res = await fetch(url, { cache: "no-store" });
-  if (res.status === 404) throw new Error(notFound);
-  if (!res.ok) throw new Error(failed);
+  if (!res.ok) return fail(res, notFound, failed);
   return res.json();
 }
 
@@ -70,6 +124,19 @@ export function fetchBenchmark(
   );
 }
 
+export function fetchReading(
+  companyId: string,
+  month: string,
+  kind: ReadingKind,
+  baseUrl = "",
+): Promise<Reading> {
+  return getJson(
+    `${baseUrl}/api/portfolio/companies/${encodeURIComponent(companyId)}/reading?month=${month}&kind=${kind}`,
+    "Empresa no encontrada",
+    "No se ha podido cargar la lectura",
+  );
+}
+
 function toSearch(filters: PortfolioSearchState): string {
   const search = new URLSearchParams({ month: filters.mes });
   if (filters.q.trim()) search.set("q", filters.q.trim());
@@ -80,41 +147,37 @@ function toSearch(filters: PortfolioSearchState): string {
   return search.toString();
 }
 
-export async function fetchPortfolio(
+export function fetchPortfolio(
   filters: PortfolioSearchState,
   baseUrl = "",
 ): Promise<PortfolioResponse> {
-  const res = await fetch(`${baseUrl}/api/portfolio/companies?${toSearch(filters)}`, {
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error("No se ha podido cargar la cartera");
-  return res.json();
+  return getJson(
+    `${baseUrl}/api/portfolio/companies?${toSearch(filters)}`,
+    "Sin cartera",
+    "No se ha podido cargar la cartera",
+  );
 }
 
-export async function fetchCompanyFile(
+export function fetchCompanyFile(
   companyId: string,
   month: string,
   baseUrl = "",
 ): Promise<CompanyFileResponse> {
-  const res = await fetch(
+  return getJson(
     `${baseUrl}/api/portfolio/companies/${encodeURIComponent(companyId)}?month=${month}`,
-    { cache: "no-store" },
+    "Empresa no encontrada",
+    "No se ha podido cargar la ficha",
   );
-  if (res.status === 404) throw new Error("Empresa no encontrada");
-  if (!res.ok) throw new Error("No se ha podido cargar la ficha");
-  return res.json();
 }
 
-export async function fetchGroupFile(
+export function fetchGroupFile(
   groupId: string,
   month: string,
   baseUrl = "",
 ): Promise<GroupFileResponse> {
-  const res = await fetch(
+  return getJson(
     `${baseUrl}/api/portfolio/groups/${encodeURIComponent(groupId)}?month=${month}`,
-    { cache: "no-store" },
+    "Grupo no encontrado",
+    "No se ha podido cargar el grupo",
   );
-  if (res.status === 404) throw new Error("Grupo no encontrado");
-  if (!res.ok) throw new Error("No se ha podido cargar el grupo");
-  return res.json();
 }

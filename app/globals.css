@@ -32,6 +32,10 @@
   --color-status-none: var(--status-none);
   --color-status-none-fg: var(--status-none-fg);
   --color-status-none-surface: var(--status-none-surface);
+  --color-ai-fg: var(--ai-fg);
+  --color-ai-accent: var(--ai-accent);
+  --color-ai-border: var(--ai-border);
+  --color-ai-surface: var(--ai-surface);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -72,23 +76,23 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: #0F1331;
+  --primary: #0f1331;
   --primary-foreground: #ffffff;
-  --brand: #0F1331;
+  --brand: #0f1331;
   --brand-foreground: #ffffff;
   --brand-surface: #eef1f8;
-  --brand-accent: #0F1331;
+  --brand-accent: #0f1331;
   --secondary: oklch(0.97 0 0);
-  --secondary-foreground: #0F1331;
+  --secondary-foreground: #0f1331;
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
   --accent: #eef1f8;
-  --accent-foreground: #0F1331;
+  --accent-foreground: #0f1331;
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: #0F1331;
-  --chart-1: #0F1331;
+  --ring: #0f1331;
+  --chart-1: #0f1331;
   --chart-2: oklch(0.58 0.2 293);
   --chart-3: oklch(0.68 0.14 237);
   --chart-4: oklch(0.82 0.15 78);
@@ -98,8 +102,8 @@
      icons, all ≥ 4.5:1 on both card and surface) and surface (tint pill).
      Lightness is ordered risk < healthy < watch so the ramp survives
      greyscale and deuteranopia; colour never carries the state alone. */
-  --status-healthy: #0F1331;
-  --status-healthy-fg: #0F1331;
+  --status-healthy: #0f1331;
+  --status-healthy-fg: #0f1331;
   --status-healthy-surface: #eef1f8;
   --status-watch: oklch(0.82 0.15 78);
   --status-watch-fg: oklch(0.47 0.1 75);
@@ -111,10 +115,31 @@
   --status-none-fg: oklch(0.5 0 0);
   --status-none-surface: oklch(0.97 0 0);
 
+  /* Informational source, never a score state. The generated reading inverts
+     against the light canvas so the analyst sees at a glance that the panel is
+     written, not calculated — and it wears TellMe's own colours, because that is
+     the assistant signing the text.
+     The whole ramp comes from one measurement of `public/tellmelogotext.png`:
+     the logo sweeps #415DE6 → #C558ED, which in OKLCH is a clean hue arc from
+     269° to 316° at almost constant chroma. Everything below keeps that arc and
+     only moves lightness: the surface takes it down to a dark fill, the label
+     takes it up until it is legible on top.
+     --ai-surface and --ai-surface-end are the two ends of the panel sweep;
+     --ai-label-from/to the same two ends brightened for 12px text; --ai-accent
+     and --ai-border sit at 293°, the middle of the arc. Body text clears 13:1
+     over both ends of the surface, the label 7.4:1. */
+  --ai-fg: oklch(0.94 0.015 293);
+  --ai-accent: oklch(0.8 0.165 293);
+  --ai-border: oklch(0.36 0.07 293);
+  --ai-surface: oklch(0.2 0.08 269);
+  --ai-surface-end: oklch(0.34 0.16 316);
+  --ai-label-from: oklch(0.78 0.17 272);
+  --ai-label-to: oklch(0.82 0.16 316);
+
   --radius: 0.625rem;
   --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: #0F1331;
+  --sidebar-primary: #0f1331;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
@@ -169,6 +194,30 @@
 
 .intro-arc {
   animation: intro-arc 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s both;
+}
+
+/* Lectura IA: el barrido del logo de TellMe, medido y bajado a oscuro. Va del
+   índigo al magenta en el mismo orden y en la misma dirección que el logotipo,
+   empezando por la esquina del icono. Un gradiente y un borde; sin sombra, que
+   la elevación se declara una sola vez. */
+.ai-panel {
+  background-image: linear-gradient(105deg, var(--ai-surface) 0%, var(--ai-surface-end) 100%);
+}
+
+/* El mismo arco de tono que el logo, subido de luz hasta que se lee a 12 px. Es
+   la firma de quien escribe, así que solo la lleva la etiqueta: el cuerpo del
+   texto se queda en un blanco plano para no leerse como un adorno. */
+.ai-label {
+  background-image: linear-gradient(95deg, var(--ai-label-from) 0%, var(--ai-label-to) 100%);
+  background-clip: text;
+  color: transparent;
+}
+
+/* La selección también es parte del panel: el azul del sistema sobre índigo se
+   ve como un error de pintado. */
+.ai-panel ::selection {
+  background: var(--ai-accent);
+  color: var(--ai-surface);
 }
 
 /* Escena del hueco de caja: una moneda viaja de forma fluida y continua
@@ -447,7 +496,7 @@
 }
 
 .consent-btn-target {
-  animation: consent-btn-target 2.5s forwards 0.2s;
+  animation: consent-btn-target 2.5s both 0.2s;
   will-change: transform, box-shadow;
 }
 
@@ -479,7 +528,9 @@
 }
 
 .consent-cursor-anim {
-  animation: consent-cursor-anim 2.5s forwards 0.2s;
+  opacity: 0;
+  transform: translate(85px, 55px) scale(1);
+  animation: consent-cursor-anim 2.5s both 0.2s;
   will-change: transform, opacity;
 }
 
@@ -502,7 +553,9 @@
 }
 
 .consent-click-wave {
-  animation: consent-click-wave 2.5s forwards 0.2s;
+  opacity: 0;
+  transform: scale(0.3);
+  animation: consent-click-wave 2.5s both 0.2s;
   will-change: transform, opacity;
 }
 

@@ -1,14 +1,13 @@
 "use client";
 
 import { Pause, Play } from "lucide-react";
-import { parseAsStringLiteral, useQueryState } from "nuqs";
-import { useEffect, useState, useTransition } from "react";
+import { useState } from "react";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
 import { Panel } from "@/components/grifo/panel";
+import { useMonthPlayer } from "@/components/grifo/use-month-player";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/core/utils";
-import { CALENDAR, LATEST_MONTH } from "@/lib/features/portfolio/calendar";
 import { formatMonthShort, formatScore, formatSigned } from "@/lib/features/portfolio/format";
 import type { PortfolioRow } from "@/lib/features/portfolio/types";
 import { ACCION } from "@/lib/features/portfolio/vocabulary";
@@ -30,43 +29,6 @@ const TONE = {
   deterioro: "var(--status-risk)",
   estable: "var(--status-none)",
 } satisfies Record<PortfolioRow["direction"], string>;
-
-const monthParser = parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH);
-const PLAY_INTERVAL_MS = 1100;
-
-function useMonthPlayer(months: string[]) {
-  const [, startTransition] = useTransition();
-  const [month, setMonth] = useQueryState(
-    "mes",
-    monthParser.withOptions({ shallow: false, startTransition }),
-  );
-  const [playing, setPlaying] = useState(false);
-  const last = months[months.length - 1];
-
-  useEffect(() => {
-    if (!playing) return;
-    const index = months.indexOf(month);
-    if (index === -1 || index >= months.length - 1) {
-      setPlaying(false);
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      void setMonth(months[index + 1]!);
-    }, PLAY_INTERVAL_MS);
-    return () => window.clearTimeout(timer);
-  }, [playing, month, months, setMonth]);
-
-  const toggle = () => {
-    if (playing) {
-      setPlaying(false);
-      return;
-    }
-    if (month === last) void setMonth(months[Math.max(0, months.length - 12)]!);
-    setPlaying(true);
-  };
-
-  return { playing, toggle };
-}
 
 /** Dos hot casi encima se separan un poco en horizontal para que se lean los dos números. */
 function spread(points: { id: string; x: number; y: number }[]): Map<string, number> {

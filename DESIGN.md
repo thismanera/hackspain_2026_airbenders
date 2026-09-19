@@ -204,6 +204,18 @@ five-hue categorical set for charts; nothing decorative is coloured.
   Never used for state. A violet pixel in this product means "a second data
   series", nothing more.
 
+### Informational
+
+- **AI Violet** (`oklch(0.79 0.16 300)`) on **AI Indigo**
+  (`oklch(0.22 0.05 285)`): generated interpretation only. It identifies the
+  bounded “Lectura IA” surface and is always paired with its source and “no
+  decide”. It never represents score, status or an action.
+- **The reading panel is the one inverted surface in the product.** It borrows
+  Embat's own assistant language — violet label and icon on deep indigo, a
+  single radial lift from the icon corner — so written interpretation reads as
+  a different kind of thing from the calculated numbers around it. Inverting
+  one panel is not a dark theme: the canvas, cards and status ramp stay light.
+
 ### Neutral
 
 - **Canvas** (`oklch(0.985 0 0)`): the application background behind all
@@ -343,6 +355,14 @@ applied to a static card.
 - **Filter chip:** Secondary-button treatment at pill radius; selected state
   swaps to Ink Black fill with Card-white text.
 
+**The Earned Pill Rule.** An action pill gets its tint only when the month's
+decision is news. "Mantener" and a company that simply stays without a line keep
+the same pill geometry with no fill and Muted Ink text, so a column of six rows
+tints only the two or three that move the line. The predicate is one function,
+`isDecisionNews`, shared by the data source that counts the month's movements and
+by every table that decides what gets ink — the badge is never coloured by hand.
+A tinted pill on every row is the same as no pill at all.
+
 ### Cards / Containers
 
 - **Corner Style:** 14px (`{rounded.xl}`) — panels are the softest thing in the
@@ -355,6 +375,13 @@ applied to a static card.
   Header, body, and footer are separated by Hairline dividers, not by shadow.
 - **Nesting:** cards do not nest. A panel inside a panel is a sectioned card
   with a divider.
+- **Ranking:** a view carries at most three levels: one lead card that answers
+  the question, the cards that let the analyst act, and one collapsed stack for
+  the evidence behind them. Eight panels of equal weight rank nothing, so the
+  reader has to rank them instead.
+- **Collapsed stack:** second-order evidence lives as disclosure rows inside a
+  single card, each row a Body Medium label with its headline number on the
+  right. Never one card per fact.
 
 ### Inputs / Fields
 

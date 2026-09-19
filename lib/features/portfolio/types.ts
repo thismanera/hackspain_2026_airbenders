@@ -1,6 +1,12 @@
 import type { BlockId } from "./indicators";
 
 export type Estado = "sana" | "vigilar" | "riesgo" | "sin_datos";
+
+/** Quién mira: Embat (todo) o el partner (solo quien ha pedido). PRODUCT §7 regla 1. */
+export type Scope = "embat" | "partner";
+
+/** Punto del cubo de pares, cada coordenada en [-1, 1]. */
+export type Vec3 = readonly [number, number, number];
 export type Direccion = "mejora" | "estable" | "deterioro";
 export type Naturaleza = "temporal" | "estructural" | "sin_cambio";
 export type Banda = "A" | "B" | "C" | "D";
@@ -60,6 +66,19 @@ export type TenorOption = {
   cost: number;
 };
 
+/**
+ * Desglose del TAE "desde" (30 días). Cada 30 días extra suman 0,5 pp. Los cinco
+ * campos son sumandos en puntos porcentuales y suman exactamente `apr`: el
+ * ajuste de tendencia es negativo cuando la empresa mejora.
+ */
+export type AprBreakdown = {
+  base: number;
+  tenorPremium: number;
+  confidencePremium: number;
+  trendAdjustment: number;
+  forecastPremium: number;
+};
+
 export type Decision = {
   eligible: boolean;
   /** Frase en llano: por qué se presta, o cuál es la puerta que falla. */
@@ -71,6 +90,7 @@ export type Decision = {
   maxTenorDays: number;
   baseApr: number;
   apr: number;
+  aprBreakdown: AprBreakdown;
   menu: TenorOption[];
   action: Accion;
   adverseCapacity: number;
@@ -383,6 +403,47 @@ export type BacktestResponse = {
   flipFlops: number;
   /** Cierres y alertas por mes, para el gráfico. */
   timeline: { month: string; closes: number; anticipated: number; alerts: number }[];
+  /** Métricas del backtest del motor sobre los grupos de validación; null si el run no las trae. */
+  engine: EngineMetrics | null;
+};
+
+/** Eventos de deterioro/recuperación frente a alertas del motor (scoring §13). */
+export type EngineEventMetrics = {
+  events: number;
+  alerts: number;
+  matched: number;
+  recall: number | null;
+  falseAlarmRate: number | null;
+  leadMedian: number | null;
+};
+
+export type EngineScoreMetrics = {
+  /** Spearman entre el score y el margen de caja futuro. */
+  spearman: number | null;
+  /** AUC del score frente al estrés de caja a 3 meses. */
+  stressAuc: number | null;
+  stressAucCi95: readonly [number, number] | null;
+  monotonic: boolean | null;
+  deterioro: EngineEventMetrics;
+  recuperacion: EngineEventMetrics;
+};
+
+/** Lo que el propio motor midió de sí mismo al importar el run (`score_runs.metrics`). */
+export type EngineMetrics = {
+  window: readonly [string, string];
+  validationCompanies: number;
+  scoreSolo: EngineScoreMetrics;
+  scoreGrupo: EngineScoreMetrics;
+  decision: {
+    events: number;
+    avoidedExposure: number;
+    simulatedRevenue: number;
+    /** Fracción de empresa-mes con cambio de acción. */
+    oscillation: number;
+    closes: number;
+    falseCloses: number;
+    closeLeadMedian: number | null;
+  };
 };
 
 /** Dónde queda una variable de la empresa frente al resto de la cartera ese mes. */
@@ -403,4 +464,51 @@ export type BenchmarkResponse = {
   cohort: number;
   scorePercentile: number;
   rows: BenchmarkRow[];
+};
+
+/* ------------------------------------------------------------------ *
+ * Espacio de pares (PCA de los 14 subscores, tres ejes)
+ * ------------------------------------------------------------------ */
+
+export type PeerAxis = {
+  /** Fracción de la varianza que explica este eje. */
+  explained: number;
+  /** Los tres indicadores que más pesan en el eje, con su carga (signo incluido). */
+  top: { indicator: string; loading: number }[];
+};
+
+export type PeerCluster = {
+  id: number;
+  /** "Cobran tarde · pocos clientes": los dos rasgos que más lo separan del resto. */
+  label: string;
+  size: number;
+  medianScore: number | null;
+  centroid: Vec3;
+};
+
+export type PeerPoint = {
+  /** `null` = silueta anónima: quien mira no tiene derecho a saber quién es. */
+  company: string | null;
+  /** Clave estable para React aunque el punto sea anónimo. */
+  key: string;
+  /** Posición a cierre del mes pedido; `null` = sin datos ese mes, no se dibuja. */
+  pos: Vec3 | null;
+  estado: Estado;
+  score: number | null;
+  /** Cambio de score desde el primer mes de la estela. `null` si no hay ambos. */
+  deltaTrail: number | null;
+  cluster: number | null;
+  /** Alineada a `months` (≤ 12, la última = `month`); `null` en los meses sin datos. */
+  trail: (Vec3 | null)[];
+};
+
+export type PeerMapResponse = {
+  month: string;
+  /** Meses de la estela, del más antiguo al pedido. */
+  months: string[];
+  axes: [PeerAxis, PeerAxis, PeerAxis];
+  clusters: PeerCluster[];
+  points: PeerPoint[];
+  /** Empresa que consulta (scope empresa), o `null`. */
+  focus: string | null;
 };

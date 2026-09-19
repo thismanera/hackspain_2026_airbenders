@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { scoringResponse } from "@/lib/features/portfolio/http";
 import { getAlerts } from "@/lib/features/portfolio/source";
 
 const querySchema = z.object({
@@ -15,5 +16,5 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: z.treeifyError(parsed.error) }, { status: 400 });
   }
 
-  return Response.json(getAlerts(parsed.data.month));
+  return scoringResponse(() => getAlerts(parsed.data.month), "Sin alertas");
 }

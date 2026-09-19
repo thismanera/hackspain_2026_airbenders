@@ -4,8 +4,11 @@ import { access, copyFile, open, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { config as loadDotenv } from "dotenv";
+import { Client } from "pg";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
 const force = process.argv.includes("--force");
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const requiredDatasetFiles = [
@@ -26,15 +29,11 @@ function run(command, args, options = {}) {
     env: process.env,
     stdio: options.capture ? ["ignore", "pipe", "pipe"] : "inherit",
     encoding: "utf8",
+    // Windows spawnSync needs a shell to run .cmd shims (e.g. pnpm.cmd) reliably.
+    shell: process.platform === "win32",
   });
 
   if (result.error) {
-    if (command === "docker") {
-      throw new Error(
-        "Docker is not available. Start Docker Desktop and enable Settings → Resources → WSL Integration for this distribution.",
-        { cause: result.error },
-      );
-    }
     throw result.error;
   }
   if (result.status !== 0) {
@@ -82,40 +81,35 @@ async function assertDatasetReady() {
   }
 }
 
-function completedRunExists() {
-  const output = run(
-    "docker",
-    [
-      "compose",
-      "exec",
-      "-T",
-      "postgres",
-      "psql",
-      "-U",
-      "scoring",
-      "-d",
-      "scoring",
-      "-tAc",
-      "SELECT EXISTS (SELECT 1 FROM score_runs r WHERE r.status = 'complete' AND EXISTS (SELECT 1 FROM company_month_forecasts f WHERE f.run_id = r.id));",
-    ],
-    { capture: true },
-  );
-  return output === "t";
+async function completedRunExists(databaseUrl) {
+  const client = new Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    const { rows } = await client.query(
+      "SELECT EXISTS (SELECT 1 FROM score_runs r WHERE r.status = 'complete' AND EXISTS (SELECT 1 FROM portfolio_snapshots s WHERE s.\"runId\" = r.id AND s.kind = 'meta'));",
+    );
+    return rows[0].exists === true;
+  } finally {
+    await client.end();
+  }
 }
 
 async function main() {
   await ensureEnvironment();
+  loadDotenv({ path: path.join(root, ".env") });
 
-  log("Starting PostgreSQL in Docker.");
-  run("docker", ["compose", "up", "-d", "--wait", "postgres"]);
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL no está definido en .env.");
+  }
 
   log("Generating Prisma Client and applying the schema.");
   run(pnpm, ["exec", "prisma", "generate"]);
   // DB de desarrollo del hackathon: se reconstruye desde los CSV, así que aceptamos perder datos.
   run(pnpm, ["exec", "prisma", "db", "push", "--accept-data-loss"]);
 
-  if (!force && completedRunExists()) {
-    log("A completed scoring run already exists. PostgreSQL is ready.");
+  if (!force && (await completedRunExists(databaseUrl))) {
+    log("A completed scoring run already exists. La base de datos está lista.");
     return;
   }
 
@@ -130,7 +124,7 @@ async function main() {
   run(pnpm, ["forecast:backtest"]);
   run(pnpm, ["scoring:import"]);
 
-  log("PostgreSQL is ready with scoring data.");
+  log("Base de datos lista con los datos de scoring.");
 }
 
 main().catch((error) => {

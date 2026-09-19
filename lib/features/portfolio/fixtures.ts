@@ -13,12 +13,12 @@
  * empresa da siempre el mismo score, refresco tras refresco.
  */
 import { CALENDAR } from "./calendar";
+import type { CompanyDataset } from "./dataset";
 import { COMPANY_SEED } from "./companies.seed";
 import { BLOCKS, INDICATORS, type BlockId } from "./indicators";
 import type {
   Accion,
   Alert,
-  CompanyMeta,
   Contribution,
   Coverage,
   Decision,
@@ -167,7 +167,8 @@ function buildProfile(companyId: string): Profile {
     let value = base + wander;
 
     if (archetype === "deterioro_estructural") {
-      value += t < breakAt ? 0.01 * progress : drift * ((t - breakAt) / (CALENDAR.length - breakAt));
+      value +=
+        t < breakAt ? 0.01 * progress : drift * ((t - breakAt) / (CALENDAR.length - breakAt));
     } else if (archetype === "estacional") {
       value += Math.sin((t / 12) * Math.PI * 2) * 0.13;
     } else {
@@ -385,8 +386,7 @@ function groupAdjustmentFor(
   const gap = peerScore - self.standaloneScore;
 
   // Asimetría deliberada (decisión #16): el aval exige capacidad, el contagio no.
-  const rawAdjustment =
-    gap > 0 ? weight * Math.min(1, support / 2) * gap : weight * gap;
+  const rawAdjustment = gap > 0 ? weight * Math.min(1, support / 2) * gap : weight * gap;
 
   return {
     groupId,
@@ -534,7 +534,10 @@ function buildDecision(args: {
   const trendAdjustment = direction === "mejora" ? -0.5 : direction === "deterioro" ? 1 : 0;
   const aprAt = (days: number) =>
     round(
-      bandConfig.baseApr + 0.5 * Math.max(0, (days - 30) / 30) + confidencePremium + trendAdjustment,
+      bandConfig.baseApr +
+        0.5 * Math.max(0, (days - 30) / 30) +
+        confidencePremium +
+        trendAdjustment,
       2,
     );
 
@@ -557,7 +560,16 @@ function buildDecision(args: {
     action = "reducir";
   else action = "mantener";
 
-  const reason = buildReason({ action, failed, band, score, direction, nature, limit, previousLimit });
+  const reason = buildReason({
+    action,
+    failed,
+    band,
+    score,
+    direction,
+    nature,
+    limit,
+    previousLimit,
+  });
 
   return {
     eligible,
@@ -569,6 +581,14 @@ function buildDecision(args: {
     maxTenorDays,
     baseApr: bandConfig.baseApr,
     apr: menu.length > 0 ? menu[0].apr : aprAt(30),
+    aprBreakdown: {
+      base: bandConfig.baseApr,
+      tenorPremium: 0,
+      confidencePremium,
+      trendAdjustment,
+      /* La demo no proyecta: la prima de previsión solo la trae el motor. */
+      forecastPremium: 0,
+    },
     menu,
     action,
     adverseCapacity: Math.round(adverseCapacity),
@@ -699,11 +719,6 @@ function buildAlerts(
  * Construcción de la cartera completa
  * ------------------------------------------------------------------ */
 
-export type CompanyDataset = {
-  meta: CompanyMeta;
-  months: MonthScore[];
-};
-
 let cache: Map<string, CompanyDataset> | null = null;
 
 export function buildPortfolio(): Map<string, CompanyDataset> {
@@ -739,7 +754,8 @@ export function buildPortfolio(): Map<string, CompanyDataset> {
     ).map((candidate) => candidate.id);
 
     const months: MonthScore[] = [];
-    const scoreTrail: { month: string; score: number; raw: RawVariables; delayStreak: number }[] = [];
+    const scoreTrail: { month: string; score: number; raw: RawVariables; delayStreak: number }[] =
+      [];
     let previousLimit = 0;
     let reducedLastMonth = false;
 
@@ -757,10 +773,7 @@ export function buildPortfolio(): Map<string, CompanyDataset> {
         { standaloneScore: current.standaloneScore, revenue: current.revenue },
       );
 
-      const score = round(
-        clamp(current.standaloneScore + (group?.adjustment ?? 0), 0, 100),
-        2,
-      );
+      const score = round(clamp(current.standaloneScore + (group?.adjustment ?? 0), 0, 100), 2);
 
       scoreTrail.push({
         month: current.month,
