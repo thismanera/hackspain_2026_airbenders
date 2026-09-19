@@ -119,6 +119,8 @@ export function decisionNarrative(file: CompanyFileResponse): Narrative {
       text: `${why}.`,
       citations: failed ? [{ ref: `puerta:${failed.id}`, label: failed.label }] : [],
     });
+  } else if (decision.action === "mantener" && decision.limit === 0) {
+    headline = `Sin línea este mes: ${decision.reason.trim().replace(/\.$/, "")}.`;
   } else if (decision.action === "mantener") {
     headline = `Se mantiene el límite en ${formatEuros(decision.limit)} al ${formatApr(decision.apr)}.`;
   } else if (decision.action === "abrir") {

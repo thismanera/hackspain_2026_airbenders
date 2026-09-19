@@ -72,7 +72,7 @@ export function LoanSimulator({
     return (
       <Panel
         title="Tu oferta este mes"
-        description="Sin línea preaprobada. Nadie fuera de Embat lo sabe."
+        description="Sin línea este mes. El partner no recibe nada hasta que la pidas."
         aside={<ActionBadge action={decision.action} changed={changed} />}
         className={className}
       >
@@ -93,7 +93,7 @@ export function LoanSimulator({
   return (
     <Panel
       title="Tu oferta este mes"
-      description="Recalculada cada mes."
+      description="Recalculada cada mes con el score; el partner solo la recibe si la pides."
       aside={<ActionBadge action={decision.action} changed={changed} />}
       className={className}
       bodyClassName="p-0"

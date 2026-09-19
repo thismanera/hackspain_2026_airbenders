@@ -66,11 +66,17 @@ const GATE_PASS_DETAIL = {
 
 const CRITICAL_ALERTS = new Set(["impago_obligaciones", "vencido_alto"]);
 
+/** El motor de decisión trabaja en fracción (0,07); el panel, en puntos porcentuales (7). */
+export function toPoints(fraction: number): number {
+  return Math.round(fraction * 1e4) / 100;
+}
+
 /** Traduce la fila persistida (score + decisión + forecast) al contrato del panel. */
 export function monthScore(
   row: ScoreRow,
   decision: DecisionRow | null,
   forecast: ForecastRow | null,
+  previousDecision: DecisionRow | null = null,
 ): MonthScore {
   const failed = new Set<string>(decision?.puertasFallidas ?? []);
   const gates = GATE_IDS.map((id) => ({
@@ -83,7 +89,7 @@ export function monthScore(
     decision?.menu.map((option) => ({
       days: option.plazo,
       maxAmount: option.cantidadMax,
-      apr: option.tae,
+      apr: toPoints(option.tae),
       cost: option.costeMax,
     })) ?? [];
   /* La ficha enseña el desglose de la TAE "desde", que es la del primer plazo
@@ -95,17 +101,22 @@ export function monthScore(
     reason: decision?.motivo ?? decision?.motivoAccion ?? "Sin decisión importada",
     gates,
     band: decision?.banda ?? deriveBanda(row.scoreSolo),
-    limit: decision?.L ?? 0,
-    previousLimit: decision?.estado.LPrev ?? 0,
+    /* `limit` es el límite vigente tras aplicar la acción del mes: es el que
+       acota el menú y el que compara la tabla Antes/Ahora con `previousLimit`
+       (el vigente del mes anterior; `estado` en la fila es el estado que hereda
+       el mes siguiente, por eso no sirve como "antes"). El recomendado por el
+       score sin histéresis ni techo de grupo va en `operatingLimit`. */
+    limit: decision?.LVigente ?? 0,
+    previousLimit: previousDecision?.LVigente ?? 0,
     maxTenorDays: decision?.TMax ?? 0,
-    baseApr: menu[0]?.apr ?? 0,
+    baseApr: toPoints(split?.base ?? 0),
     apr: menu[0]?.apr ?? 0,
     aprBreakdown: {
-      base: split?.base ?? 0,
-      tenorPremium: split?.primaPlazo ?? 0,
-      confidencePremium: split?.primaConfianza ?? 0,
-      trendAdjustment: split?.ajusteTendencia ?? 0,
-      forecastPremium: split?.primaPrevision ?? 0,
+      base: toPoints(split?.base ?? 0),
+      tenorPremium: toPoints(split?.primaPlazo ?? 0),
+      confidencePremium: toPoints(split?.primaConfianza ?? 0),
+      trendAdjustment: toPoints(split?.ajusteTendencia ?? 0),
+      forecastPremium: toPoints(split?.primaPrevision ?? 0),
     },
     menu,
     action: decision?.accion ?? "mantener",

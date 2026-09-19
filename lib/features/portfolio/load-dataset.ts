@@ -115,10 +115,16 @@ export async function buildDataset(run: RunHeader): Promise<Dataset> {
     if (!monthOrder.has(score.month)) continue;
     const decision = decisionByKey.get(key(record));
     const forecast = forecastByKey.get(key(record));
+    const previousMonth = CALENDAR[monthOrder.get(score.month)! - 1];
+    const previousDecision =
+      previousMonth === undefined
+        ? undefined
+        : decisionByKey.get(key({ companyId: record.companyId, month: previousMonth }));
     const point = monthScore(
       score,
       decision === undefined ? null : decisionRowSchema.parse(decision),
       forecast === undefined ? null : forecastRowSchema.parse(forecast),
+      previousDecision === undefined ? null : decisionRowSchema.parse(previousDecision),
     );
     const company = byId.get(record.companyId);
     const entry =

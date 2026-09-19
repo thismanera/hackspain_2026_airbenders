@@ -234,7 +234,6 @@ function ScoreMetricsRow({ label, metrics }: { label: string; metrics: EngineSco
       <th scope="row" className="py-2 pr-3 text-left font-medium">
         {label}
       </th>
-      <td className="py-2 pr-3 text-right tabular-nums">{decimal(metrics.spearman)}</td>
       <td className="py-2 pr-3 text-right tabular-nums">
         {decimal(metrics.stressAuc)}
         {metrics.stressAucCi95 ? (
@@ -243,26 +242,35 @@ function ScoreMetricsRow({ label, metrics }: { label: string; metrics: EngineSco
           </span>
         ) : null}
       </td>
-      <td className="py-2 pr-3 text-right tabular-nums">{ratio(metrics.deterioro.recall)}</td>
+      <td className="py-2 pr-3 text-right tabular-nums">{decimal(metrics.spearman)}</td>
       <td className="py-2 pr-3 text-right tabular-nums">
-        {ratio(metrics.deterioro.falseAlarmRate)}
+        {ratio(metrics.recuperacion.recall)}
+        <span className="text-muted-foreground ml-1 text-xs">
+          {metrics.recuperacion.matched} de {metrics.recuperacion.events}
+        </span>
       </td>
-      <td className="py-2 pr-3 text-right tabular-nums">
-        {metrics.deterioro.leadMedian === null
+      <td className="py-2 text-right tabular-nums">
+        {metrics.recuperacion.leadMedian === null
           ? "—"
-          : `${formatDecimal(metrics.deterioro.leadMedian)} m`}
+          : `${formatDecimal(metrics.recuperacion.leadMedian)} m`}
       </td>
-      <td className="py-2 text-right tabular-nums">{ratio(metrics.recuperacion.recall)}</td>
     </tr>
   );
 }
 
-/** Métricas persistidas por el pipeline (`ScoreRun.metrics`): validación hold-out del motor. */
+/**
+ * Métricas persistidas por el pipeline (`ScoreRun.metrics`): validación hold-out
+ * del motor sobre grupos que no vio al calibrar. Se enseña lo que el score sí
+ * predice (estrés de caja a 3 meses, recuperaciones) y, aparte, la limitación
+ * conocida: la alerta de deterioro por caída del score no anticipa el evento de
+ * déficit con el que se evalúa, así que no se vende como anticipación.
+ */
 function EnginePanel({ engine }: { engine: EngineMetrics }) {
+  const det = engine.scoreSolo.deterioro;
   return (
     <Panel
-      title="Validación del motor"
-      description={`${engine.validationCompanies} empresas de validación, ${formatMonthShort(engine.window[0])} – ${formatMonthShort(engine.window[1])}. Calculado por el pipeline, no por el panel.`}
+      title="Validación del motor (hold-out)"
+      description={`${engine.validationCompanies} empresas de grupos no vistos al calibrar, ${formatMonthShort(engine.window[0])} – ${formatMonthShort(engine.window[1])}. Calculado por el pipeline, no por el panel.`}
       bodyClassName="flex flex-col gap-4"
     >
       <div className="overflow-x-auto">
@@ -273,22 +281,16 @@ function EnginePanel({ engine }: { engine: EngineMetrics }) {
                 Score
               </th>
               <th scope="col" className="pr-3 pb-1 text-right font-medium">
-                Spearman
+                AUC estrés a 3 m
               </th>
               <th scope="col" className="pr-3 pb-1 text-right font-medium">
-                AUC estrés
+                Spearman margen
               </th>
               <th scope="col" className="pr-3 pb-1 text-right font-medium">
-                Deterioros avisados
-              </th>
-              <th scope="col" className="pr-3 pb-1 text-right font-medium">
-                Falsas alarmas
-              </th>
-              <th scope="col" className="pr-3 pb-1 text-right font-medium">
-                Anticipación
+                Recuperaciones avisadas
               </th>
               <th scope="col" className="pb-1 text-right font-medium">
-                Recuperaciones avisadas
+                Antelación
               </th>
             </tr>
           </thead>
@@ -304,7 +306,7 @@ function EnginePanel({ engine }: { engine: EngineMetrics }) {
           <dd className="tabular-nums">
             {engine.decision.closes}
             <span className="text-muted-foreground ml-1 text-xs">
-              {engine.decision.falseCloses} falsos
+              {engine.decision.falseCloses} sin déficit posterior
             </span>
           </dd>
         </div>
@@ -317,7 +319,7 @@ function EnginePanel({ engine }: { engine: EngineMetrics }) {
           </dd>
         </div>
         <div>
-          <dt className="text-muted-foreground text-xs">Exposición evitada</dt>
+          <dt className="text-muted-foreground text-xs">Exposición evitada (simulada)</dt>
           <dd className="tabular-nums">{formatEurosCompact(engine.decision.avoidedExposure)}</dd>
         </div>
         <div>
@@ -330,6 +332,23 @@ function EnginePanel({ engine }: { engine: EngineMetrics }) {
           </dd>
         </div>
       </dl>
+      <div className="text-muted-foreground flex flex-col gap-1.5 border-t pt-3 text-xs text-pretty">
+        <p>
+          <span className="text-foreground font-medium">Cómo se lee.</span> AUC estrés: capacidad
+          del score de hoy para ordenar quién encadenará tres meses de déficit de caja justo después
+          (0,5 = azar). Comparte señal con la variable A2, así que es una validación de
+          consistencia, no independiente. Recuperación avisada: alerta de mejora abierta antes de
+          que la empresa encadene meses sin déficit. Exposición e ingresos son una simulación del
+          motor sobre la cartera, con TAE y límites del propio modelo: no son cifras de negocio.
+        </p>
+        <p>
+          <span className="text-foreground font-medium">Limitación conocida.</span> La alerta de
+          deterioro (caída sostenida del score) avisó {det.matched} de {det.events} eventos de
+          déficit con {det.alerts} alertas: mide un cambio de trayectoria, no el evento de caja con
+          el que se evalúa. Por eso el panel la enseña como cambio de dirección y no como predicción
+          de impago.
+        </p>
+      </div>
     </Panel>
   );
 }
