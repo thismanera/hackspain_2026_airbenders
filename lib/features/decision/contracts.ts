@@ -64,21 +64,3 @@ export const decisionRowSchema = z.object({
   estado,
 }) satisfies z.ZodType<DecisionRow>;
 export type DecisionRowDTO = z.infer<typeof decisionRowSchema>;
-
-/** Esquema del motor legacy (se elimina en la Tarea 11). */
-export const legacyDecisionRowSchema = z.object({
-  company: z.string().min(1),
-  month: mes,
-  motor: z.literal("legacy"),
-  banda,
-  precio: finite.nullable(),
-  capacidadBase: money,
-  capacidadAdv: money,
-  limiteCap: money,
-  limiteOp: money,
-  limiteRecomendado: money,
-  limiteVigente: money,
-  accion,
-  motivo: z.string(),
-});
-export type LegacyDecisionRowDTO = z.infer<typeof legacyDecisionRowSchema>;

@@ -6,12 +6,10 @@ import { fileURLToPath } from "node:url";
 import { once } from "node:events";
 import { createInterface } from "node:readline";
 
-import {
-  legacyDecisionRowSchema,
-  type LegacyDecisionRowDTO,
-} from "../lib/features/decision/contracts";
-import { decideLegacy } from "../lib/features/decision/legacy";
-import type { LegacyDecisionRow } from "../lib/features/decision/types";
+import { decisionRowSchema, type DecisionRowDTO } from "../lib/features/decision/contracts";
+import { decideGroup, parametrosDecision } from "../lib/features/decision/engine";
+import { metricasDecision } from "../lib/features/decision/metrics";
+import type { DecisionRow } from "../lib/features/decision/types";
 import { backtest } from "../lib/features/scoring/backtest";
 import { scoreRowSchema, type ScoreRowDTO } from "../lib/features/scoring/contracts";
 import {
@@ -81,7 +79,7 @@ async function* lines<T>(file: string): AsyncGenerator<T> {
 }
 async function put(
   stream: ReturnType<typeof createWriteStream>,
-  item: ScoreRowDTO | LegacyDecisionRowDTO,
+  item: ScoreRowDTO | DecisionRowDTO,
 ): Promise<void> {
   if (!stream.write(JSON.stringify(item) + "\n")) await once(stream, "drain");
 }
@@ -161,46 +159,59 @@ async function doScore() {
 
 async function doDecide() {
   const m = await meta();
-  const params = JSON.parse(await readFile(parameterPath(), "utf8")) as Parameters;
-  const byCompany = new Map<string, ScoreRow[]>();
-  for await (const row of lines<ScoreRow>(
-    path.join(runDir(params, m.fingerprint), "scores.jsonl"),
-  )) {
-    const list = byCompany.get(row.company) ?? [];
+  const scoringParams = JSON.parse(await readFile(parameterPath(), "utf8")) as Parameters;
+  const decParams = parametrosDecision(scoringParams.version);
+  const run = runDir(scoringParams, m.fingerprint);
+  // El motor v1 decide **un grupo entero** de una vez (techo consolidado y cross-default, §9):
+  // agrupar por `groupId` no es una optimización, es el contrato de `decideGroup`.
+  const byGroup = new Map<string, ScoreRow[]>();
+  for await (const row of lines<ScoreRow>(path.join(run, "scores.jsonl"))) {
+    const list = byGroup.get(row.groupId) ?? [];
     list.push(row);
-    byCompany.set(row.company, list);
+    byGroup.set(row.groupId, list);
   }
-  const output = createWriteStream(path.join(runDir(params, m.fingerprint), "decisions.jsonl"));
+  const output = createWriteStream(path.join(run, "decisions.jsonl"));
+  const companies = new Set<string>();
   let count = 0;
-  for (const rows of byCompany.values()) {
-    // `decideLegacy` arrastra el límite vigente del mes anterior: exige orden cronológico.
-    rows.sort((a, b) => a.month.localeCompare(b.month));
-    for (const decision of decideLegacy(rows)) {
-      await put(output, legacyDecisionRowSchema.parse(decision));
+  for (const rows of byGroup.values())
+    // Sin previsión conectada el motor opera como "desconectado" (§1): `banda_pred_3m = banda`.
+    for (const decision of decideGroup(rows, decParams)) {
+      await put(output, decisionRowSchema.parse(decision));
+      companies.add(decision.company);
       count++;
     }
-  }
   await close(output);
-  console.log(JSON.stringify({ decisions: count, companies: byCompany.size }));
+  await writeFile(path.join(run, "decision-parameters.json"), JSON.stringify(decParams));
+  const summary = {
+    decisions: count,
+    companies: companies.size,
+    groups: byGroup.size,
+    version: decParams.version,
+  };
+  console.log(JSON.stringify(summary));
 }
 
 async function doBacktest() {
   const m = await meta();
   const params = JSON.parse(await readFile(parameterPath(), "utf8")) as Parameters;
+  const run = runDir(params, m.fingerprint);
   const validation = new Set(params.validationGroups);
   const rows: ScoreRow[] = [];
-  for await (const row of lines<ScoreRow>(path.join(runDir(params, m.fingerprint), "scores.jsonl")))
+  for await (const row of lines<ScoreRow>(path.join(run, "scores.jsonl")))
     if (validation.has(row.groupId)) rows.push(row);
+  const companies = new Set(rows.map((r) => r.company));
+  // Las métricas del jurado (§14) se miden sobre las mismas empresas que el backtest del score.
+  const decisions: DecisionRow[] = [];
+  for await (const d of lines<DecisionRow>(path.join(run, "decisions.jsonl")))
+    if (companies.has(d.company)) decisions.push(d);
   const metrics = {
     ...backtest(rows, { months: BACKTEST_MONTHS }),
     months: BACKTEST_MONTHS,
-    validationCompanies: new Set(rows.map((r) => r.company)).size,
+    validationCompanies: companies.size,
     validationRows: rows.length,
+    decision: metricasDecision(rows, decisions),
   };
-  await writeFile(
-    path.join(runDir(params, m.fingerprint), "backtest.json"),
-    JSON.stringify(metrics),
-  );
+  await writeFile(path.join(run, "backtest.json"), JSON.stringify(metrics));
   console.log(JSON.stringify(metrics));
 }
 
@@ -264,7 +275,7 @@ async function doImport() {
   await flush();
   if (imported !== manifest.rows)
     throw new Error(`imported ${imported}, expected ${manifest.rows}`);
-  let decisions: LegacyDecisionRow[] = [];
+  let decisions: DecisionRow[] = [];
   let importedDecisions = 0;
   async function flushDecisions() {
     if (!decisions.length) return;
@@ -273,18 +284,19 @@ async function doImport() {
         runId: manifest.runId,
         companyId: d.company,
         month: d.month,
-        band: d.banda,
+        // La ficha enseña la banda con la que se decidió (escalón de grupo incluido, §9).
+        band: d.bandaEfectiva,
         action: d.accion,
-        recommendedLimit: d.limiteRecomendado,
-        appliedLimit: d.limiteVigente,
+        recommendedLimit: d.L,
+        appliedLimit: d.LVigente,
         data: d as never,
       })),
     });
     importedDecisions += decisions.length;
     decisions = [];
   }
-  for await (const d of lines<LegacyDecisionRow>(path.join(run, "decisions.jsonl"))) {
-    decisions.push(legacyDecisionRowSchema.parse(d));
+  for await (const d of lines<DecisionRow>(path.join(run, "decisions.jsonl"))) {
+    decisions.push(decisionRowSchema.parse(d));
     if (decisions.length >= 500) await flushDecisions();
   }
   await flushDecisions();

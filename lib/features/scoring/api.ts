@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/core/db";
-import {
-  legacyDecisionRowSchema,
-  type LegacyDecisionRowDTO,
-} from "@/lib/features/decision/contracts";
+import { decisionRowSchema, type DecisionRowDTO } from "@/lib/features/decision/contracts";
 import { scoreRowSchema, type ScoreRowDTO } from "@/lib/features/scoring/contracts";
 
 export const listQuery = z.object({
@@ -33,11 +30,11 @@ export async function completedRun(run?: string) {
 export function invalid(error: z.ZodError): Response {
   return Response.json({ error: z.treeifyError(error) }, { status: 400 });
 }
-/** Una fila de la API es el score (motor nuevo) más la decisión legacy si se importó. */
+/** Una fila de la API es el score más la decisión del motor v1, si se importó. */
 function merged(row: { data: unknown; decision: { data: unknown } | null }) {
   return {
     score: scoreRowSchema.parse(row.data),
-    decision: row.decision ? legacyDecisionRowSchema.parse(row.decision.data) : null,
+    decision: row.decision ? decisionRowSchema.parse(row.decision.data) : null,
   };
 }
 export async function listCompanies(request: Request): Promise<Response> {
@@ -102,7 +99,7 @@ export async function runDetail(runId: string): Promise<Response> {
   });
 }
 function cell(
-  value: ScoreRowDTO[keyof ScoreRowDTO] | LegacyDecisionRowDTO[keyof LegacyDecisionRowDTO],
+  value: ScoreRowDTO[keyof ScoreRowDTO] | DecisionRowDTO[keyof DecisionRowDTO],
 ): string {
   const s =
     typeof value === "object" && value !== null ? JSON.stringify(value) : String(value ?? "");
@@ -132,12 +129,18 @@ const SCORE_KEYS = [
   "versionParametros",
 ] as const satisfies readonly (keyof ScoreRowDTO)[];
 const DECISION_KEYS = [
+  "elegible",
+  "motivo",
   "banda",
+  "bandaEfectiva",
+  "L",
+  "LVigente",
+  "TMax",
   "accion",
-  "limiteRecomendado",
-  "limiteVigente",
-  "precio",
-] as const satisfies readonly (keyof LegacyDecisionRowDTO)[];
+  "motivoAccion",
+  "motivoGrupo",
+  "bandaPred3mUsada",
+] as const satisfies readonly (keyof DecisionRowDTO)[];
 export async function exportScores(request: Request): Promise<Response> {
   const parsed = z
     .object({
@@ -176,7 +179,7 @@ export async function exportScores(request: Request): Promise<Response> {
         [
           run.id,
           ...SCORE_KEYS.map((k) => score[k]),
-          // Una fila sin decisión importada deja las columnas legacy vacías.
+          // Una fila sin decisión importada deja vacías las columnas de decisión.
           ...DECISION_KEYS.map((k) => (decision ? decision[k] : "")),
         ]
           .map(cell)
