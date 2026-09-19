@@ -20,6 +20,18 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-status-healthy: var(--status-healthy);
+  --color-status-healthy-fg: var(--status-healthy-fg);
+  --color-status-healthy-surface: var(--status-healthy-surface);
+  --color-status-watch: var(--status-watch);
+  --color-status-watch-fg: var(--status-watch-fg);
+  --color-status-watch-surface: var(--status-watch-surface);
+  --color-status-risk: var(--status-risk);
+  --color-status-risk-fg: var(--status-risk-fg);
+  --color-status-risk-surface: var(--status-risk-surface);
+  --color-status-none: var(--status-none);
+  --color-status-none-fg: var(--status-none-fg);
+  --color-status-none-surface: var(--status-none-surface);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -48,7 +60,9 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  /* The canvas is one step below the cards: separation comes from this
+     lightness step plus a hairline border, never from a drop shadow. */
+  --background: oklch(0.985 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -66,13 +80,31 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --chart-1: oklch(0.72 0.14 168);
+  --chart-2: oklch(0.58 0.2 293);
+  --chart-3: oklch(0.68 0.14 237);
+  --chart-4: oklch(0.82 0.15 78);
+  --chart-5: oklch(0.55 0.03 250);
+
+  /* Score states. Each triplet is solid (dot/bar/series fill), fg (text and
+     icons, all ≥ 4.5:1 on both card and surface) and surface (tint pill).
+     Lightness is ordered risk < healthy < watch so the ramp survives
+     greyscale and deuteranopia; colour never carries the state alone. */
+  --status-healthy: oklch(0.72 0.14 168);
+  --status-healthy-fg: oklch(0.46 0.1 168);
+  --status-healthy-surface: oklch(0.96 0.03 168);
+  --status-watch: oklch(0.82 0.15 78);
+  --status-watch-fg: oklch(0.47 0.1 75);
+  --status-watch-surface: oklch(0.96 0.05 85);
+  --status-risk: oklch(0.6 0.2 25);
+  --status-risk-fg: oklch(0.48 0.18 25);
+  --status-risk-surface: oklch(0.96 0.02 20);
+  --status-none: oklch(0.78 0 0);
+  --status-none-fg: oklch(0.5 0 0);
+  --status-none-surface: oklch(0.97 0 0);
+
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
+  --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -82,39 +114,10 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
+/* Grifo is light-only (see DESIGN.md): the reference is light, the demo runs on
+   a projector, and a dark ramp nobody maintains is worse than none. The theme
+   is forced to light in app/providers.tsx. Reinstating dark means re-deriving
+   the whole ramp — including the four status triplets — not reviving a default. */
 
 @layer base {
   * {
