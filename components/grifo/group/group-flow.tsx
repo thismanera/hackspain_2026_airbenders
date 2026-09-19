@@ -1,7 +1,7 @@
 "use client";
 
 import { Building2, Landmark, Pause, Play } from "lucide-react";
-import { useId, useState, useSyncExternalStore } from "react";
+import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/core/utils";
@@ -75,22 +75,6 @@ function connector(hub: { x: number; y: number }, side: 1 | -1, cardY: number, c
   ].join(" ");
 }
 
-const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
-
-function subscribeReducedMotion(onChange: () => void) {
-  const query = window.matchMedia(REDUCED_MOTION);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-function usePrefersReducedMotion(): boolean {
-  return useSyncExternalStore(
-    subscribeReducedMotion,
-    () => window.matchMedia(REDUCED_MOTION).matches,
-    () => true,
-  );
-}
-
 /**
  * El grupo como red. SOURCE §1.7 no tiene matriz ni filiales: el "padre" de
  * cada empresa es el resto del grupo, así que el grupo va arriba y las empresas
@@ -98,8 +82,9 @@ function usePrefersReducedMotion(): boolean {
  * al score de esa empresa: un pulso teal si suma, rosa si resta, nada si no
  * llega a ±0,5. No son transferencias; son las relaciones que el score ya usa.
  *
- * El pulso es SMIL `animateMotion`: declarativo, sin JavaScript por fotograma,
- * y desaparece cuando el sistema prefiere menos movimiento.
+ * El pulso es SMIL `animateMotion`: declarativo, sin JavaScript por fotograma.
+ * Va activo para todos (SOURCE: el movimiento no se apaga por
+ * prefers-reduced-motion, se ofrece un control de pausa visible).
  */
 export function GroupFlow({
   group,
@@ -112,9 +97,8 @@ export function GroupFlow({
   onOpenCompany: (companyId: string) => void;
   className?: string;
 }) {
-  const reducedMotion = usePrefersReducedMotion();
   const [paused, setPaused] = useState(false);
-  const moving = !reducedMotion && !paused;
+  const moving = !paused;
   const titleId = useId();
   const descId = useId();
 
@@ -151,19 +135,17 @@ export function GroupFlow({
             por contagio.
           </p>
         </div>
-        {reducedMotion ? null : (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-pressed={paused}
-            onClick={() => setPaused((value) => !value)}
-            className="text-muted-foreground shrink-0"
-          >
-            {paused ? <Play aria-hidden /> : <Pause aria-hidden />}
-            {paused ? "Reanudar" : "Pausar"}
-          </Button>
-        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-pressed={paused}
+          onClick={() => setPaused((value) => !value)}
+          className="text-muted-foreground shrink-0"
+        >
+          {paused ? <Play aria-hidden /> : <Pause aria-hidden />}
+          {paused ? "Reanudar" : "Pausar"}
+        </Button>
       </div>
 
       <svg
