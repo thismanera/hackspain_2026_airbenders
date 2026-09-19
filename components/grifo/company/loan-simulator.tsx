@@ -75,30 +75,24 @@ export function LoanSimulator({
       description="Recalculada cada mes con el score; el partner solo la recibe si la pides."
       aside={<ActionBadge action={decision.action} changed={changed} />}
       className={className}
-      bodyClassName="p-0"
+      bodyClassName="flex flex-col gap-5"
     >
-      <div className="px-4 py-4">
-        <p className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-          <span className="text-3xl leading-none font-semibold tracking-[-0.02em] tabular-nums">
-            {formatEuros(decision.limit)}
-          </span>
-          <span className="text-muted-foreground text-sm">
-            preaprobados{change ? ` · ${change}` : ""}
-          </span>
-        </p>
-      </div>
+      {/* Importe y plazos son la misma cosa —la oferta— y van en un solo cuerpo.
+          Separarlos con una línea los convertía en dos cajas dentro de la caja. */}
+      <p className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+        <span className="text-3xl leading-none font-semibold tracking-[-0.02em] tabular-nums">
+          {formatEuros(decision.limit)}
+        </span>
+        <span className="text-muted-foreground text-sm">
+          preaprobados{change ? ` · ${change}` : ""}
+        </span>
+      </p>
 
-      {decision.menu.length > 0 ? (
-        <div className="border-t px-4 py-4">
-          <OfferTenorPicker options={decision.menu} />
-        </div>
-      ) : null}
+      {decision.menu.length > 0 ? <OfferTenorPicker options={decision.menu} /> : null}
 
       {/* En pantalla ancha el acto vive en la barra lateral, siempre a la vista.
           Aquí solo aparece cuando esa barra está plegada en un cajón. */}
-      <div className="border-t px-4 py-3 lg:hidden">
-        <RequestLineButton file={file} className="w-full" />
-      </div>
+      <RequestLineButton file={file} className="lg:hidden" />
     </Panel>
   );
 }

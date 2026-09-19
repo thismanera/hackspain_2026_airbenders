@@ -245,52 +245,55 @@ export function BandLadderCard({
       description={[company.country, company.currency].filter(Boolean).join(" · ")}
       aside={<StatusBadge estado={latest.estado} />}
       className={cn("flex flex-col", className)}
-      bodyClassName="flex flex-1 flex-col gap-4"
+      bodyClassName="flex flex-1 flex-col gap-7"
     >
-      <ScoreBlock
-        avatarId={company.id}
-        caption={`Tu score · ${formatMonthShort(month)}`}
-        score={latest.score}
-        aside={<Sparkline values={spark} direction={latest.direction} className="mt-2" />}
-      >
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <TrendDelta trend3m={latest.trend3m} direction={latest.direction} showWindow />
-          <span className="text-muted-foreground text-xs tabular-nums">
-            Mejor que el {formatPercent(benchmark.scorePercentile, 0)} de {benchmark.cohort}
-          </span>
-        </div>
-      </ScoreBlock>
+      {/* Las dos notas se separan por espacio, no por línea: la leyenda y el
+          color del círculo ya dicen cuál es cuál, y un borde entre ellas
+          convertía la tarjeta en dos tarjetas metidas dentro de otra. */}
+      <div className="flex flex-col gap-2">
+        <ScoreBlock
+          avatarId={company.id}
+          caption={`Tu score · ${formatMonthShort(month)}`}
+          score={latest.score}
+          aside={<Sparkline values={spark} direction={latest.direction} className="mt-2" />}
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <TrendDelta trend3m={latest.trend3m} direction={latest.direction} showWindow />
+            <span className="text-muted-foreground text-xs tabular-nums">
+              Mejor que el {formatPercent(benchmark.scorePercentile, 0)} de {benchmark.cohort}
+            </span>
+          </div>
+        </ScoreBlock>
 
-      <p className="text-muted-foreground text-xs text-pretty">
-        {step ? (
-          <>
-            <span className="text-foreground font-medium">
-              {formatDecimal(step.pointsMissing)} pts para banda {step.band}.
-            </span>{" "}
-            TAE base {formatApr(step.baseApr)}
-            {step.maxTenor > currentBandInfo.maxTenor
-              ? ` y plazo hasta ${formatDays(step.maxTenor)}`
-              : ""}
-            .
-          </>
-        ) : (
-          "Banda A: el mejor tipo y el plazo más largo que ofrece el modelo."
-        )}
-      </p>
+        <p className="text-muted-foreground text-xs text-pretty">
+          {step ? (
+            <>
+              <span className="text-foreground font-medium">
+                {formatDecimal(step.pointsMissing)} pts para banda {step.band}.
+              </span>{" "}
+              TAE base {formatApr(step.baseApr)}
+              {step.maxTenor > currentBandInfo.maxTenor
+                ? ` y plazo hasta ${formatDays(step.maxTenor)}`
+                : ""}
+              .
+            </>
+          ) : (
+            "Banda A: el mejor tipo y el plazo más largo que ofrece el modelo."
+          )}
+        </p>
+      </div>
 
       {group && company.groupSize > 1 ? (
-        <div className="border-t pt-4">
-          <GroupScoreBlock
-            groupId={group.groupId}
-            month={month}
-            adjustment={group.adjustment}
-            siblings={group.siblings}
-          />
-        </div>
+        <GroupScoreBlock
+          groupId={group.groupId}
+          month={month}
+          adjustment={group.adjustment}
+          siblings={group.siblings}
+        />
       ) : null}
 
       {lever && leverMeta ? (
-        <div className="mt-auto border-t pt-3">
+        <div className="border-t pt-3">
           <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
             <Target aria-hidden className="size-3.5 shrink-0" />
             Dónde más puedes mejorar

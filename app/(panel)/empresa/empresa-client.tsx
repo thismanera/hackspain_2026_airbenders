@@ -67,7 +67,13 @@ const ScoreTrend = dynamic(
  * hacia dónde va sin abrir nada, y es lo único de esta vista que tiene tamaño
  * suficiente para ordenar la mirada.
  */
-function TrajectoryPanel({ file }: { file: Parameters<typeof LoanSimulator>[0]["file"] }) {
+function TrajectoryPanel({
+  file,
+  className,
+}: {
+  file: Parameters<typeof LoanSimulator>[0]["file"];
+  className?: string;
+}) {
   const forecast = file.latest.forecast;
 
   return (
@@ -78,7 +84,7 @@ function TrajectoryPanel({ file }: { file: Parameters<typeof LoanSimulator>[0]["
           ? "Score de los últimos meses y previsión a 3 y 6, con su rango. La oferta de este mes no depende de la previsión."
           : "Score mes a mes desde que hay movimientos."
       }
-      className="flex flex-col"
+      className={cn("flex flex-col", className)}
       bodyClassName="flex-1"
     >
       {forecast ? <ForecastPanel file={file} inset /> : <ScoreTrend history={file.history} inset />}
@@ -139,7 +145,7 @@ function CompanyView({
       </DetailStack>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <TrajectoryPanel file={file} />
+        <TrajectoryPanel file={file} className="lg:col-span-2" />
         <BandLadderCard file={file} benchmark={benchmark} month={month} />
       </div>
 

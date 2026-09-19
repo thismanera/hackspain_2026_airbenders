@@ -12,11 +12,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 
 import { EmbatMark } from "@/components/grifo/embat-mark";
 import { SidebarRequestLine } from "@/components/grifo/sidebar-request-line";
-import { readViewMode, type ViewMode } from "@/components/grifo/view-mode";
+import { homeHref, useViewMode, type ViewMode } from "@/components/grifo/view-mode";
 import {
   Sidebar,
   SidebarContent,
@@ -146,19 +146,16 @@ function StaticNav({ sections }: { sections: typeof SECTIONS }) {
 }
 
 export function AppSidebar() {
-  // Arranca en "partner" (el comportamiento de siempre) y se corrige en cuanto
-  // el efecto lee sessionStorage — sincroniza con un sistema externo real, el
-  // caso que AGENTS.md sí permite para useEffect.
-  const [view, setView] = useState<ViewMode>("partner");
-  useEffect(() => {
-    setView(readViewMode());
-  }, []);
+  // Arranca en "partner" (lo que puede saber el servidor) y se corrige al
+  // hidratar. La misma fuente que usan el buscador global y el guard de rutas:
+  // con tres lecturas distintas del modo, el menú y los enlaces se contradicen.
+  const view = useViewMode();
   const sections = SECTIONS.filter((section) => section.view === view);
 
   return (
     <Sidebar collapsible="offcanvas" className="border-r">
       <SidebarHeader className="border-b px-4 py-3">
-        <Link href="/cartera" className="flex items-center gap-2.5 rounded-md">
+        <Link href={homeHref(view)} className="flex items-center gap-2.5 rounded-md">
           <EmbatMark size={28} />
           <span className="text-sm leading-tight font-semibold">Embat Flow</span>
         </Link>
