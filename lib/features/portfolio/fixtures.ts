@@ -450,13 +450,13 @@ function buildDecision(args: {
     },
     {
       id: "estado",
-      label: "Estado no es riesgo",
+      label: "Score de al menos 45",
       passed: score >= 45,
       detail: `Score ${Math.round(score)}, mínimo 45.`,
     },
     {
       id: "fiabilidad",
-      label: "Sin impago real",
+      label: "Paga las obligaciones esperadas",
       passed: month.delayStreak < 2,
       detail:
         month.delayStreak < 2
@@ -595,10 +595,10 @@ function buildReason(args: {
     const cause = failed?.detail ?? `Score ${Math.round(score)}, por debajo del mínimo de 45.`;
     // Cerrar una línea viva y no abrir una que nunca existió son la misma acción
     // en el modelo, pero no la misma noticia para quien lee la cartera.
-    return previousLimit > 0 ? `Se cierra el grifo. ${cause}` : `Sigue sin línea. ${cause}`;
+    return previousLimit > 0 ? `Se cierra la línea. ${cause}` : `Sigue sin línea. ${cause}`;
   }
   if (action === "abrir") {
-    return `Primera vez que pasa las seis puertas. Se abre con ${euros(limit)} en banda ${band}.`;
+    return `Pasa todas las puertas. Se abre con ${euros(limit)} en banda ${band}.`;
   }
   if (action === "ampliar") {
     const growth = Math.round((limit / previousLimit - 1) * 100);

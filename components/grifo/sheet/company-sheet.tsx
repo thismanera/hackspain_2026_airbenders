@@ -26,7 +26,6 @@ import {
   formatPercent,
   formatScore,
 } from "@/lib/features/portfolio/format";
-import { BLOCKS, type BlockId } from "@/lib/features/portfolio/indicators";
 import { useCompanyFile } from "@/lib/features/portfolio/hooks";
 import {
   decisionNarrative,
@@ -106,50 +105,7 @@ function ConditionsHistory({ history }: { history: MonthScore[] }) {
   );
 }
 
-/** Los tres bloques del score con su peso: el desglose antes de la cascada. */
-function Blocks({ month }: { month: MonthScore }) {
-  const ids = Object.keys(BLOCKS) as BlockId[];
-  return (
-    <section className="bg-card rounded-xl border">
-      <div className="border-b px-4 py-3">
-        <h3 className="text-sm font-medium">Los tres bloques</h3>
-        <p className="text-muted-foreground mt-0.5 text-xs">
-          Cada bloque puntúa de 0 a 100 y pesa distinto en el total.
-        </p>
-      </div>
-      <ul className="grid grid-cols-3 divide-x">
-        {ids.map((id) => {
-          const value = month.blocks[id];
-          const tone =
-            value >= 70 ? "bg-status-healthy" : value >= 45 ? "bg-status-watch" : "bg-status-risk";
-          return (
-            <li key={id} className="flex flex-col gap-2 px-4 py-3">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-muted-foreground truncate text-xs">
-                  <span className="font-mono">{id}</span> · {BLOCKS[id].label}
-                </span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-lg font-semibold tabular-nums">{formatScore(value)}</span>
-                <span className="text-muted-foreground text-xs tabular-nums">
-                  pesa {formatPercent(BLOCKS[id].weight, 0)}
-                </span>
-              </div>
-              <span aria-hidden className="bg-muted flex h-1.5 overflow-hidden rounded-full">
-                <span
-                  className={cn("h-full rounded-full", tone)}
-                  style={{ width: `${Math.max(2, value)}%` }}
-                />
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
-function DecisionSummary({ file }: { file: CompanyFileResponse }) {
+function DecisionLead({ file }: { file: CompanyFileResponse }) {
   const { decision } = file.latest;
   const changed = decision.action !== "mantener";
   const limitChange =
@@ -158,45 +114,40 @@ function DecisionSummary({ file }: { file: CompanyFileResponse }) {
       : null;
 
   return (
-    <section
-      aria-label="Decisión de este mes"
-      className="bg-card flex flex-col gap-4 rounded-xl border p-4"
-    >
-      <div className="flex items-center gap-2">
-        <h3 className="text-muted-foreground text-xs">Decisión de este mes</h3>
-        <ActionBadge action={decision.action} changed={changed} />
-      </div>
-      <p className="max-w-[60ch] text-sm leading-relaxed text-pretty">{decision.reason}</p>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 border-t pt-4 sm:grid-cols-4">
-        <Figure
-          label="Límite"
-          value={decision.limit > 0 ? formatEuros(decision.limit) : "Sin línea"}
-          hint={
-            limitChange !== null && limitChange !== 0 ? (
-              <span className={limitChange > 0 ? "text-status-healthy-fg" : "text-status-watch-fg"}>
-                {limitChange > 0 ? "+" : ""}
-                {limitChange} % desde {formatEuros(decision.previousLimit)}
-              </span>
-            ) : decision.previousLimit > 0 ? (
-              `Antes ${formatEuros(decision.previousLimit)}`
-            ) : undefined
-          }
-        />
-        <Figure
-          label="Banda"
-          value={decision.band}
-          hint={decision.band === "D" ? "No presta" : BANDA[decision.band].description}
-        />
-        <Figure
-          label="Plazo máximo"
-          value={decision.maxTenorDays > 0 ? `${decision.maxTenorDays} d` : "—"}
-        />
-        <Figure
-          label="TAE desde"
-          value={decision.eligible ? formatApr(decision.apr) : "—"}
-          hint={decision.eligible ? `Base ${formatApr(decision.baseApr)} de banda` : undefined}
-        />
-      </dl>
+    <section aria-label="Decisión de este mes" className="flex flex-col gap-4">
+      <ActionBadge action={decision.action} changed={changed} />
+      <NarrativeCard
+        narrative={decisionNarrative(file)}
+        question={{ label: "¿Qué tendría que mejorar?", answer: improvementNarrative(file) }}
+      />
+      {decision.eligible ? (
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+          <Figure
+            label="Límite"
+            value={formatEuros(decision.limit)}
+            hint={
+              limitChange !== null && limitChange !== 0 ? (
+                <span
+                  className={limitChange > 0 ? "text-status-healthy-fg" : "text-status-watch-fg"}
+                >
+                  {limitChange > 0 ? "+" : ""}
+                  {limitChange} % desde {formatEuros(decision.previousLimit)}
+                </span>
+              ) : undefined
+            }
+          />
+          <Figure label="Banda" value={decision.band} hint={BANDA[decision.band].description} />
+          <Figure
+            label="Plazo máximo"
+            value={decision.maxTenorDays > 0 ? `${decision.maxTenorDays} d` : "—"}
+          />
+          <Figure
+            label="TAE desde"
+            value={formatApr(decision.apr)}
+            hint={`Base ${formatApr(decision.baseApr)} de banda`}
+          />
+        </dl>
+      ) : null}
     </section>
   );
 }
@@ -239,12 +190,16 @@ export function CompanySheet({
                 >
                   <Building2 aria-hidden className="size-3" />
                   {company.groupId}
+                  <span className="font-sans">
+                    · {company.groupSize} empresas
+                  </span>
                 </button>
               ) : (
-                <span className="font-mono">{company.groupId}</span>
+                <span>
+                  <span className="font-mono">{company.groupId}</span>
+                  {" · única del grupo"}
+                </span>
               )}
-              <span aria-hidden>/</span>
-              <span>Empresa</span>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-2.5">
               <SheetTitle className="font-mono text-lg font-semibold tracking-[-0.01em]">
@@ -264,7 +219,7 @@ export function CompanySheet({
                   {formatScore(latest.score)}
                 </span>
               </span>
-              <TrendDelta trend3m={latest.trend3m} direction={latest.direction} />
+              <TrendDelta trend3m={latest.trend3m} direction={latest.direction} showWindow />
               <span aria-hidden>·</span>
               <span>
                 Confianza{" "}
@@ -305,23 +260,21 @@ export function CompanySheet({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         <TabsContent value="decision" className="flex flex-col gap-4">
-          <NarrativeCard
-            title="Qué tienes que saber"
-            narrative={decisionNarrative(data)}
-            question={{ label: "¿Qué tendría que mejorar?", answer: improvementNarrative(data) }}
-          />
-          <DecisionSummary file={data} />
+          <DecisionLead file={data} />
           <ConditionsHistory history={history} />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <OfferMenu options={latest.decision.menu} />
+          {latest.decision.eligible ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <OfferMenu options={latest.decision.menu} />
+              <GatesPanel gates={latest.decision.gates} />
+            </div>
+          ) : (
             <GatesPanel gates={latest.decision.gates} />
-          </div>
-          <AlertsTimeline alerts={latest.alerts} />
+          )}
+          {latest.alerts.length > 1 ? <AlertsTimeline alerts={latest.alerts} /> : null}
         </TabsContent>
 
         <TabsContent value="score" className="flex flex-col gap-4">
-          <NarrativeCard title="Qué sostiene el score" narrative={scoreNarrative(data)} />
-          <Blocks month={latest} />
+          <NarrativeCard narrative={scoreNarrative(data)} />
           <ScoreTrend history={history} />
           <Cascade month={latest} />
           <CoveragePanel coverage={latest.coverage} confidence={latest.confidence} />

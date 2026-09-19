@@ -32,45 +32,41 @@ export function DecisionPanel({ decision, changed }: { decision: Decision; chang
         <p className="mt-2 max-w-[60ch] text-base leading-relaxed text-pretty">{decision.reason}</p>
       </div>
 
-      <dl className="grid shrink-0 grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4 lg:border-l lg:pl-8">
-        <Figure
-          label="Límite"
-          value={decision.limit > 0 ? formatEuros(decision.limit) : "Sin línea"}
-          hint={
-            limitChange !== null && limitChange !== 0 ? (
-              <span
-                className={cn(
-                  limitChange > 0 ? "text-status-healthy-fg" : "text-status-watch-fg",
-                )}
-              >
-                {limitChange > 0 ? "+" : ""}
-                {limitChange} % desde {formatEuros(decision.previousLimit)}
-              </span>
-            ) : decision.previousLimit > 0 ? (
-              `Antes ${formatEuros(decision.previousLimit)}`
-            ) : undefined
-          }
-        />
-        <Figure
-          label="Banda"
-          value={decision.band}
-          hint={
-            decision.band === "D"
-              ? "No presta"
-              : `Factor ${BANDA[decision.band].factor.toLocaleString("es-ES")}`
-          }
-        />
-        <Figure
-          label="Plazo máximo"
-          value={decision.maxTenorDays > 0 ? `${decision.maxTenorDays} d` : "—"}
-          hint={decision.maxTenorDays > 0 ? "Según banda y tendencia" : undefined}
-        />
-        <Figure
-          label="TAE desde"
-          value={decision.eligible ? formatApr(decision.apr) : "—"}
-          hint={decision.eligible ? `Base ${formatApr(decision.baseApr)} de banda` : undefined}
-        />
-      </dl>
+      {decision.eligible ? (
+        <dl className="grid shrink-0 grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4 lg:border-l lg:pl-8">
+          <Figure
+            label="Límite"
+            value={formatEuros(decision.limit)}
+            hint={
+              limitChange !== null && limitChange !== 0 ? (
+                <span
+                  className={cn(
+                    limitChange > 0 ? "text-status-healthy-fg" : "text-status-watch-fg",
+                  )}
+                >
+                  {limitChange > 0 ? "+" : ""}
+                  {limitChange} % desde {formatEuros(decision.previousLimit)}
+                </span>
+              ) : undefined
+            }
+          />
+          <Figure
+            label="Banda"
+            value={decision.band}
+            hint={`Factor ${BANDA[decision.band].factor.toLocaleString("es-ES")}`}
+          />
+          <Figure
+            label="Plazo máximo"
+            value={`${decision.maxTenorDays} d`}
+            hint="Según banda y tendencia"
+          />
+          <Figure
+            label="TAE desde"
+            value={formatApr(decision.apr)}
+            hint={`Base ${formatApr(decision.baseApr)} de banda`}
+          />
+        </dl>
+      ) : null}
     </section>
   );
 }
