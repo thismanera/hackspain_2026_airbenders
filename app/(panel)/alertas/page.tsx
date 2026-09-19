@@ -15,7 +15,6 @@ import { loadAlertsSearchParams } from "@/lib/features/portfolio/search-params";
 import { AlertasClient } from "./alertas-client";
 
 export const metadata: Metadata = {
-  title: "Alertas · Embat Flow",
   description: "Señales de deterioro y de mejora, fechadas desde que se vieron venir.",
 };
 

@@ -7,11 +7,13 @@ colors:
   ink: "oklch(0.145 0 0)"
   ink-muted: "oklch(0.556 0 0)"
   hairline: "oklch(0.922 0 0)"
-  primary: "oklch(0.205 0 0)"
-  primary-ink: "oklch(0.985 0 0)"
-  status-healthy: "oklch(0.72 0.14 168)"
-  status-healthy-fg: "oklch(0.46 0.1 168)"
-  status-healthy-surface: "oklch(0.96 0.03 168)"
+  primary: "#0F1331"
+  primary-ink: "#ffffff"
+  brand: "#0F1331"
+  brand-accent: "#0F1331"
+  status-healthy: "#0F1331"
+  status-healthy-fg: "#0F1331"
+  status-healthy-surface: "#eef1f8"
   status-watch: "oklch(0.82 0.15 78)"
   status-watch-fg: "oklch(0.47 0.1 75)"
   status-watch-surface: "oklch(0.96 0.05 85)"
@@ -21,7 +23,7 @@ colors:
   status-none: "oklch(0.78 0 0)"
   status-none-fg: "oklch(0.5 0 0)"
   status-none-surface: "oklch(0.97 0 0)"
-  chart-1: "oklch(0.72 0.14 168)"
+  chart-1: "#0F1331"
   chart-2: "oklch(0.58 0.2 293)"
   chart-3: "oklch(0.68 0.14 237)"
   chart-4: "oklch(0.82 0.15 78)"
@@ -184,20 +186,11 @@ choice, always subordinate to a sentence a non-specialist can read.
 A neutral greyscale room with a rationed four-state signal palette and a
 five-hue categorical set for charts; nothing decorative is coloured.
 
-### Primary
+### Primary & Accents
 
-- **Ink Black** (`oklch(0.205 0 0)`): the single primary action per view —
-  "Ver ficha", "Exportar CSV". Near-black rather than a brand hue, because in a
-  risk tool the loudest thing on screen should be the status of a company, not
-  a button. Darkens to Ink (`oklch(0.145 0 0)`) on hover.
-
-### Secondary
-
-- **Signal Teal** (`oklch(0.72 0.14 168)`): the healthy state and the first
-  chart series. Deliberately teal rather than pure green so it separates from
-  Alert Rose for red-green colourblind users. This is also `chart-1`; the
-  "good" colour and the "first series" colour are the same token on purpose, so
-  a rising line and a healthy badge speak with one voice.
+- **Embat Navy** (`#0F1331`): el tono corporativo del logo utilizado para acentos, elementos destacados
+  y la acción primaria de cada vista ("Ver ficha", "Exportar CSV", "Entrar a Embat Flow"). Conecta
+  visualmente el producto con la identidad de marca de Embat.
 
 ### Tertiary
 

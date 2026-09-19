@@ -15,7 +15,6 @@ import { loadMonthSearchParams } from "@/lib/features/portfolio/search-params";
 import { BacktestClient } from "./backtest-client";
 
 export const metadata: Metadata = {
-  title: "Backtest · Embat Flow",
   description: "Cuánto antes avisó el motor y cuánto se mueve la decisión.",
 };
 

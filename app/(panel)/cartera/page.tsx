@@ -15,7 +15,6 @@ import { loadPortfolioSearchParams } from "@/lib/features/portfolio/search-param
 import { CarteraClient } from "./cartera-client";
 
 export const metadata: Metadata = {
-  title: "Cartera · Embat Flow",
   description: "Estado de crédito de la cartera, empresa a empresa, mes a mes.",
 };
 

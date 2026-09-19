@@ -59,10 +59,7 @@ export function IntroClient() {
   return (
     <div className="bg-background flex min-h-svh flex-col">
       <header className="flex items-center justify-between px-6 py-4">
-        <span className="flex items-center gap-2.5">
-          <EmbatMark size={28} />
-          <span className="text-sm font-semibold">Embat Flow</span>
-        </span>
+        <EmbatMark size={36} />
         {last ? null : (
           <Button variant="ghost" size="sm" onClick={finish}>
             Saltar introducción
@@ -72,19 +69,23 @@ export function IntroClient() {
 
       <main className="flex flex-1 items-center justify-center px-6 py-8">
         <section key={step} aria-labelledby="intro-title" className="w-full max-w-3xl text-center">
-          <p className="text-status-healthy-fg intro-rise text-xs font-medium tracking-wide uppercase">
-            {scene.kicker}
-          </p>
+          {scene.heroVisual ? (
+            <div className="mb-6 flex justify-center">{scene.heroVisual}</div>
+          ) : null}
           <h1
             id="intro-title"
-            className="intro-rise mt-3 text-3xl font-semibold tracking-[-0.03em] text-balance [animation-delay:80ms] sm:text-5xl"
+            className="intro-rise text-3xl font-semibold tracking-[-0.03em] text-balance sm:text-5xl"
           >
             {scene.title}
           </h1>
           {scene.body}
           {last ? (
-            <div className="intro-rise mt-10 flex flex-col items-center gap-4 [animation-delay:360ms]">
-              <Button size="lg" onClick={finish}>
+            <div className="intro-rise mt-10 flex flex-col items-center gap-4 [animation-delay:200ms]">
+              <Button
+                size="lg"
+                className="rounded-full px-8 h-12 text-base font-semibold shadow-sm cursor-pointer"
+                onClick={finish}
+              >
                 Entrar a Embat Flow
                 <ArrowRight aria-hidden className="size-4" />
               </Button>

@@ -1,22 +1,18 @@
 import {
   ArrowLeftRight,
-  Camera,
   CalendarDays,
-  ChevronRight,
+  Camera,
   CircleDollarSign,
   Clock,
   Coins,
   Gauge,
   HandCoins,
   Landmark,
-  ListTree,
   Lock,
   LockOpen,
-  MousePointerClick,
   Network,
   Receipt,
-  TrendingDown,
-  TrendingUp,
+  SlidersHorizontal,
   Truck,
   X,
   type LucideIcon,
@@ -24,24 +20,34 @@ import {
 import type { ReactNode } from "react";
 
 import { EmbatMark } from "@/components/grifo/embat-mark";
+import {
+  AnimatedCard,
+  CardBody,
+  CardDescription,
+  CardTitle,
+  CardVisual,
+} from "@/components/ui/animated-card";
+import { Visual1 } from "@/components/ui/visual-1";
 import { cn } from "@/lib/core/utils";
 
 /** Palabras que llevan el peso de la frase. Un solo acento por pantalla. */
 function Accent({ children }: { children: ReactNode }) {
-  return <span className="text-status-healthy-fg">{children}</span>;
+  return <span className="text-[#0F1331] font-bold">{children}</span>;
 }
 
 function BigNumber({
   value,
   caption,
   delayMs = 200,
+  className,
 }: {
   value: string;
   caption: string;
   delayMs?: number;
+  className?: string;
 }) {
   return (
-    <div className="intro-rise mt-10" style={{ animationDelay: `${delayMs}ms` }}>
+    <div className={cn("intro-rise mt-10", className)} style={{ animationDelay: `${delayMs}ms` }}>
       <p className="text-6xl leading-none font-semibold tracking-[-0.04em] tabular-nums sm:text-7xl">
         {value}
       </p>
@@ -65,7 +71,7 @@ function Tile({
       className={cn(
         "flex size-10 shrink-0 items-center justify-center rounded-lg border",
         tone === "neutral" && "bg-muted text-foreground",
-        tone === "healthy" && "bg-status-healthy-surface text-status-healthy-fg border-transparent",
+        tone === "healthy" && "bg-[#0F1331]/10 text-[#0F1331] border-transparent",
         tone === "watch" && "bg-status-watch-surface text-status-watch-fg border-transparent",
         tone === "ink" && "bg-primary text-primary-foreground border-transparent",
         className,
@@ -83,8 +89,7 @@ function ProblemHook() {
 }
 
 /* 2 · El problema, en cifras: una moneda recorre, en el aire, una trayectoria
-   punteada por encima de las cuatro paradas, con hueco de sobra respecto al
-   título para que no se choquen. */
+   punteada desde el primer nodo (Día 0) hasta el último (90 días) de forma fluida y continua. */
 function CashGapTimeline() {
   const stops = [
     { icon: Truck, label: "Paga al proveedor", day: "Día 0" },
@@ -93,26 +98,27 @@ function CashGapTimeline() {
     { icon: Coins, label: "El cliente paga", day: "90 días" },
   ];
   return (
-    <>
-      <div className="intro-rise relative mt-16 h-16 [animation-delay:120ms]">
+    <div className="intro-rise mt-8 [animation-delay:120ms]">
+      <div className="relative h-28 sm:h-32">
         <svg
           aria-hidden
-          viewBox="0 0 100 64"
+          viewBox="0 0 800 120"
           preserveAspectRatio="none"
           className="absolute inset-0 size-full"
         >
           <path
-            d="M4,60 Q50,4 96,60"
+            d="M 100,108 Q 400,-68 700,108"
             fill="none"
             stroke="var(--border)"
-            strokeWidth={1.5}
-            strokeDasharray="5 5"
+            strokeWidth={2}
+            strokeDasharray="6 8"
             strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
           />
         </svg>
         <CircleDollarSign
           aria-hidden
-          className="cash-gap-coin text-primary absolute size-6"
+          className="cash-gap-coin text-primary bg-background absolute size-6 rounded-full"
           strokeWidth={1.75}
         />
       </div>
@@ -135,12 +141,7 @@ function CashGapTimeline() {
           ))}
         </ol>
       </div>
-      <BigNumber
-        value="90 días"
-        caption="pasan entre pagar a sus proveedores y cobrar de sus clientes"
-        delayMs={3700}
-      />
-    </>
+    </div>
   );
 }
 
@@ -150,17 +151,13 @@ function OnceAYear() {
   const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
   return (
     <>
-      <BigNumber
-        value="1 vez al año"
-        caption="se revisa el crédito, aunque el negocio cambie cada mes"
-      />
-      <div className="intro-rise mt-10 flex flex-col items-center gap-4 [animation-delay:360ms]">
+      <div className="intro-rise mt-10 flex flex-col items-center gap-4 [animation-delay:120ms]">
         <ol className="flex gap-1 sm:gap-1.5" aria-label="Doce meses, uno con foto">
           {months.map((month, index) => (
             <li
               key={month}
               className="calendar-month flex flex-col items-center gap-1.5"
-              style={{ animationDelay: `${500 + index * 90}ms` }}
+              style={{ animationDelay: `${200 + index * 60}ms` }}
             >
               <span
                 className={cn(
@@ -187,15 +184,20 @@ function OnceAYear() {
             </li>
           ))}
         </ol>
-        <p className="text-muted-foreground text-sm">Una foto en enero. Las otras once, a ciegas.</p>
       </div>
+
+      <BigNumber
+        value="1 vez al año"
+        caption="Una foto fija para un negocio que cambia cada mes."
+        delayMs={350}
+        className="mt-8 sm:mt-10"
+      />
     </>
   );
 }
 
-/* 4 · Qué es Embat: antes, una maraña de fuentes que no se hablan entre sí;
-   al llegar a esta pantalla, cada una dibuja su propia línea, limpia, hacia
-   Embat, que aparece en el centro y se queda fluyendo. */
+/* 4 · Qué es Embat: cada fuente (bancos, facturas, cobros) dibuja una vía fina y limpia
+   hacia Embat en el centro, con amplia separación según el croquis del usuario. */
 function EmbatCore() {
   const left = [
     { icon: Landmark, label: "Banco A" },
@@ -207,95 +209,83 @@ function EmbatCore() {
     { icon: ArrowLeftRight, label: "Cobros y pagos" },
     { icon: Network, label: "Empresas del grupo" },
   ];
-  const tangleLinks = [
-    "M8,12 Q70,75 92,50",
-    "M8,50 Q75,10 92,12",
-    "M8,88 Q60,45 92,88",
-    "M8,12 Q20,50 8,88",
-    "M92,12 Q80,50 92,88",
+
+  // Coordenadas calculadas para viewBox="0 0 600 200":
+  // Recupera la curvatura amplia, fluida y redondeada original, pero extendiendo los extremos
+  // hacia el interior de las tarjetas y del logo para que conecten sin separación.
+  const streamTracks = [
+    // Izquierda -> Centro
+    { d: "M 120,30 C 220,30 250,86 286,86", delay: 0 },
+    { d: "M 120,100 L 286,100", delay: 0.35 },
+    { d: "M 120,170 C 220,170 250,114 286,114", delay: 0.7 },
+    // Derecha -> Centro
+    { d: "M 480,30 C 380,30 350,86 314,86", delay: 0.18 },
+    { d: "M 480,100 L 314,100", delay: 0.52 },
+    { d: "M 480,170 C 380,170 350,114 314,114", delay: 0.85 },
   ];
-  const cleanLinks = [
-    "M8,12 Q30,12 50,50",
-    "M8,50 L50,50",
-    "M8,88 Q30,88 50,50",
-    "M92,12 Q70,12 50,50",
-    "M92,50 L50,50",
-    "M92,88 Q70,88 50,50",
-  ];
-  const Column = ({ items, side }: { items: typeof left; side: "l" | "r" }) => (
-    <ul className="relative flex flex-col gap-2">
+
+  const Column = ({ items }: { items: typeof left }) => (
+    <ul className="relative z-10 flex w-40 sm:w-48 flex-col gap-3">
       {items.map((item) => (
         <li
           key={item.label}
-          className={cn(
-            "bg-card flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
-            side === "r" && "flex-row-reverse text-right",
-          )}
+          className="bg-card relative flex items-center justify-center gap-2.5 rounded-lg border px-3 py-2 text-xs sm:text-sm shadow-xs text-center"
         >
-          <item.icon aria-hidden className="text-muted-foreground size-5 shrink-0" />
-          {item.label}
+          <item.icon aria-hidden="true" className="text-muted-foreground size-4 shrink-0 sm:size-4.5" />
+          <span className="font-medium whitespace-nowrap">{item.label}</span>
         </li>
       ))}
     </ul>
   );
+
   return (
     <>
       <p className="text-muted-foreground intro-rise mt-4 text-base text-balance [animation-delay:200ms]">
-        Su tesorería al día: cada movimiento de sus cuentas bancarias y cada factura.
+        Conecta todos los bancos de la empresa, sus facturas y sus cobros en un único lugar.
       </p>
-      <div className="intro-rise relative mt-10 grid grid-cols-[1fr_auto_1fr] items-center gap-3 [animation-delay:360ms] sm:gap-6">
+      <div className="intro-rise relative mx-auto mt-10 flex max-w-2xl items-center justify-between gap-4 [animation-delay:360ms] sm:max-w-3xl sm:gap-8">
         <svg
-          aria-hidden
-          viewBox="0 0 100 100"
+          aria-hidden="true"
+          viewBox="0 0 600 200"
           preserveAspectRatio="none"
           className="pointer-events-none absolute inset-0 size-full"
         >
-          {tangleLinks.map((d, i) => (
+          {/* Vías base finas */}
+          {streamTracks.map((track, i) => (
             <path
-              key={`tangle-${i}`}
-              d={d}
-              className="embat-tangle"
+              key={`track-${i}`}
+              d={track.d}
               fill="none"
               stroke="var(--border)"
-              strokeWidth={0.6}
-              strokeDasharray="2.5 2"
+              strokeWidth={1}
               strokeLinecap="round"
             />
           ))}
-          {cleanLinks.map((d, i) => (
-            <g key={`clean-${i}`}>
-              <path
-                d={d}
-                pathLength={1}
-                className="embat-link-draw"
-                fill="none"
-                stroke="var(--status-healthy)"
-                strokeWidth={0.7}
-                strokeLinecap="round"
-                style={{ animationDelay: `${1.1 + i * 0.05}s` }}
-              />
-              <path
-                d={d}
-                pathLength={1}
-                className="embat-link-flow"
-                fill="none"
-                stroke="var(--status-healthy-fg)"
-                strokeWidth={0.9}
-                strokeLinecap="round"
-                style={{ animationDelay: `${1.8 + i * 0.05}s, ${1.8 + i * 0.05}s` }}
-              />
-            </g>
+          {/* Haces finos que nacen en cada nodo y viajan hacia Embat */}
+          {streamTracks.map((track, i) => (
+            <path
+              key={`beam-${i}`}
+              d={track.d}
+              pathLength={100}
+              className="embat-beam"
+              fill="none"
+              stroke="#0F1331"
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              style={{ animationDelay: `${track.delay}s` }}
+            />
           ))}
         </svg>
-        <Column items={left} side="l" />
-        <span className="embat-mark-pop relative z-10 flex items-center justify-center">
-          <EmbatMark size={56} />
-        </span>
-        <Column items={right} side="r" />
+
+        <Column items={left} />
+
+        <div className="relative z-10 flex shrink-0 items-center justify-center">
+          <EmbatMark size={44} />
+        </div>
+
+        <Column items={right} />
       </div>
-      <p className="text-muted-foreground intro-rise mt-6 text-sm [animation-delay:520ms]">
-        Un banco solo ve su cuenta. Embat ve la empresa completa.
-      </p>
+    
     </>
   );
 }
@@ -314,8 +304,8 @@ function ScoreIdea() {
             cy="60"
             r={r}
             fill="none"
-            stroke="var(--status-healthy)"
-            strokeWidth="6"
+            stroke="#10b981"
+            strokeWidth={6}
             strokeLinecap="round"
             strokeDasharray={c}
             strokeDashoffset={c * (1 - 0.82)}
@@ -327,14 +317,12 @@ function ScoreIdea() {
         </span>
       </div>
       <div className="max-w-sm">
-        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-          Salud financiera
-        </p>
+   
         <p className="mt-1 text-lg font-semibold tracking-[-0.01em]">
           Una nota de 0 a 100, siempre explicada
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
-          Y de la nota sale una oferta de financiación:
+          De la nota sale una oferta de financiación:
         </p>
         <ul className="mt-3 flex flex-wrap gap-2 text-sm">
           {[
@@ -356,176 +344,165 @@ function ScoreIdea() {
   );
 }
 
-/* 6 · Primero la empresa: la nota es suya. */
+/* Animación del candado: solo el icono cerrándose, sin card ni efectos artificiales */
+function HeroLock() {
+  return (
+    <div className="intro-rise mb-3 flex items-center justify-center">
+      <span aria-hidden="true" className="relative flex size-12 items-center justify-center sm:size-14">
+        <LockOpen className="lock-open-out text-muted-foreground/60 absolute size-10 sm:size-12" strokeWidth={1.75} />
+        <Lock className="lock-closed-in text-[#0F1331] absolute size-10 sm:size-12" strokeWidth={1.75} />
+      </span>
+    </div>
+  );
+}
+
+/* 6 · Primero la empresa: la nota es suya y 100% privada. */
 function Ownership() {
-  const rows = [
-    { icon: Gauge, title: "Su nota", text: "Cómo está su salud financiera" },
-    { icon: ListTree, title: "El porqué", text: "Qué la sube y qué la baja" },
-    { icon: HandCoins, title: "Su oferta", text: "Cuánto, a qué plazo y a qué precio" },
+  const cards = [
+    {
+      icon: Gauge,
+      title: "Score privado",
+      desc: "Conoce su salud financiera sin que ningún banco la vea.",
+    },
+    {
+      icon: SlidersHorizontal,
+      title: "Recomendaciones",
+      desc: "Sabe qué hacer para mejorar su nota y sus condiciones.",
+    },
+    {
+      icon: HandCoins,
+      title: "Financiación",
+      desc: "Decide cuándo es el mejor momento para pedir financiación.",
+    },
   ];
-  return (
-    <>
-      <p className="text-muted-foreground intro-rise mt-4 text-base text-balance [animation-delay:200ms]">
-        Sabe cómo está, por qué, y cuánto debería costarle financiarse.
-      </p>
-      <div className="bg-card intro-rise mx-auto mt-10 w-full max-w-md overflow-hidden rounded-[14px] border text-left [animation-delay:360ms]">
-        <ul className="divide-y">
-          {rows.map((row) => (
-            <li key={row.title} className="flex items-center gap-3 px-4 py-3">
-              <Tile icon={row.icon} />
-              <span className="flex flex-col leading-tight">
-                <span className="text-sm font-semibold">{row.title}</span>
-                <span className="text-muted-foreground text-sm">{row.text}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className="bg-muted/50 flex items-start gap-2.5 border-t px-4 py-3 text-sm">
-          <span aria-hidden className="relative mt-0.5 size-4 shrink-0">
-            <LockOpen className="lock-open-out absolute inset-0 size-4" />
-            <Lock className="lock-closed-in absolute inset-0 size-4" />
-          </span>
-          <span>
-            <span className="font-semibold">Nadie más ve sus datos.</span> Ni sus movimientos, ni
-            sus facturas, ni su nota. Todo se queda en Embat.
-          </span>
-        </p>
-      </div>
-    </>
-  );
-}
 
-/* 7 · La empresa decide: tres pasos, solo el segundo abre la puerta. El paso
-   "decide" respira (anillo continuo) y solo la conexión que sale de él lleva
-   un punto en movimiento: nada fluye hacia el prestamista hasta que se pulsa. */
-function Consent() {
-  const steps = [
-    { icon: Lock, kicker: "1 · Privado", title: "Ve su nota y su oferta", cta: false },
-    { icon: HandCoins, kicker: "2 · Decide", title: "Pedir financiación", cta: true },
-    { icon: Landmark, kicker: "3 · Quien presta", title: "Recibe nota y oferta", cta: false },
-  ] as const;
   return (
     <>
-      <ol className="mt-10 grid gap-2 text-left sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-stretch">
-        {steps.map((step, index) => (
-          <li key={step.kicker} className="contents">
-            <div
-              className={cn(
-                "bg-card intro-rise relative flex flex-col items-start gap-2.5 rounded-[14px] border px-4 py-4",
-                index === 1 && "border-status-healthy",
-              )}
-              style={{ animationDelay: `${240 + index * 260}ms` }}
-            >
-              {index === 1 ? (
-                <span aria-hidden className="consent-pulse-ring pointer-events-none absolute inset-0 rounded-[14px]" />
-              ) : null}
-              <Tile icon={step.icon} tone={index === 1 ? "healthy" : "neutral"} />
-              <span
-                className={cn(
-                  "text-xs font-medium tracking-wide uppercase",
-                  index === 1 ? "text-status-healthy-fg" : "text-muted-foreground",
-                )}
-              >
-                {step.kicker}
-              </span>
-              {step.cta ? (
-                <span className="relative inline-flex">
-                  <span className="bg-status-healthy-surface text-status-healthy-fg flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold">
-                    {step.title}
-                    <ArrowLeftRight aria-hidden className="size-3.5" />
-                  </span>
-                  <span
-                    aria-hidden
-                    className="consent-tap-ripple border-status-healthy-fg pointer-events-none absolute -right-2 -bottom-2 size-5 rounded-full border-2"
-                  />
-                  <MousePointerClick
-                    aria-hidden
-                    className="consent-tap text-foreground pointer-events-none absolute -right-3 -bottom-3 size-5 drop-shadow-sm"
-                  />
-                </span>
-              ) : (
-                <span className="text-sm font-semibold">{step.title}</span>
-              )}
+      <div className="intro-rise mx-auto mt-10 grid w-full max-w-2xl gap-4 text-center sm:grid-cols-3 [animation-delay:180ms]">
+        {cards.map((card) => (
+          <div
+            key={card.title}
+            className="bg-card flex flex-col items-center gap-3 rounded-[14px] border p-6 shadow-xs"
+          >
+            <card.icon className="text-foreground size-8" strokeWidth={1.5} />
+            <div>
+              <p className="text-base font-semibold tracking-[-0.01em]">{card.title}</p>
+              <p className="text-muted-foreground mt-1.5 text-xs sm:text-sm leading-relaxed text-balance">
+                {card.desc}
+              </p>
             </div>
-            {index < steps.length - 1 ? (
-              <div
-                aria-hidden
-                className="relative hidden items-center justify-center self-center sm:flex"
-              >
-                <ChevronRight className="text-muted-foreground size-5" />
-                {index === 1 ? (
-                  <span className="embat-flow-dot bg-status-healthy-fg absolute top-1/2 left-0 size-1.5 rounded-full" />
-                ) : null}
-              </div>
-            ) : null}
-          </li>
+          </div>
         ))}
-      </ol>
-      <p className="text-muted-foreground intro-rise mt-6 text-sm [animation-delay:900ms]">
-        Se comparte la decisión.{" "}
-        <span className="text-foreground font-medium">
-          Nunca sus movimientos, facturas ni saldos.
-        </span>
-      </p>
+      </div>
+
+      
     </>
   );
 }
 
-/* 8 · Mientras dura: el crédito sigue a la empresa. Las flechas son el
-   elemento principal de la pantalla, grandes y en movimiento continuo. */
+/* 7 · La empresa decide: SOLO el botón redondeado y alargado en el centro,
+   limpio y con animación de click táctil con cursor y onda expansiva. */
+function Consent() {
+  return (
+    <div className="intro-rise mt-14 flex flex-col items-center gap-8 [animation-delay:200ms]">
+      <div className="relative flex flex-col items-center">
+        {/* Botón táctil que se presiona rítmicamente */}
+        <div className="consent-btn-target bg-primary text-primary-foreground relative flex w-72 sm:w-96 items-center justify-center gap-3 rounded-full py-4 px-8 text-base font-semibold shadow-md transition-all">
+          <HandCoins className="size-5 shrink-0 text-white" />
+          <span className="text-white">Pedir financiación</span>
+          <ArrowLeftRight className="size-4 shrink-0 text-white/80" />
+        </div>
+
+        {/* Cursor que entra, se posa sobre el botón y hace click con onda expansiva */}
+        <div
+          aria-hidden="true"
+          className="consent-cursor-anim pointer-events-none absolute top-1/2 left-1/2"
+        >
+          <div className="relative">
+            {/* Onda expansiva circular que brota de la punta del cursor al hacer click */}
+            <div className="consent-click-wave pointer-events-none absolute -top-2 -left-2 size-6 rounded-full border-2 border-white/90 bg-white/20" />
+
+            {/* Puntero de ratón estándar limpio y nítido (blanco sólido con borde oscuro) */}
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              className="drop-shadow-[0_3px_10px_rgba(0,0,0,0.5)]"
+            >
+              <path
+                d="M4 2L4 18.5L8.8 14.5L12.5 22L15 20.8L11.4 13.5L17.5 13L4 2Z"
+                fill="#ffffff"
+                stroke="#0F1331"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-muted-foreground mt-4 text-sm">
+        Se comparte la decisión con el banco y su evolución de score mensual.
+      </p>
+    </div>
+  );
+}
+
+/* 8 · Mientras dura: el crédito sigue a la empresa. */
 function Adapts() {
   return (
     <>
-      <div className="intro-rise mx-auto mt-10 flex w-full max-w-lg items-stretch justify-center gap-4 [animation-delay:200ms] sm:gap-6">
-        <div className="bg-card flex flex-1 flex-col items-center gap-3 rounded-[14px] border px-5 py-8">
-          <TrendingUp aria-hidden className="snake-up text-status-healthy-fg size-16 sm:size-20" strokeWidth={1.5} />
-          <p className="text-center text-base font-semibold tracking-[-0.01em] sm:text-lg">
-            Más límite o mejor precio
-          </p>
-          <p className="text-muted-foreground text-center text-sm">sin esperar al cierre del año</p>
-        </div>
-        <div className="bg-card flex flex-1 flex-col items-center gap-3 rounded-[14px] border px-5 py-8">
-          <TrendingDown aria-hidden className="snake-down text-status-watch-fg size-16 sm:size-20" strokeWidth={1.5} />
-          <p className="text-center text-base font-semibold tracking-[-0.01em] sm:text-lg">
-            El límite baja poco a poco
-          </p>
-          <p className="text-muted-foreground text-center text-sm">
-            antes de que sea un problema, para los dos
-          </p>
-        </div>
+      <div className="intro-rise mx-auto mt-10 grid w-full max-w-2xl gap-5 text-center sm:grid-cols-2 [animation-delay:180ms]">
+        <AnimatedCard>
+          <CardVisual>
+            <Visual1
+              direction="up"
+              mainColor="#0F1331"
+              secondaryColor="#3b4675"
+              delayMs={0}
+            />
+          </CardVisual>
+          <CardBody>
+            <CardTitle>Si el negocio crece</CardTitle>
+            <CardDescription className="whitespace-nowrap">
+              Más límite o mejor precio, mes a mes.
+            </CardDescription>
+          </CardBody>
+        </AnimatedCard>
+
+        <AnimatedCard>
+          <CardVisual>
+            <Visual1
+              direction="down"
+              mainColor="#ef4444"
+              secondaryColor="#f87171"
+              delayMs={0}
+            />
+          </CardVisual>
+          <CardBody>
+            <CardTitle>Si las ventas bajan</CardTitle>
+            <CardDescription className="whitespace-nowrap">
+              El límite se adapta y protege la caja.
+            </CardDescription>
+          </CardBody>
+        </AnimatedCard>
       </div>
-      <p className="text-muted-foreground intro-rise mt-6 text-sm [animation-delay:360ms]">
-        Quien presta lo ve <Accent>meses antes</Accent> que con las cuentas anuales.
+
+      <p className="text-muted-foreground intro-rise mx-auto mt-8 text-center text-sm sm:whitespace-nowrap [animation-delay:260ms]">
+        El partner lo ve{" "}
+        <Accent>meses antes</Accent>
+        {" "}que el banco tradicional con las cuentas anuales.
       </p>
     </>
-  );
-}
-
-/* 9 · Cierre. */
-function Closing() {
-  return (
-    <ul className="intro-rise mt-10 flex flex-wrap justify-center gap-2 text-sm [animation-delay:200ms]">
-      {[
-        { icon: Gauge, label: "Una nota cada mes" },
-        { icon: ArrowLeftRight, label: "Un crédito que se adapta" },
-        { icon: Lock, label: "La empresa decide" },
-      ].map((item) => (
-        <li
-          key={item.label}
-          className="bg-card flex items-center gap-2 rounded-md border px-3 py-1.5"
-        >
-          <item.icon aria-hidden className="text-muted-foreground size-5" />
-          {item.label}
-        </li>
-      ))}
-    </ul>
   );
 }
 
 export type Scene = {
   kicker: string;
+  heroVisual?: ReactNode;
   title: ReactNode;
-  body: ReactNode;
+  body?: ReactNode;
   footnote?: string;
 };
 
@@ -544,7 +521,7 @@ export const SCENES: Scene[] = [
     kicker: "Cuánto se tarda",
     title: (
       <>
-        Cobra mucho <Accent>después de haber pagado.</Accent>
+        Tiene que pagar mucho antes de cobrar. <Accent>Hasta 90 días antes.</Accent>
       </>
     ),
     body: <CashGapTimeline />,
@@ -553,7 +530,7 @@ export const SCENES: Scene[] = [
     kicker: "Cómo se decide hoy",
     title: (
       <>
-        El banco decide con las cuentas <Accent>del año pasado.</Accent>
+        El banco decide el riesgo con las cuentas <Accent>del año pasado.</Accent>
       </>
     ),
     body: <OnceAYear />,
@@ -562,7 +539,7 @@ export const SCENES: Scene[] = [
     kicker: "Qué es Embat",
     title: (
       <>
-        Las empresas ya usan Embat para <Accent>ver todo su dinero.</Accent>
+        Las empresas ya gestionan en Embat <Accent>toda su tesorería</Accent>
       </>
     ),
     body: <EmbatCore />,
@@ -578,9 +555,10 @@ export const SCENES: Scene[] = [
   },
   {
     kicker: "Primero, la empresa",
+    heroVisual: <HeroLock />,
     title: (
       <>
-        Su nota es privada. <Accent>Nadie la ve, hasta que ella decide.</Accent>
+        Su score es privado. <Accent>La empresa decide cuándo compatirlo.</Accent>
       </>
     ),
     body: <Ownership />,
@@ -589,7 +567,7 @@ export const SCENES: Scene[] = [
     kicker: "La empresa decide",
     title: (
       <>
-        Solo se comparte si la empresa pulsa <Accent>«Pedir financiación».</Accent>
+        Financiación a golpe de click
       </>
     ),
     body: <Consent />,
@@ -605,12 +583,15 @@ export const SCENES: Scene[] = [
   },
   {
     kicker: "Embat Flow",
+    heroVisual: (
+      <div className="intro-rise mb-3 flex justify-center">
+        <EmbatMark size={44} />
+      </div>
+    ),
     title: (
       <>
-        La empresa paga lo que merece. <Accent>Quien presta, nunca a ciegas.</Accent>
+        La empresa paga lo que merece. <Accent>El partner, nunca a ciegas.</Accent>
       </>
     ),
-    body: <Closing />,
-    footnote: "Embat conecta a la empresa con quien presta. Embat no presta.",
   },
 ];
