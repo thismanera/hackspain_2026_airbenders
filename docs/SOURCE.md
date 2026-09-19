@@ -1,13 +1,13 @@
 # SOURCE — Embat Flow (Embat · X-Ray)
 
 Source of truth. Corto a propósito. `☐` = pendiente de validar con Pablo; `✅` validado; `⏳` aplazado. Justificaciones en §4.
-Detalle técnico ampliado en [`scoring-engine.md`](./scoring-engine.md) (score) y [`decision-engine.md`](./decision-engine.md) (decisión).
+Detalle técnico ampliado en [`scoring-engine.md`](./scoring-engine.md) (score), [`forecast-engine.md`](./forecast-engine.md) (previsión) y [`decision-engine.md`](./decision-engine.md) (decisión).
 
 **Producto:** financiación de circulante (anticipar cobros / estirar pagos)
 con límite que se recalcula solo mes a mes. El score dice cuánto, a qué
 precio y cuándo cerrar el grifo.
 
-**Tres partes:** (1) score · (2) decisión · (3) producto.
+**Cuatro partes:** (1) score · (2) previsión · (3) decisión · (4) producto.
 
 ---
 
@@ -155,7 +155,23 @@ si D2 < score_solo (contagio): aval_grupo = w × (D2 − score_solo)            
 
 ---
 
-## 2. Decisión — ¿te puedo prestar? · cuánto · plazo · interés
+## 2. Previsión — el score dentro de 3 y 6 meses
+
+Entrada: `company_month_score`. Salida: `company_month_forecast`. Todo
+validado 19-09 (decisiones 34-38). Detalle en `forecast-engine.md`.
+
+| Qué | Regla |
+| --- | --- |
+| Horizontes ✅ | `score_pred_3m`, `score_pred_6m`, banda prevista, intervalo p10/p90, 3 drivers, `prob_deterioro_6m`. 3 y 6 porque el plazo máximo del producto son 180 días. |
+| Método v1 ✅ | Proyección determinista: cada variable bruta sigue su tendencia robusta de 6 meses (mediana de deltas, amortiguada a la mitad en meses 4-6) y se recalcula el score con la misma fórmula. Explicable por construcción: la cascada prevista es la misma cascada. |
+| v2 ✅ | Modelo entrenado solo si en validación mejora el MAE a 3 meses ≥ 15 % y el acierto de banda. Receta de `analysis/FINDINGS.md` §7; coordinar con Alex. |
+| Intervalo y probabilidad ✅ | p10/p90 = percentiles del error de v1 en ajuste, por horizonte y banda actual. `prob_deterioro_6m` = frecuencia observada del evento en ajuste por (banda actual, banda prevista). No es probabilidad de impago. |
+| Uso en decisión ✅ | Solo endurece: `T_max` con la peor de banda actual y prevista · `reducir` preventivo si banda prevista < actual dos meses seguidos · `ampliar` solo si banda prevista ≥ actual · +0,5 pp si banda prevista < actual. Una previsión buena no amplía ni abarata sola. |
+| Backtest ✅ | MAE y acierto de banda contra baseline ingenuo (`score_pred = score`); cobertura del intervalo 75-85 %; lead time del cierre con y sin previsión; falsas reducciones preventivas. Si v1 no bate al baseline, la previsión no se conecta a decisión. |
+
+---
+
+## 3. Decisión — ¿te puedo prestar? · cuánto · plazo · interés
 
 Entrada: fila del score (§1). Salida por empresa-mes: `elegible`, `motivo`,
 `L` (límite), `menu[]` de opciones (plazo, cantidad máx, TAE), `accion`.
@@ -163,13 +179,13 @@ Todo validado 19-09 (decisiones 11, 12, 17-23).
 
 ```text
 0. Elegibilidad   ¿te puedo prestar?        → sí / no + motivo
-1. Cantidad       límite máximo L           → §2.1
-2. Plazo          tenor máximo T_max        → §2.2
-3. Interés        TAE de cada (cantidad, plazo) → §2.3
-Dependencia: región factible (cantidad, plazo) + precio función de ambas → §2.4
+1. Cantidad       límite máximo L           → §3.1
+2. Plazo          tenor máximo T_max        → §3.2
+3. Interés        TAE de cada (cantidad, plazo) → §3.3
+Dependencia: región factible (cantidad, plazo) + precio función de ambas → §3.4
 ```
 
-### 2.0 Elegibilidad ✅
+### 3.0 Elegibilidad ✅
 
 Puertas duras, todas deben pasar. La primera que falla es el `motivo`.
 
@@ -182,7 +198,7 @@ Puertas duras, todas deben pasar. La primera que falla es el `motivo`.
 | Clientes | C4 vencido sin cobrar ≤ 40 % | Cobros futuros comprometidos (12) |
 | Grupo | sin cross-default activo | Si cae quien sostiene el grupo, el aval no vale (17) |
 
-### 2.1 Cantidad: límite L ✅
+### 3.1 Cantidad: límite L ✅
 
 ```text
 capacidad_cuota_adv = max(0, (0,8·cobros_op − 1,1·pagos_op)_media6m / 1,3 − servicio_deuda_media6m)
@@ -201,7 +217,7 @@ L                   = min(limite_cap, limite_op) × factor_banda × min(1, confi
 Deterioro estructural baja una banda. Grupo: `Σ L del grupo ≤ L sobre
 flujos consolidados` (el aval no se cuenta dos veces).
 
-### 2.2 Plazo: T_max por banda y tendencia ✅
+### 3.2 Plazo: T_max por banda y tendencia ✅
 
 | Banda | Estable / mejora | Deterioro temporal | Deterioro estructural |
 | --- | --- | --- | --- |
@@ -209,20 +225,23 @@ flujos consolidados` (el aval no se cuenta dos veces).
 | B | 120 d | 90 d | 30 d |
 | C | 60 d | 30 d | no presta |
 
+La banda de esta tabla es la **peor** de la actual y `banda_pred_3m` (§2).
+
 Por qué: peor score → menos exposición al futuro y más rotación, es decir
 más veces que re-evaluamos antes de que algo se rompa.
 
-### 2.3 Interés ✅
+### 3.3 Interés ✅
 
 ```text
 TAE = base_TAE(banda) + prima_plazo + prima_confianza + ajuste_tendencia
 prima_plazo      = +0,5 pp por cada 30 días por encima de 30
 prima_confianza  = +1 pp si confianza < 0,7
 ajuste_tendencia = −0,5 pp si mejora · +1 pp si deterioro
+prima_prevision  = +0,5 pp si banda_pred_3m < banda actual
 coste_operacion  = cantidad × TAE × plazo / 360
 ```
 
-### 2.4 Dependencia cantidad-plazo: región factible ✅
+### 3.4 Dependencia cantidad-plazo: región factible ✅
 
 ```text
 cantidad ≤ L                                       (paso 1)
@@ -240,21 +259,21 @@ el interés sube. El producto enseña el menú, la empresa elige el punto:
 | 90 d | `min(L, cap_adv × 3)` | base + 1,0 |
 | … hasta T_max | | |
 
-### 2.5 Un solo límite, dos usos ✅
+### 3.5 Un solo límite, dos usos ✅
 
 `L` sirve para **anticipar cobros** (plazo natural = días hasta el cobro
 esperado, C3) o **aplazar pagos** (plazo = días de aplazamiento al
 proveedor). Ambos dentro de `T_max`. Sin sublímites: más simple y el score
 no distingue usos.
 
-### 2.6 Revisión mensual: acción, histéresis, reapertura ✅
+### 3.6 Revisión mensual: acción, histéresis, reapertura ✅
 
 | Acción | Regla |
 | --- | --- |
 | `abrir` | `L_prev = 0`, elegible, `L > 0` |
-| `ampliar` | `L > 1,15 · L_prev` y dirección ≠ deterioro |
-| `reducir` | `L < 0,85 · L_prev` dos meses seguidos, o deterioro estructural (inmediato) |
-| `cerrar` | no elegible (§2.0) |
+| `ampliar` | `L > 1,15 · L_prev`, dirección ≠ deterioro y `banda_pred_3m ≥` banda actual |
+| `reducir` | `L < 0,85 · L_prev` dos meses seguidos, o deterioro estructural (inmediato), o **preventivo**: `banda_pred_3m` < banda actual dos meses seguidos (L se recalcula con la banda prevista) |
+| `cerrar` | no elegible (§3.0) |
 | `mantener` | resto |
 
 - Cambio de `L` acotado a ±25 %/mes salvo `cerrar`: el grifo no oscila con
@@ -268,14 +287,14 @@ no distingue usos.
 
 ---
 
-## 3. Producto
+## 4. Producto
 
 Comprador ✅: Embat vende financiación embebida a sus pymes con un partner
 financiero que pone el dinero y paga por límite vivo monitorizado.
 Usuario principal de la demo ✅: analista de riesgo del partner mirando la
 cartera. Vista pyme solo si sobra tiempo.
 
-### 3.1 Pantallas ✅ (cuatro, no más)
+### 4.1 Pantallas ✅ (cuatro, no más)
 
 | Pantalla | Qué enseña | Lee |
 | --- | --- | --- |
@@ -287,12 +306,12 @@ cartera. Vista pyme solo si sobra tiempo.
 Sin simulador "qué pasa si pido X": el menú ya lo es. La UI no calcula
 nada: pinta las dos tablas.
 
-### 3.2 Selector de mes ✅
+### 4.2 Selector de mes ✅
 
 Slider `2024-09 … 2026-08` global. Toda pantalla es "a cierre de mes t".
 Es lo que enseña anticipación: en `t` alertamos, en `t+k` pasó.
 
-### 3.3 Golden path de demo ✅ (90 s, tres empresas fijas elegidas del backtest)
+### 4.3 Golden path de demo ✅ (90 s, tres empresas fijas elegidas del backtest)
 
 1. Cartera en un mes `t`: filtro "deterioro" → empresa **X** con alerta desde `t−3`.
 2. Ficha X: cascada señala margen y dependencia de línea; acción `reducir`.
@@ -303,29 +322,29 @@ Es lo que enseña anticipación: en `t` alertamos, en `t+k` pasó.
 X, Y, Z salen del backtest, no se inventan. Datos precargados, app
 pre-calentada, vídeo de respaldo.
 
-### 3.4 Explicación ✅
+### 4.4 Explicación ✅
 
 Sin LLM en v1: cascada + `motivo` por plantilla. Botón "explicar en
 palabras" con LLM solo si sobra tiempo, siempre a partir de la cascada,
 nunca decidiendo nada.
 
-### 3.5 Alertas ✅ (bonus del reto)
+### 4.5 Alertas ✅ (bonus del reto)
 
 Feed en cartera con `desde_mes`. Webhook a Slack cuando cambia la acción de
 una empresa. Email no.
 
-### 3.6 Entrega de las 60-80 empresas test ✅
+### 4.6 Entrega de las 60-80 empresas test ✅
 
 Script, no pantalla: mismo pipeline, `version_parametros` congelada, CSV con
 el contrato de scoring §10 + decision §10. La cartera puede cargarlas como
 "cartera test" para la demo.
 
-### 3.7 Fuera de alcance ✅
+### 4.7 Fuera de alcance ✅
 
 Login, multi-tenant, disposiciones y amortizaciones reales, pagos, vista
 pyme (salvo tiempo), edición de parámetros desde UI.
 
-### 3.8 Nombre ✅
+### 4.8 Nombre ✅
 
 **Embat Flow.** Va en submission, cabecera de la app y slide. Se presenta
 como producto embebido de Embat; en el pitch se dice explícitamente que el
@@ -333,7 +352,7 @@ nombre es una propuesta, no una marca autorizada.
 
 ---
 
-## 4. Registro de decisiones (source of truth)
+## 5. Registro de decisiones (source of truth)
 
 Estado: ✅ validado (Pablo, fecha) · ⏳ aplazado · ☐ pendiente. La
 justificación se escribe siempre, validada o no: es lo que defendemos ante
@@ -375,5 +394,10 @@ el jurado.
 | 31 | Entrega test por script, no por pantalla | El entregable es un CSV con el contrato; una pantalla de subida es trabajo sin valor para el jurado. | ✅ 19-09 |
 | 32 | Fuera de alcance: login, multi-tenant, disposiciones, pagos, vista pyme, parámetros desde UI | Nada que no salga en el golden path. | ✅ 19-09 |
 | 33 | Nombre: **Embat Flow** | Coherente con la decisión 13 (producto embebido de Embat): el jurado de Embat ve su producto, no una herramienta de banco. Riesgo asumido: usar su marca sin permiso; se declara como propuesta en el pitch. | ✅ 19-09 |
+| 34 | Previsión a 3 y 6 meses: score, banda, intervalo, drivers, prob. deterioro | El plazo máximo del producto es 180 días; más allá no cambia la decisión de hoy. Motor separado entre scoring y decisión, con su propio contrato. | ✅ 19-09 |
+| 35 | v1 proyección determinista de variables; v2 modelo solo si el backtest lo justifica | Explicable por construcción y se implementa en horas. Un modelo entrenado sin tiempo de validar es ruido con autoridad. Receta v2 ya existe (FINDINGS §7). | ✅ 19-09 |
+| 36 | Intervalo y probabilidad desde residuos y frecuencias del backtest | Sin inventar dispersión. Se declara que no es probabilidad de impago. | ✅ 19-09 |
+| 37 | La previsión solo endurece: plazo, reducción preventiva a 2 meses, ampliar condicionado, +0,5 pp | Coste de una previsión ruidosa = cerrar grifos sanos; por eso exige dos meses y nunca sube. Una previsión buena no sustituye a verlo pasar. | ✅ 19-09 |
+| 38 | Backtest contra baseline ingenuo; si no lo bate, no se conecta | La previsión tiene que demostrar valor en meses de anticipación, no en sofisticación. | ✅ 19-09 |
 
-**Estado 19-09:** 33 de 33 decisiones validadas. Ninguna abierta.
+**Estado 19-09:** 38 de 38 decisiones validadas. Ninguna abierta.

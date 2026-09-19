@@ -1,7 +1,7 @@
 # Motor de decisión — especificación para desarrollo v1.0
 
-> Implementa §2 de [`SOURCE.md`](./SOURCE.md) (decisiones 11, 12, 17-23,
-> validadas 19-09-2026). Sustituye a §8 de `scoring-engine.md`. Si algo
+> Implementa §3 de [`SOURCE.md`](./SOURCE.md) (decisiones 11, 12, 17-23 y
+> 37, validadas 19-09-2026). Sustituye a §8 de `scoring-engine.md`. Si algo
 > aquí contradice a `SOURCE.md`, manda `SOURCE.md` y se corrige esto.
 > Determinista, sin LLM, sin estado oculto: misma entrada → misma salida.
 
@@ -41,8 +41,17 @@ motor de decisión, nada más:
 | `D1` | 0-1 | peso de la empresa en el grupo |
 | `cobros_op_grupo_media6m`, `pagos_op_grupo_media6m`, `servicio_deuda_grupo_media6m` | € | flujos consolidados del grupo, sin traspasos intragrupo |
 
+De `company_month_forecast` (forecast-engine §8), mismo mes:
+
+| Campo | Uso |
+| --- | --- |
+| `banda_pred_3m` | plazo (§5), interés (§6), acción (§8) |
+| `score_pred_3m`, `direccion_pred`, `prob_deterioro_6m` | solo `motivo` y ficha |
+| `metodo` | si `desconectado`, se ignora la previsión (`banda_pred_3m = banda`) |
+
 Y del propio motor, mes anterior (§8 estado): `L_prev`, `accion_prev`,
-`meses_elegible_seguidos`, `meses_reduccion_seguidos`, `cerrado_desde`.
+`meses_elegible_seguidos`, `meses_reduccion_seguidos`,
+`meses_pred_peor_seguidos`, `cerrado_desde`.
 
 ## 2. Parámetros (versionados, un solo fichero)
 
@@ -76,6 +85,8 @@ Todos los números del algoritmo viven en una tabla de parámetros con
 | | `reducir_meses` | 2 | 12 |
 | | `histeresis_pct` | 0,25 | 12 |
 | | `reapertura_meses` | 2 | 23 |
+| Previsión | `prima_prevision_pp` | 0,005 si `banda_pred_3m < banda` | 37 |
+| | `reducir_prev_meses` | 2 | 37 |
 | | `redondeo_L` | 1.000 € | 12 |
 | Grupo | `D1_cross_default` | 0,30 | 17 |
 
@@ -157,8 +168,8 @@ T_MAX = {                       # días
   "D": {"base":   0, "temporal":   0, "estructural":  0},
 }
 
-function t_max(fila, P):
-    b = banda(fila.score, P)                      # banda sin el recorte de §4: el recorte ya está en la tabla
+function t_max(fila, prev, P):
+    b = peor(banda(fila.score, P), prev.banda_pred_3m)   # decisión 37: la previsión solo acorta
     if fila.direccion != "deterioro": return T_MAX[b]["base"]
     if fila.naturaleza == "estructural": return T_MAX[b]["estructural"]
     return T_MAX[b]["temporal"]
@@ -180,6 +191,7 @@ function tae(fila, plazo_dias, P):
     if fila.confianza < 0.7: t += P.prima_confianza_pp
     if fila.direccion == "mejora":    t += P.ajuste_mejora_pp
     if fila.direccion == "deterioro": t += P.ajuste_deterioro_pp
+    if prev.banda_pred_3m < b:        t += P.prima_prevision_pp      # decisión 37
     return round(t, 4)
 
 function coste(cantidad, tae, plazo_dias, P):
@@ -188,6 +200,8 @@ function coste(cantidad, tae, plazo_dias, P):
 
 Descomposición guardada por opción: `{base, prima_plazo, prima_confianza,
 ajuste_tendencia}`. La ficha la enseña tal cual.
+
+El desglose guardado añade `prima_prevision`.
 
 **Plazo natural por uso** (no cambia la fórmula, solo sugiere la fila del
 menú a resaltar):
@@ -253,7 +267,12 @@ function accion(fila, elegible, L, estado_prev, P):
     if fila.direccion == "deterioro" and fila.naturaleza == "estructural" and L < Lp:
         return "reducir", L            # inmediato y sin histéresis: la señal manda
 
-    if L > P.ampliar_ratio * Lp and fila.direccion != "deterioro":
+    # reducción preventiva (decisión 37): la banda prevista lleva dos meses por debajo de la actual
+    if prev.banda_pred_3m < banda_efectiva(fila, P) and estado_prev.meses_pred_peor_seguidos + 1 >= P.reducir_prev_meses:
+        L_pred = limite con factor_banda[prev.banda_pred_3m]
+        if L_pred < Lp: return "reducir", max(L_pred, Lp * (1 - P.histeresis_pct))
+
+    if L > P.ampliar_ratio * Lp and fila.direccion != "deterioro" and prev.banda_pred_3m >= banda_efectiva(fila, P):
         return "ampliar", L_acotado
 
     if L < P.reducir_ratio * Lp:
@@ -269,6 +288,7 @@ Actualización del estado tras decidir:
 ```text
 meses_elegible_seguidos  = elegible ? prev + 1 : 0
 meses_reduccion_seguidos = (L < reducir_ratio * Lp) ? prev + 1 : 0
+meses_pred_peor_seguidos = (banda_pred_3m < banda_efectiva) ? prev + 1 : 0
 cerrado_desde            = accion == "cerrar" ? mes : (accion == "abrir" ? null : prev)
 L_prev                   = L_vigente (el devuelto por accion)
 ```
@@ -325,7 +345,8 @@ plazo_natural_anticipo días
 accion                abrir|ampliar|mantener|reducir|cerrar
 motivo_accion         texto (plantilla)
 motivo_grupo          texto o null
-estado                {L_prev, meses_elegible_seguidos, meses_reduccion_seguidos, cerrado_desde, cross_default_activo}
+banda_pred_3m_usada   A|B|C|D (null si previsión desconectada)
+estado                {L_prev, meses_elegible_seguidos, meses_reduccion_seguidos, meses_pred_peor_seguidos, cerrado_desde, cross_default_activo}
 ```
 
 `L` y `L_vigente` se guardan los dos: la ficha enseña "recomendado 120 k,
@@ -337,7 +358,7 @@ vigente 100 k (subida limitada al 25 %)".
 | --- | --- |
 | abrir | "Elegible: score {score} (banda {b}), límite {L} € hasta {T_max} d" |
 | ampliar | "Límite sube de {Lp} a {L_vigente} €: {top1 delta_contrib}" |
-| reducir | "Límite baja de {Lp} a {L_vigente} €: {motivo = estructural \| 2 meses por debajo}, {top1 delta_contrib}" |
+| reducir | "Límite baja de {Lp} a {L_vigente} €: {motivo = estructural \| 2 meses por debajo \| previsión: banda {banda_pred_3m} en 3 meses}, {top1 delta_contrib o driver_1}" |
 | cerrar | "{motivo de §3}" |
 | mantener | "Sin cambios: score {score}, límite {Lp} €" / "Reapertura en {n} meses" / "Pendiente confirmar bajada" |
 
@@ -369,6 +390,7 @@ Resultado esperado por mes escrito en el fixture, no calculado.
 | `deterioro_estructural` | score 70→58, estructural desde mes 4 | mes 4: banda C efectiva, `reducir` inmediato, T_max 30 · mes 5: si sigue, C estructural → T_max 0 → cerrar |
 | `bache_temporal` | un mes con score −8 y vuelve | `mantener` (histéresis y 2 meses de confirmación), nunca `reducir` |
 | `historial_corto` | conf 0,3 | no elegible, motivo "historia", L = 0 pero `limite_cap` calculado |
+| `prevision_peor` | score 72 estable (A), `banda_pred_3m = C` desde mes 2 | mes 2: `mantener`, `meses_pred_peor_seguidos = 1`, T_max 60 (peor banda), TAE +0,5 pp · mes 3: `reducir` preventivo a L con factor 0,4 acotado por histéresis · nunca `ampliar` mientras `banda_pred_3m < A` |
 | `grupo_caida` | 3 empresas, una con D1 0,5 cierra en mes 3 | mes 3: hermanas bajan una banda · mes 4: puerta grupo falla → cerrar · techo aplicado si Σ L > L_grupo |
 
 Tests de propiedades (sobre todas las filas del dataset):
@@ -379,6 +401,7 @@ Tests de propiedades (sobre todas las filas del dataset):
 4. `Σ L_vigente del grupo ≤ L_grupo`.
 5. Mismo input dos veces → misma salida (sin aleatoriedad, sin fecha del sistema).
 6. Cambiar cualquier parámetro cambia `version_parametros`.
+7. Con `banda_pred_3m == banda` en todas las filas, la salida es idéntica a la de un motor sin previsión.
 
 ## 14. Métricas para el jurado (backtest, sobre validación)
 
@@ -388,7 +411,7 @@ Tests de propiedades (sobre todas las filas del dataset):
 | Ingresos simulados | Σ `coste` asumiendo uso del 60 % del `L_vigente` al plazo natural. Supuesto explícito. |
 | Oscilación | % de empresa-mes con acción ≠ `mantener`. Objetivo < 20 %. |
 | Cierres falsos | cierres sin `evento_deterioro` en 6 meses / cierres. |
-| Lead time de cierre | mediana de meses entre primer `reducir` y `evento_deterioro`. |
+| Lead time de cierre | mediana de meses entre primer `reducir` y `evento_deterioro`, **con y sin previsión** (decisión 38). |
 
 ## 15. Fuera de alcance v1
 
