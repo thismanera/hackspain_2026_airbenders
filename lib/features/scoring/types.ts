@@ -96,6 +96,17 @@ export type Extras = {
     C4Estimado: boolean;
     /** Suma 6m del importe € excluido por producto desconocido o no operativo (§10). */
     importesExcluidosEur: number;
+    hardcoreRevolving: boolean;
+  };
+};
+
+export type EvaluacionEwi = {
+  revisionStage2Candidata: boolean;
+  ewis: {
+    ewi1ImpagoObligaciones: boolean;
+    ewi2MorosidadComercial: boolean;
+    ewi3TensionCobertura: boolean;
+    ewi4DeficitPersistente: boolean;
   };
 };
 
@@ -234,4 +245,9 @@ export type ScoreRow = {
   senales: Senales;
   alertas: Alert[];
   cobertura: Extras["cobertura"] & { nHermanasConDatos: number };
+  evaluacionEwi: EvaluacionEwi;
+  gapCicloDias: number | null;
+  recomendacionEmbat: string | null;
+  requiereAvalMatriz: boolean;
+  alertaPignoracionCaja: boolean;
 };

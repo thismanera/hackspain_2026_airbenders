@@ -41,6 +41,19 @@ export function scoreRowFixture(partial: Partial<ScoreRow> = {}): ScoreRow {
     tendScore12m: null,
     tend3m: { A: null, B: null, C: null },
     alertaTempranaDeterioro: false,
+    evaluacionEwi: {
+      revisionStage2Candidata: false,
+      ewis: {
+        ewi1ImpagoObligaciones: false,
+        ewi2MorosidadComercial: false,
+        ewi3TensionCobertura: false,
+        ewi4DeficitPersistente: false,
+      },
+    },
+    gapCicloDias: null,
+    recomendacionEmbat: null,
+    requiereAvalMatriz: false,
+    alertaPignoracionCaja: false,
     factorDeterminante: { id: "sin_datos", delta: 0, descripcion: "" },
     factorDeterminanteGrupo: { id: "holding", delta: 0, descripcion: "" },
     canarioEnMina: { detectado: false, id: null, mensaje: null },
@@ -113,6 +126,7 @@ export function scoreRowFixture(partial: Partial<ScoreRow> = {}): ScoreRow {
       C4Estimado: true,
       importesExcluidosEur: 0,
       nHermanasConDatos: 0,
+      hardcoreRevolving: false,
     },
     ...partial,
   };

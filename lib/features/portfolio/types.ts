@@ -92,14 +92,14 @@ export type GroupAdjustment = {
   share: number;
   /** D5: interdependencia con el grupo. */
   interdependence: number;
-  /** Puntos sumados o restados al score en solitario. Tope ±20. */
+  /** Puntos sumados o restados al score autónomo. Tope -30/+20. */
   adjustment: number;
 };
 
 export type MonthScore = {
   company: string;
   month: string;
-  /** Score final, ya con el ajuste de grupo aplicado. */
+  /** Nota autónoma (`scoreSolo`); el contexto del holding vive en `group` y `scoreGrupo`. */
   score: number;
   /** Score antes del ajuste de grupo. */
   standaloneScore: number;
@@ -114,6 +114,21 @@ export type MonthScore = {
   decision: Decision;
   alerts: Alert[];
   coverage: Coverage;
+  /** Contrato scoring real cuando la ficha procede de Prisma; los fixtures mantienen el formato v1. */
+  scoreSolo?: number;
+  scoreGrupo?: number;
+  forecast?: {
+    scoreSoloPred3m: number;
+    scoreGrupoPred3m: number;
+    scoreSoloPred6m: number;
+    scoreGrupoPred6m: number;
+    p10Solo3m: number;
+    p90Solo3m: number;
+    p10Grupo3m: number;
+    p90Grupo3m: number;
+    metodoSolo: string;
+    metodoGrupo: string;
+  } | null;
 };
 
 export type CompanyMeta = {

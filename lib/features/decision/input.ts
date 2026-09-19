@@ -6,7 +6,7 @@ import type { ScoreRow } from "@/lib/features/scoring/types";
  *
  * Proyecta la fila del score sobre el contrato mínimo (`DecisionInput`): `scoreSolo` (como
  * `score`), pilares, confianza, `estadoSolo` (como `estado`), tendencia, tipos de alerta, lo que
- * define al grupo (`ajusteHolding` como `avalGrupo`) y una sola variable en euros
+ * define al grupo (`ajusteHolding`) y una sola variable en euros
  * (`tamano = cobrosOpMedia3m`). Todo lo demás del contrato de scoring se queda fuera a propósito:
  * si el motor de decisión necesitase un dato nuevo, se añade aquí y se justifica, no se lee a
  * escondidas desde un paso.
@@ -28,7 +28,12 @@ export function proyectar(r: ScoreRow): DecisionInput {
     alertas: r.alertas.map((a) => a.tipo),
     D1: r.D1,
     D5: r.D5,
-    avalGrupo: r.ajusteHolding,
+    ajusteHolding: r.ajusteHolding,
+    scoreGrupo: r.scoreGrupo,
+    estadoGrupo: r.estadoGrupo,
+    requiereAvalMatriz: r.requiereAvalMatriz,
+    alertaPignoracionCaja: r.alertaPignoracionCaja,
+    revisionStage2Candidata: r.evaluacionEwi.revisionStage2Candidata,
     tamano: r.cobrosOpMedia3m,
   };
 }

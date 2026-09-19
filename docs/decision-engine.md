@@ -2,9 +2,10 @@
 
 La entrada autónoma se llama `scoreSolo`; no existe un campo numérico `score`
 en la fila TypeScript de scoring. `proyectar` mapea `scoreSolo` → `DecisionInput.score`,
-`estadoSolo` → `estado` y `ajusteHolding` → `avalGrupo`. `scoreGrupo` y
-`estadoGrupo` describen el holding; las bandas y decisiones consumen la nota
-autónoma.
+`estadoSolo` → `estado` y `ajusteHolding`. `scoreGrupo` y
+`estadoGrupo` describen el holding; la decisión conserva la peor banda actual
+entre Solo y Grupo. El apoyo positivo de `scoreGrupo` solo entra por la ruta
+condicionada a aval solidario.
 
 > Implementa §3 de [`SOURCE.md`](./SOURCE.md) (decisiones 11, 12, 17-23, 37 y
 > el contrato mínimo 43-47, validadas 19-09-2026). Sustituye a §8 de
@@ -46,40 +47,42 @@ El motor **no** lee `ScoreRow`. Lee la proyección de la decisión 43, que
 contrato de scoring. `decideGroup` sigue aceptando filas de score y proyecta
 dentro, así que el pipeline no cambia.
 
-| Campo | Tipo | De `ScoreRow` | Para qué |
-| --- | --- | --- | --- |
-| `company`, `month`, `group_id` | id, `YYYY-MM`, id | igual | clave y agrupación (§12) |
-| `version_scoring` | texto | `version_parametros` | trazabilidad (§10) |
-| `score` | 0-100 | `scoreSolo` | banda (§4), puerta `estado` (§3), plazo (§5) |
-| `confianza` | 0-1 | igual | puerta `historia` (§3), recorte de `L` (§4), prima (§6) |
-| `subscores {A,B,C}` | 0-100 | igual | puertas de pilar (§3), `factor_A` (§4) |
-| `estado` | `sana \| vigilar \| riesgo \| sin_datos` | `estadoSolo` | ficha |
-| `direccion` | `mejora \| estable \| deterioro` | igual | banda efectiva (§4), plazo (§5), precio (§6) |
-| `naturaleza` | `temporal \| estructural \| sin_cambio` | igual | banda efectiva (§4), plazo (§5), acción (§8) |
-| `tend_score_3m` | número o null | igual | `motivo_accion` (§11) |
-| `tend_3m {A,B,C}` | número o null | igual | `motivo_accion` (§11) |
-| `alertas` | `AlertTipo[]` | `alertas[].tipo` | puertas de pilar (§3) |
-| `D1`, `D5`, `aval_grupo` | 0-1, 0-1, puntos | `D1`, `D5`, `ajusteHolding` | cross-default y ficha (§9) |
-| `tamano` | € | `cobros_op_media3m` | **única** variable en euros: escala de `L` (§4) y del techo (§9) |
+| Campo                          | Tipo                                     | De `ScoreRow`               | Para qué                                                         |
+| ------------------------------ | ---------------------------------------- | --------------------------- | ---------------------------------------------------------------- |
+| `company`, `month`, `group_id` | id, `YYYY-MM`, id                        | igual                       | clave y agrupación (§12)                                         |
+| `version_scoring`              | texto                                    | `version_parametros`        | trazabilidad (§10)                                               |
+| `score`                        | 0-100                                    | `scoreSolo`                 | banda (§4), puerta `estado` (§3), plazo (§5)                     |
+| `confianza`                    | 0-1                                      | igual                       | puerta `historia` (§3), recorte de `L` (§4), prima (§6)          |
+| `subscores {A,B,C}`            | 0-100                                    | igual                       | puertas de pilar (§3), `factor_A` (§4)                           |
+| `estado`                       | `sana \| vigilar \| riesgo \| sin_datos` | `estadoSolo`                | ficha                                                            |
+| `direccion`                    | `mejora \| estable \| deterioro`         | igual                       | banda efectiva (§4), plazo (§5), precio (§6)                     |
+| `naturaleza`                   | `temporal \| estructural \| sin_cambio`  | igual                       | banda efectiva (§4), plazo (§5), acción (§8)                     |
+| `tend_score_3m`                | número o null                            | igual                       | `motivo_accion` (§11)                                            |
+| `tend_3m {A,B,C}`              | número o null                            | igual                       | `motivo_accion` (§11)                                            |
+| `alertas`                      | `AlertTipo[]`                            | `alertas[].tipo`            | puertas de pilar (§3)                                            |
+| `D1`, `D5`, `ajusteHolding`    | 0-1, 0-1, puntos                         | `D1`, `D5`, `ajusteHolding` | cross-default y ficha (§9)                                       |
+| `tamano`                       | €                                        | `cobros_op_media3m`         | **única** variable en euros: escala de `L` (§4) y del techo (§9) |
 
 Lo que **no** entra, y por qué: `cobros_op_media6m`, `pagos_op_media6m`,
 `servicio_deuda_media6m` y `capacidad_cuota_adv` (los sustituye el pilar A, §4);
 `racha_B2`, `racha_deficit` y `C4` (los sustituyen sus alertas, §3); `C3_dias`
 (el plazo natural pasa a ser el parámetro, §6); los flujos consolidados del
 grupo (el techo se mide sobre `Σ tamano`, §9); `senales`, `cobertura`,
-`variables`, `delta_contrib`, `scoreGrupo` y `estadoGrupo` (el holding ya está
-en `ajusteHolding`; la decisión no lo vuelve a aplicar).
+`variables`, `delta_contrib` y `estadoGrupo` (el holding ya está en
+`ajusteHolding`; `scoreGrupo` se usa para conservar una banda peor del holding
+o en la ruta condicionada a aval).
 
-De `company_month_forecast` (forecast-engine §8), mismo mes. La previsión es
-**opcional**: el motor acepta la entrada y, si no la recibe (o llega con
-`metodo = "desconectado"`), opera con `banda_pred_3m = banda` y deja
-`banda_pred_3m_usada = null` en la salida. Hoy el pipeline no la conecta.
+De `company_month_forecast` (forecast-engine §8), mismo mes. El pipeline
+calcula siempre la previsión, pero cada objetivo se conecta solo si su ajuste
+fuera de muestra mejora estrictamente al baseline en MAE y acierto de banda.
+Cuando llega con `metodo = "desconectado"`, queda en modo sombra: opera con
+`banda_pred_3m = banda` y deja `banda_pred_3m_usada = null` en la salida.
 
-| Campo | Uso |
-| --- | --- |
-| `banda_pred_3m` | plazo (§5), interés (§6), acción (§8) |
-| `score_pred_3m`, `direccion_pred`, `prob_deterioro_6m` | solo `motivo` y ficha |
-| `metodo` | si `desconectado`, se ignora la previsión (`banda_pred_3m = banda`) |
+| Campo                                                  | Uso                                                                 |
+| ------------------------------------------------------ | ------------------------------------------------------------------- |
+| `banda_pred_3m`                                        | plazo (§5), interés (§6), acción (§8)                               |
+| `score_pred_3m`, `direccion_pred`, `prob_deterioro_6m` | solo `motivo` y ficha                                               |
+| `metodo`                                               | si `desconectado`, se ignora la previsión (`banda_pred_3m = banda`) |
 
 Y del propio motor, mes anterior (§8 estado): `L_prev`, `accion_prev`,
 `meses_elegible_seguidos`, `meses_reduccion_seguidos`,
@@ -90,37 +93,37 @@ Y del propio motor, mes anterior (§8 estado): `L_prev`, `accion_prev`,
 Todos los números del algoritmo viven en una tabla de parámetros con
 `version_parametros`. Ningún número suelto en código.
 
-| Grupo | Parámetro | Valor | Decisión |
-| --- | --- | --- | --- |
-| Elegibilidad | `conf_min` | 0,4 | 18, 39 |
-| | `score_min` | 45 | 5, 18 |
-| | `umbral_pilar` | A 50 · B 60 · C 50 | 44 |
-| | `cierre_confirmado_meses` | 2 | 42 |
-| | `puertas_blandas` | `historia`, `caja` (solo el umbral del pilar A) | 42, 44 |
-| Límite | `anticipo_pct` | 0,80 | 11 |
-| | `anticipo_meses` | 3 | 11 |
-| | `conf_ref` | 0,6 | 12 |
-| | `factor_A_ref` | 70 | 45 |
-| Bandas | `banda_A_min` / `banda_B_min` / `banda_C_min` | 75 / 60 / 45 | 12 |
-| | `factor_banda` | A 1,0 · B 0,7 · C 0,4 · D 0 | 12 |
-| | `base_TAE` | A 0,05 · B 0,07 · C 0,10 | 12, 21 |
-| Plazo | `T_max` (d) | ver §5 | 20 |
-| | `plazos_menu` (d) | 30, 60, 90, 120, 180 | 19 |
-| | `rampa_dias` | 180 | 46 |
-| | `plazo_natural_defecto` (d) | 60 (único, `C3_dias` sale del contrato) | 22, 43 |
-| Interés | `prima_plazo_pp_30d` | 0,005 | 21 |
-| | `prima_confianza_pp` | 0,01 si `confianza < 0,7` | 21 |
-| | `ajuste_mejora_pp` / `ajuste_deterioro_pp` | −0,005 / +0,01 | 21 |
-| | `base_dias` | 360 | 21 |
-| Revisión | `ampliar_ratio` / `reducir_ratio` | 1,15 / 0,85 | 12 |
-| | `reducir_meses` | 2 | 12 |
-| | `histeresis_pct` | 0,25 | 12 |
-| | `reapertura_meses` | 2 | 23 |
-| Previsión | `prima_prevision_pp` | 0,005 si `banda_pred_3m < banda` | 37 |
-| | `reducir_prev_meses` | 2 | 37 |
-| | `redondeo_L` | 1.000 € | 12 |
-| Grupo | `D1_cross_default` | 0,30 | 17 |
-| Métricas | `uso_simulado` | 0,6 del `L_vigente` | §14 |
+| Grupo        | Parámetro                                     | Valor                                           | Decisión |
+| ------------ | --------------------------------------------- | ----------------------------------------------- | -------- |
+| Elegibilidad | `conf_min`                                    | 0,4                                             | 18, 39   |
+|              | `score_min`                                   | 45                                              | 5, 18    |
+|              | `umbral_pilar`                                | A 50 · B 60 · C 50                              | 44       |
+|              | `cierre_confirmado_meses`                     | 2                                               | 42       |
+|              | `puertas_blandas`                             | `historia`, `caja` (solo el umbral del pilar A) | 42, 44   |
+| Límite       | `anticipo_pct`                                | 0,80                                            | 11       |
+|              | `anticipo_meses`                              | 3                                               | 11       |
+|              | `conf_ref`                                    | 0,6                                             | 12       |
+|              | `factor_A_ref`                                | 70                                              | 45       |
+| Bandas       | `banda_A_min` / `banda_B_min` / `banda_C_min` | 75 / 60 / 45                                    | 12       |
+|              | `factor_banda`                                | A 1,0 · B 0,7 · C 0,4 · D 0                     | 12       |
+|              | `base_TAE`                                    | A 0,05 · B 0,07 · C 0,10                        | 12, 21   |
+| Plazo        | `T_max` (d)                                   | ver §5                                          | 20       |
+|              | `plazos_menu` (d)                             | 30, 60, 90, 120, 180                            | 19       |
+|              | `rampa_dias`                                  | 180                                             | 46       |
+|              | `plazo_natural_defecto` (d)                   | 60 (único, `C3_dias` sale del contrato)         | 22, 43   |
+| Interés      | `prima_plazo_pp_30d`                          | 0,005                                           | 21       |
+|              | `prima_confianza_pp`                          | 0,01 si `confianza < 0,7`                       | 21       |
+|              | `ajuste_mejora_pp` / `ajuste_deterioro_pp`    | −0,005 / +0,01                                  | 21       |
+|              | `base_dias`                                   | 360                                             | 21       |
+| Revisión     | `ampliar_ratio` / `reducir_ratio`             | 1,15 / 0,85                                     | 12       |
+|              | `reducir_meses`                               | 2                                               | 12       |
+|              | `histeresis_pct`                              | 0,25                                            | 12       |
+|              | `reapertura_meses`                            | 2                                               | 23       |
+| Previsión    | `prima_prevision_pp`                          | 0,005 si `banda_pred_3m < banda`                | 37       |
+|              | `reducir_prev_meses`                          | 2                                               | 37       |
+|              | `redondeo_L`                                  | 1.000 €                                         | 12       |
+| Grupo        | `D1_cross_default`                            | 0,30                                            | 17       |
+| Métricas     | `uso_simulado`                                | 0,6 del `L_vigente`                             | §14      |
 
 **Parámetros retirados** (decisiones 43-47): `estres_cobros`, `estres_pagos`,
 `cobertura_min` y `meses_limite_cap` medían una capacidad de cuota en euros que
@@ -155,11 +158,11 @@ function elegibilidad(entrada, estado_prev, P):
 score y de su alerta, no de la variable cruda, que sale del contrato de entrada
 con la decisión 43:
 
-| Puerta | Antes | Ahora | Evidencia (run 2026-08) |
-| --- | --- | --- | --- |
-| fiabilidad | `racha_B2 ≤ 1` | sin `impago_obligaciones` **y** `B ≥ 60` | la alerta coincide 56/56 con `racha_B2 ≥ 2` |
-| caja | `racha_deficit ≤ 2` **y** `capacidad_cuota_adv > 0` | sin `deficit_persistente` **y** `A ≥ 50` | la alerta coincide 280/280 con `racha_deficit > 2` |
-| clientes | `C4 ≤ 0,40` | sin `vencido_alto` **y** `C ≥ 50` | la alerta coincide 242/242 con `C4 > 40 %` |
+| Puerta     | Antes                                               | Ahora                                    | Evidencia (run 2026-08)                            |
+| ---------- | --------------------------------------------------- | ---------------------------------------- | -------------------------------------------------- |
+| fiabilidad | `racha_B2 ≤ 1`                                      | sin `impago_obligaciones` **y** `B ≥ 60` | la alerta coincide 56/56 con `racha_B2 ≥ 2`        |
+| caja       | `racha_deficit ≤ 2` **y** `capacidad_cuota_adv > 0` | sin `deficit_persistente` **y** `A ≥ 50` | la alerta coincide 280/280 con `racha_deficit > 2` |
+| clientes   | `C4 ≤ 0,40`                                         | sin `vencido_alto` **y** `C ≥ 50`        | la alerta coincide 242/242 con `C4 > 40 %`         |
 
 - Las tres alertas reproducen **1:1** las puertas crudas que sustituyen, así que
   el cambio de fuente no pierde señal; el pilar añade el matiz continuo que el
@@ -211,14 +214,14 @@ estado.meses_puerta_blanda_seguidos = blando ? prev + 1 : 0
 
 Motivos en texto (plantilla, sin LLM):
 
-| Puerta | Texto |
-| --- | --- |
-| historia | "Historial insuficiente: confianza {conf} < 0,4" |
-| estado | "Score {score} por debajo de 45" |
-| fiabilidad | "Impago de obligaciones (alerta)" / "Fiabilidad {B} por debajo de 60" |
-| caja | "Déficit persistente (alerta)" / "Capacidad de deuda {A} por debajo de 50" |
-| clientes | "Vencido alto (alerta)" / "Clientes {C} por debajo de 50" |
-| grupo | "Cierre de {empresa} ({D1} % del grupo)" |
+| Puerta     | Texto                                                                      |
+| ---------- | -------------------------------------------------------------------------- |
+| historia   | "Historial insuficiente: confianza {conf} < 0,4"                           |
+| estado     | "Score {score} por debajo de 45"                                           |
+| fiabilidad | "Impago de obligaciones (alerta)" / "Fiabilidad {B} por debajo de 60"      |
+| caja       | "Déficit persistente (alerta)" / "Capacidad de deuda {A} por debajo de 50" |
+| clientes   | "Vencido alto (alerta)" / "Clientes {C} por debajo de 50"                  |
+| grupo      | "Cierre de {empresa} ({D1} % del grupo)"                                   |
 
 Cada puerta de pilar tiene dos textos, uno por mitad: la ficha dice si ha
 fallado la alerta (hecho) o el umbral (matiz), sin tener que enseñar una
@@ -319,10 +322,10 @@ El desglose guardado añade `prima_prevision`.
 **Plazo natural por uso** (no cambia la fórmula, solo sugiere la fila del
 menú a resaltar):
 
-| Uso | Plazo natural |
-| --- | --- |
-| Anticipar cobros | `plazo_natural_defecto` = 60 d |
-| Aplazar pagos | plazo elegido por la empresa, ≤ `T_max` |
+| Uso              | Plazo natural                           |
+| ---------------- | --------------------------------------- |
+| Anticipar cobros | `plazo_natural_defecto` = 60 d          |
+| Aplazar pagos    | plazo elegido por la empresa, ≤ `T_max` |
 
 Decisión 43: `C3_dias` sale del contrato de entrada, así que el plazo natural
 del anticipo es el parámetro para todas las empresas. Era una sugerencia de qué
@@ -356,11 +359,11 @@ plazo; toda `cantidad_max ≤ L` y `cantidad_max ≤ L × plazo / rampa_dias`.
 que `elegible` exige las seis puertas, `T_max > 0` **y** `len(menu) > 0`. El
 `motivo` dice por qué está vacío:
 
-| Caso | `motivo` |
-| --- | --- |
+| Caso                                                                         | `motivo`                                                   |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------- |
 | `L_vigente > 0` pero la rampa no llega al escalón de 1.000 € en ningún plazo | "Límite por debajo del escalón mínimo en todos los plazos" |
-| `L_vigente = 0` esperando reapertura (§8) | "Reapertura en {n} meses" |
-| `L_vigente = 0` porque `L = 0` (banda D o tamaño nulo) | "Límite a cero" |
+| `L_vigente = 0` esperando reapertura (§8)                                    | "Reapertura en {n} meses"                                  |
+| `L_vigente = 0` porque `L = 0` (banda D o tamaño nulo)                       | "Límite a cero"                                            |
 
 Validación de una petición concreta `(cantidad, plazo)`:
 
@@ -543,13 +546,13 @@ ha decidido el límite. Con `cierre_pendiente = true` la fila sale
 
 ## 11. Plantillas de `motivo_accion`
 
-| Acción | Texto |
-| --- | --- |
-| abrir | "Elegible: score {score} (banda {b}), límite {L} € hasta {T_max} d" |
-| ampliar | "Límite sube de {Lp} a {L_vigente} €: {pilar con mayor \|tend_3m\|}" |
-| reducir | "Límite baja de {Lp} a {L_vigente} €: {motivo = deterioro estructural \| 2 meses por debajo \| previsión: banda {banda_pred_3m} en 3 meses \| cross-default de {empresa causante} \| techo de grupo}, {pilar con mayor \|tend_3m\|}" |
-| cerrar | "{motivo de §3}" |
-| mantener | "Sin cambios: score {score}, límite {Lp} €" / "Reapertura en {n} meses" / "Pendiente confirmar bajada" / "Pendiente confirmar cierre: {motivo de §3}" (decisión 42, manda sobre las otras) |
+| Acción   | Texto                                                                                                                                                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| abrir    | "Elegible: score {score} (banda {b}), límite {L} € hasta {T_max} d"                                                                                                                                                                  |
+| ampliar  | "Límite sube de {Lp} a {L_vigente} €: {pilar con mayor \|tend_3m\|}"                                                                                                                                                                 |
+| reducir  | "Límite baja de {Lp} a {L_vigente} €: {motivo = deterioro estructural \| 2 meses por debajo \| previsión: banda {banda_pred_3m} en 3 meses \| cross-default de {empresa causante} \| techo de grupo}, {pilar con mayor \|tend_3m\|}" |
+| cerrar   | "{motivo de §3}"                                                                                                                                                                                                                     |
+| mantener | "Sin cambios: score {score}, límite {Lp} €" / "Reapertura en {n} meses" / "Pendiente confirmar bajada" / "Pendiente confirmar cierre: {motivo de §3}" (decisión 42, manda sobre las otras)                                           |
 
 Decisión 43: el sufijo sale de la **tendencia**, que sí está en el contrato de
 entrada, y no de `delta_contrib`, que era la cascada entera de scoring. Se elige
@@ -575,19 +578,19 @@ Fixtures escritas en los términos del contrato de la decisión 43 —score,
 pilares, alertas, tendencia y tamaño— con `decisionInputFixture`. Resultado
 esperado por mes escrito en el fixture, no calculado.
 
-| Fixture | Perfil | Debe dar |
-| --- | --- | --- |
-| `sana` | score 82, pilares 80, conf 0,9, estable, tamaño 100 k/mes | A · `limite_op` = 240 k, `factor_A` = 1 ⇒ L = 240 k · T_max 180 · menú 30 d → 40 k, 60 d → 80 k … 180 d → 240 k · TAE 5 % → 7,5 % |
-| `mejora` | tamaño 50 k → 100 k, dirección mejora | `ampliar` cuando L > 1,15·Lp, acotado a +25 % (120 k → 150 k) |
-| `deterioro_estructural` | score 68, estructural desde el mes 2 | banda C efectiva (B recortada un escalón), `reducir` inmediato a 96 k, T_max 30 · si sigue en C estructural → T_max 0 → cerrar |
-| `bache_temporal` | un mes con el tamaño a la mitad y vuelve | `mantener` (histéresis y 2 meses de confirmación), nunca `reducir` |
-| `pilar_A_bajo` | `A = 35` (recorte) y `A = 20` (puerta) | 35: L se parte por la mitad, sigue elegible · 20: falla `caja` por el umbral del pilar, puerta **blanda** → mes de gracia y cierre al segundo mes |
-| `alerta_dura` | una sola alerta de puerta | `impago_obligaciones`, `deficit_persistente` o `vencido_alto` cierran el mismo mes, con su texto; `deterioro` o `contagio_grupo` no cierran nada |
-| `historial_corto` | conf 0,3 | no elegible, motivo "historia", L = 0 pero `limite_op` y `factor_A` calculados |
-| `prevision_peor` | score 82 (A), `banda_pred_3m = C` desde el mes 2 | mes 2: `mantener`, `meses_pred_peor_seguidos = 1`, T_max 60 (peor banda), TAE +0,5 pp · mes 3: `reducir` preventivo a L con factor 0,4 acotado por histéresis (180 k) · nunca `ampliar` mientras `banda_pred_3m < A` |
-| `grupo_caida` | 2 empresas, una con D1 0,5 cierra en el mes 4 | la hermana baja una banda (L 240 k → 168 k, `reducir`) · mes 5: puerta grupo falla → cerrar · la bandera se levanta y vuelve por la reapertura normal |
-| `grupo_techo` | "a" en banda D arrastra el score ponderado a 51 (banda C) | L_grupo = 0,8 × 200 k × 3 × 0,4 = 192 k frente a Σ L = 240 k ⇒ prorrateo y `motivo_grupo` |
-| `grupo_sin_tamano` | `Σ tamano = 0` | L_grupo = 0 **y** L individual = 0: nada que prorratear, `motivo_grupo = null`, nadie cierra |
+| Fixture                 | Perfil                                                    | Debe dar                                                                                                                                                                                                             |
+| ----------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sana`                  | score 82, pilares 80, conf 0,9, estable, tamaño 100 k/mes | A · `limite_op` = 240 k, `factor_A` = 1 ⇒ L = 240 k · T_max 180 · menú 30 d → 40 k, 60 d → 80 k … 180 d → 240 k · TAE 5 % → 7,5 %                                                                                    |
+| `mejora`                | tamaño 50 k → 100 k, dirección mejora                     | `ampliar` cuando L > 1,15·Lp, acotado a +25 % (120 k → 150 k)                                                                                                                                                        |
+| `deterioro_estructural` | score 68, estructural desde el mes 2                      | banda C efectiva (B recortada un escalón), `reducir` inmediato a 96 k, T_max 30 · si sigue en C estructural → T_max 0 → cerrar                                                                                       |
+| `bache_temporal`        | un mes con el tamaño a la mitad y vuelve                  | `mantener` (histéresis y 2 meses de confirmación), nunca `reducir`                                                                                                                                                   |
+| `pilar_A_bajo`          | `A = 35` (recorte) y `A = 20` (puerta)                    | 35: L se parte por la mitad, sigue elegible · 20: falla `caja` por el umbral del pilar, puerta **blanda** → mes de gracia y cierre al segundo mes                                                                    |
+| `alerta_dura`           | una sola alerta de puerta                                 | `impago_obligaciones`, `deficit_persistente` o `vencido_alto` cierran el mismo mes, con su texto; `deterioro` o `contagio_grupo` no cierran nada                                                                     |
+| `historial_corto`       | conf 0,3                                                  | no elegible, motivo "historia", L = 0 pero `limite_op` y `factor_A` calculados                                                                                                                                       |
+| `prevision_peor`        | score 82 (A), `banda_pred_3m = C` desde el mes 2          | mes 2: `mantener`, `meses_pred_peor_seguidos = 1`, T_max 60 (peor banda), TAE +0,5 pp · mes 3: `reducir` preventivo a L con factor 0,4 acotado por histéresis (180 k) · nunca `ampliar` mientras `banda_pred_3m < A` |
+| `grupo_caida`           | 2 empresas, una con D1 0,5 cierra en el mes 4             | la hermana baja una banda (L 240 k → 168 k, `reducir`) · mes 5: puerta grupo falla → cerrar · la bandera se levanta y vuelve por la reapertura normal                                                                |
+| `grupo_techo`           | "a" en banda D arrastra el score ponderado a 51 (banda C) | L_grupo = 0,8 × 200 k × 3 × 0,4 = 192 k frente a Σ L = 240 k ⇒ prorrateo y `motivo_grupo`                                                                                                                            |
+| `grupo_sin_tamano`      | `Σ tamano = 0`                                            | L_grupo = 0 **y** L individual = 0: nada que prorratear, `motivo_grupo = null`, nadie cierra                                                                                                                         |
 
 Tests de propiedades (sobre todas las filas del dataset):
 
@@ -597,7 +600,7 @@ Tests de propiedades (sobre todas las filas del dataset):
    escalón de `redondeo_L` en ningún plazo, §7). En los dos casos lo que falta
    es grifo que abrir este mes, no solvencia, y la línea viva no se cierra.
    Forma comprobable: `no elegible ⇒ L_vigente = 0 ∨ cierre_pendiente ∨
-   puertas_fallidas = []`.
+puertas_fallidas = []`.
 2. `cantidad_max` y `tae` no decrecen con el plazo dentro de un menú, y
    `cantidad_max ≤ L_vigente × plazo / rampa_dias` en toda opción (decisión 46).
 3. `|L_vigente − L_prev| ≤ 25 % · L_prev` salvo `cerrar`, `reducir` por
@@ -612,13 +615,13 @@ Tests de propiedades (sobre todas las filas del dataset):
 
 ## 14. Métricas para el jurado (backtest, sobre validación)
 
-| Métrica | Definición |
-| --- | --- |
-| Exposición evitada | Σ `max(0, L_vigente(t−3) − L_vigente(t))` de empresas que entran en `evento_deterioro` en `t`. En v1 el retroceso es **fijo a t−3**, no el `k` variable del plan; la comparación contra un motor sin anticipación (solo banda por score sin dirección) queda como follow-up. |
-| Ingresos simulados | Σ `coste` asumiendo uso del 60 % del `L_vigente` al plazo natural. Supuesto explícito. |
-| Oscilación | % de empresa-mes con un cambio de acción; un `cerrar` repetido no cuenta. Objetivo < 20 %. |
-| Cierres falsos | `cierres` y `cierres_falsos` se publican como **recuentos brutos** (solo el mes en que se cierra, no cada mes cerrado); el ratio es `cierres_falsos / cierres` = cierres sin `evento_deterioro` en los 6 meses siguientes. |
-| Lead time de cierre | mediana de meses entre primer `reducir` y `evento_deterioro`, **con y sin previsión** (decisión 38). |
+| Métrica             | Definición                                                                                                                                                                                                                                                                   |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Exposición evitada  | Σ `max(0, L_vigente(t−3) − L_vigente(t))` de empresas que entran en `evento_deterioro` en `t`. En v1 el retroceso es **fijo a t−3**, no el `k` variable del plan; la comparación contra un motor sin anticipación (solo banda por score sin dirección) queda como follow-up. |
+| Ingresos simulados  | Σ `coste` asumiendo uso del 60 % del `L_vigente` al plazo natural. Supuesto explícito.                                                                                                                                                                                       |
+| Oscilación          | % de empresa-mes con un cambio de acción; un `cerrar` repetido no cuenta. Objetivo < 20 %.                                                                                                                                                                                   |
+| Cierres falsos      | `cierres` y `cierres_falsos` se publican como **recuentos brutos** (solo el mes en que se cierra, no cada mes cerrado); el ratio es `cierres_falsos / cierres` = cierres sin `evento_deterioro` en los 6 meses siguientes.                                                   |
+| Lead time de cierre | mediana de meses entre primer `reducir` y `evento_deterioro`, **con y sin previsión** (decisión 38).                                                                                                                                                                         |
 
 ## 15. Fuera de alcance v1
 

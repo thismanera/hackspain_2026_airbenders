@@ -3,6 +3,7 @@ model ScoreCompany {
   groupId  String
   currency String?
   scores   CompanyMonthScore[]
+  forecasts CompanyMonthForecast[]
 
   @@map("score_companies")
 }
@@ -25,6 +26,7 @@ model ScoreRun {
   createdAt        DateTime            @default(now())
   completedAt      DateTime?
   scores           CompanyMonthScore[]
+  forecasts        CompanyMonthForecast[]
 
   @@index([status, completedAt])
   @@map("score_runs")
@@ -42,10 +44,49 @@ model CompanyMonthScore {
   direction   String
   data        Json
   decision    CompanyMonthDecision?
+  forecast    CompanyMonthForecast?
 
   @@id([runId, companyId, month])
   @@index([runId, month, estadoGrupo, direction])
   @@map("company_month_scores")
+}
+
+model ForecastParameters {
+  version       String   @id
+  versionScoring String
+  data          Json
+  createdAt     DateTime @default(now())
+  forecasts     CompanyMonthForecast[]
+
+  @@index([versionScoring])
+  @@map("forecast_parameters")
+}
+
+model CompanyMonthForecast {
+  runId             String
+  companyId         String
+  month             String
+  parameterVersion  String
+  run               ScoreRun          @relation(fields: [runId], references: [id])
+  company           ScoreCompany     @relation(fields: [companyId], references: [id])
+  score             CompanyMonthScore @relation(fields: [runId, companyId, month], references: [runId, companyId, month])
+  parameters        ForecastParameters @relation(fields: [parameterVersion], references: [version])
+  scoreSoloPred3m   Float
+  scoreGrupoPred3m  Float
+  scoreSoloPred6m   Float
+  scoreGrupoPred6m  Float
+  bandaSoloPred3m   String
+  bandaGrupoPred3m  String
+  direccionSolo    String
+  direccionGrupo   String
+  metodoSolo       String
+  metodoGrupo      String
+  data              Json
+
+  @@id([runId, companyId, month])
+  @@index([runId, month, bandaSoloPred3m, bandaGrupoPred3m])
+  @@index([parameterVersion, month])
+  @@map("company_month_forecasts")
 }
 
 model CompanyMonthDecision {

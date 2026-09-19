@@ -8,6 +8,7 @@ import { CoveragePanel } from "@/components/grifo/company/coverage-panel";
 import { DecisionPanel } from "@/components/grifo/company/decision-panel";
 import { GatesPanel } from "@/components/grifo/company/gates";
 import { GroupPanel } from "@/components/grifo/company/group-panel";
+import { ForecastPanel } from "@/components/grifo/company/forecast-panel";
 import { OfferMenu } from "@/components/grifo/company/offer-menu";
 import { ScoreTrend } from "@/components/grifo/company/score-trend";
 import { StatusBadge } from "@/components/grifo/status-badge";
@@ -68,9 +69,9 @@ export function CompanyClient({ companyId, month }: { companyId: string; month: 
           <Info aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
           <span>
             <span className="font-medium">No opinamos sobre esta empresa todavía.</span>{" "}
-            {ESTADO.sin_datos.description} Con {latest.coverage.observedMonths} de 6 meses observados,
-            el score de abajo se calcula igual pero no es defendible: trátalo como una estimación
-            provisional, no como una recomendación.
+            {ESTADO.sin_datos.description} Con {latest.coverage.observedMonths} de 6 meses
+            observados, el score de abajo se calcula igual pero no es defendible: trátalo como una
+            estimación provisional, no como una recomendación.
           </span>
         </p>
       ) : null}
@@ -80,6 +81,7 @@ export function CompanyClient({ companyId, month }: { companyId: string; month: 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="flex flex-col gap-4 lg:col-span-2">
           <ScoreTrend history={history} />
+          <ForecastPanel companyId={companyId} month={month} />
           <Cascade month={latest} />
         </div>
 

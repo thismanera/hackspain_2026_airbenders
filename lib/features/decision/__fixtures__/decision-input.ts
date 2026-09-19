@@ -25,7 +25,12 @@ export function decisionInputFixture(partial: Partial<DecisionInput> = {}): Deci
     alertas: [],
     D1: 1,
     D5: 0,
-    avalGrupo: 0,
+    ajusteHolding: 0,
+    scoreGrupo: 82,
+    estadoGrupo: "sana",
+    requiereAvalMatriz: false,
+    alertaPignoracionCaja: false,
+    revisionStage2Candidata: false,
     tamano: 100_000,
     ...partial,
   };

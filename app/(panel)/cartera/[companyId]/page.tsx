@@ -11,6 +11,7 @@ import { getQueryClient } from "@/lib/core/react-query";
 import { fetchCompanyFile, portfolioKeys } from "@/lib/features/portfolio/queries";
 import { loadCompanySearchParams } from "@/lib/features/portfolio/search-params";
 import { getCompanyFile } from "@/lib/features/portfolio/source";
+import { getCompanyFileLive } from "@/lib/features/portfolio/live";
 
 import { CompanyClient } from "./company-client";
 
@@ -28,20 +29,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function CompanyPage({ params, searchParams }: Props) {
-  const [{ companyId }, { mes }] = await Promise.all([params, loadCompanySearchParams(searchParams)]);
+  const [{ companyId }, { mes }] = await Promise.all([
+    params,
+    loadCompanySearchParams(searchParams),
+  ]);
 
   // Una empresa que no existe merece un 404 de verdad, no un panel de error.
-  if (!getCompanyFile(companyId, mes)) notFound();
+  const liveFile = await getCompanyFileLive(companyId, mes);
+  if (!liveFile && !getCompanyFile(companyId, mes)) notFound();
 
   const queryClient = getQueryClient();
   void queryClient.prefetchQuery({
     queryKey: portfolioKeys.company(companyId, mes),
     queryFn: () =>
-      fetchCompanyFile(
-        companyId,
-        mes,
-        process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-      ),
+      fetchCompanyFile(companyId, mes, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   });
 
   return (

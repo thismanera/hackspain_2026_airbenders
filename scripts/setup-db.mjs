@@ -96,7 +96,7 @@ function completedRunExists() {
       "-d",
       "scoring",
       "-tAc",
-      "SELECT EXISTS (SELECT 1 FROM score_runs WHERE status = 'complete');",
+      "SELECT EXISTS (SELECT 1 FROM score_runs r WHERE r.status = 'complete' AND EXISTS (SELECT 1 FROM company_month_forecasts f WHERE f.run_id = r.id));",
     ],
     { capture: true },
   );
@@ -123,8 +123,11 @@ async function main() {
   log(force ? "Rebuilding and importing scoring data." : "Building and importing scoring data.");
   run(pnpm, ["scoring:fit"]);
   run(pnpm, ["scoring:score"]);
+  run(pnpm, ["forecast:fit"]);
+  run(pnpm, ["forecast:run"]);
   run(pnpm, ["scoring:decide"]);
   run(pnpm, ["scoring:backtest"]);
+  run(pnpm, ["forecast:backtest"]);
   run(pnpm, ["scoring:import"]);
 
   log("PostgreSQL is ready with scoring data.");

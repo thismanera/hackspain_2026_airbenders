@@ -21,7 +21,12 @@ const CAMPOS: (keyof DecisionInput)[] = [
   "alertas",
   "D1",
   "D5",
-  "avalGrupo",
+  "ajusteHolding",
+  "scoreGrupo",
+  "estadoGrupo",
+  "requiereAvalMatriz",
+  "alertaPignoracionCaja",
+  "revisionStage2Candidata",
   "tamano",
 ];
 
@@ -48,10 +53,8 @@ test("decisión 43: lo que sale del contrato no llega al motor por ninguna vía"
     "variables",
     "deltaContrib",
     "scoreSolo",
-    "scoreGrupo",
     "ajusteHolding",
     "estadoSolo",
-    "estadoGrupo",
     "cobrosOpMedia3m",
   ];
   const claves = new Set(Object.keys(proyectar(scoreRowFixture())));
@@ -103,5 +106,7 @@ test("decisión 43: pilares, tendencia y bloque de grupo viajan tal cual", () =>
   assert.equal(p.naturaleza, "estructural");
   assert.equal(p.D1, 0.42);
   assert.equal(p.D5, 0.18);
-  assert.equal(p.avalGrupo, 6.25);
+  assert.equal(p.ajusteHolding, 6.25);
+  assert.equal(p.scoreGrupo, 80);
+  assert.equal(p.estadoGrupo, "sana");
 });

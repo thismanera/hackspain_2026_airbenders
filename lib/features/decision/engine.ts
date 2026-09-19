@@ -2,7 +2,7 @@ import { decidirAccion, siguienteEstado, type Decision } from "@/lib/features/de
 import { elegibilidad, type Elegibilidad } from "@/lib/features/decision/eligibility";
 import { ajusteGrupo, limiteGrupo, type AjusteGrupo } from "@/lib/features/decision/group";
 import { proyectar } from "@/lib/features/decision/input";
-import { banda, esPeor, peor } from "@/lib/features/decision/limit";
+import { banda, esPeor, peor, scoreForDecision } from "@/lib/features/decision/limit";
 import { menu, plazoNatural } from "@/lib/features/decision/menu";
 import { motivoAccion } from "@/lib/features/decision/motivos";
 import { DECISION_PARAMS as P, hashDecisionParams } from "@/lib/features/decision/params";
@@ -14,6 +14,7 @@ import {
   type DecisionRow,
   type EstadoDecision,
   type PrevisionInput,
+  type PrevisionTarget,
 } from "@/lib/features/decision/types";
 import type { ScoreRow } from "@/lib/features/scoring/types";
 import { CALENDAR } from "@/lib/features/scoring/windows";
@@ -31,18 +32,45 @@ export function parametrosDecision(versionScoring: string): DecisionParameters {
 /** Previsiones del forecast-engine (§1), indexadas por `${company}|${month}`. */
 export type Previsiones = Map<string, PrevisionInput>;
 
-/** Sin previsión conectada la banda prevista es la actual y `banda_pred_3m_usada` sale null (§10). */
+function desconectada(r: DecisionInput): PrevisionInput {
+  const solo = {
+    bandaPred3m: banda(r.score),
+    scorePred3m: null,
+    direccionPred: null,
+    probDeterioro6m: null,
+    metodo: "desconectado" as const,
+  };
+  const grupo = { ...solo, bandaPred3m: banda(r.scoreGrupo) };
+  return { ...solo, solo, grupo, ajusteHoldingPred3m: 0 };
+}
+
 function prevision(previsiones: Previsiones | undefined, r: DecisionInput): PrevisionInput {
   const p = previsiones?.get(`${r.company}|${r.month}`);
-  if (!p || p.metodo === "desconectado")
-    return {
-      bandaPred3m: banda(r.score),
-      scorePred3m: null,
-      direccionPred: null,
-      probDeterioro6m: null,
-      metodo: "desconectado",
-    };
-  return p;
+  if (!p) return desconectada(r);
+  const rawSolo = p.solo ?? p;
+  const rawGrupo = p.grupo ?? p;
+  const neutral = (target: PrevisionTarget, currentScore: number): PrevisionTarget =>
+    target.metodo === "desconectado"
+      ? {
+          ...target,
+          bandaPred3m: banda(currentScore),
+          scorePred3m: null,
+          direccionPred: null,
+          probDeterioro6m: null,
+        }
+      : target;
+  const solo = neutral(rawSolo, r.score);
+  const grupo = neutral(rawGrupo, r.scoreGrupo);
+  return {
+    ...p,
+    solo,
+    grupo,
+    bandaPred3m: solo.bandaPred3m,
+    scorePred3m: solo.scorePred3m,
+    direccionPred: solo.direccionPred,
+    probDeterioro6m: solo.probDeterioro6m,
+    metodo: solo.metodo,
+  };
 }
 
 type BloqueCrossDefault = Pick<
@@ -91,10 +119,12 @@ export function crossDefaultSiguiente(
 
 type Candidata = {
   r: DecisionInput;
+  decisionR: DecisionInput;
   prev: EstadoDecision;
   e: Elegibilidad;
   pred: PrevisionInput;
   d: Decision;
+  condicionAvalMatriz: boolean;
 };
 
 /** §9 paso 1 + 2; con una sola empresa no hay techo consolidado ni cross-default posible. */
@@ -138,6 +168,30 @@ function aplicarTecho(d: Decision, LVigente: number, prev: EstadoDecision): Deci
   return ajustada;
 }
 
+function puertasDuras(e: Elegibilidad): boolean {
+  return e.puertasFallidas.some((p) => p !== "estado" && (p !== "caja" || !e.cajaSoloCapacidad));
+}
+
+function puedeUsarAval(r: DecisionInput, e: Elegibilidad, pred: PrevisionInput): boolean {
+  if (!r.requiereAvalMatriz || r.scoreGrupo < P.scoreMin || puertasDuras(e)) return false;
+  const group = pred.grupo ?? pred;
+  return group.metodo !== "desconectado"
+    ? (group.scorePred3m ?? 0) >= P.scorePredMinApertura
+    : true;
+}
+
+function conPuertasDeAval(e: Elegibilidad): Elegibilidad {
+  const puertasFallidas = e.puertasFallidas.filter(
+    (p) => p !== "estado" && (p !== "caja" || !e.cajaSoloCapacidad),
+  );
+  return {
+    ...e,
+    elegible: puertasFallidas.length === 0,
+    puertasFallidas,
+    motivo: puertasFallidas.length ? e.motivo : null,
+  };
+}
+
 function fila(
   x: Candidata,
   d: Decision,
@@ -147,9 +201,16 @@ function fila(
   causaCrossDefault: string | null,
 ): DecisionRow {
   const { r, e, pred, prev } = x;
-  const T = d.accion === "cerrar" ? 0 : tMax(r, pred.bandaPred3m);
-  const opciones = T === 0 ? [] : menu(r, d.LVigente, T, d.bandaEfectiva, pred.bandaPred3m);
+  const TBase = d.accion === "cerrar" ? 0 : tMax(x.decisionR, pred.bandaPred3m);
+  const T =
+    r.revisionStage2Candidata && prev.LPrev > 0
+      ? Math.min(TBase, P.revisionStage2PlazoDias)
+      : TBase;
+  const opciones =
+    T === 0 ? [] : menu(x.decisionR, d.LVigente, T, d.bandaEfectiva, pred.bandaPred3m);
   const bandaPred = pred.metodo === "desconectado" ? null : pred.bandaPred3m;
+  const grupoPred =
+    pred.grupo?.metodo === "desconectado" ? null : (pred.grupo?.bandaPred3m ?? null);
   // La empresa pasa las seis puertas pero el techo del grupo la dejó en cero (§9): el motivo del
   // cierre es el del grupo, no una puerta de elegibilidad.
   const cerradoPorGrupo = e.elegible && d.accion === "cerrar";
@@ -166,9 +227,9 @@ function fila(
       : T === 0
         ? // la banda que agota el plazo es la peor de la actual y la prevista (§5, decisión 37):
           // si la peor es la prevista, quien agota el plazo es la previsión, no el deterioro de hoy
-          esPeor(pred.bandaPred3m, banda(r.score))
+          esPeor(pred.bandaPred3m, banda(scoreForDecision(x.decisionR)))
           ? `Previsión: banda ${pred.bandaPred3m} en 3 meses`
-          : `Deterioro estructural en banda ${peor(banda(r.score), pred.bandaPred3m)}`
+          : `Deterioro estructural en banda ${peor(banda(scoreForDecision(x.decisionR)), pred.bandaPred3m)}`
         : opciones.length > 0
           ? null
           : d.LVigente > 0
@@ -176,6 +237,19 @@ function fila(
             : d.mesesParaReapertura !== null
               ? `Reapertura en ${d.mesesParaReapertura} meses`
               : "Límite a cero";
+  const motivoDeAccion = motivoAccion(d.accion, x.decisionR, {
+    banda: d.bandaEfectiva,
+    L: d.L,
+    LPrev: prev.LPrev,
+    LVigente: d.LVigente,
+    TMax: T,
+    motivoCierre,
+    causaReduccion: d.causaReduccion,
+    causaCrossDefault,
+    bandaPred,
+    mesesParaReapertura: d.mesesParaReapertura,
+    cierrePendiente: d.cierrePendiente,
+  });
   return {
     company: r.company,
     month: r.month,
@@ -186,7 +260,7 @@ function fila(
     motivo,
     puertasFallidas: e.puertasFallidas,
     cierrePendiente: d.cierrePendiente,
-    banda: banda(r.score),
+    banda: banda(scoreForDecision(x.decisionR)),
     bandaEfectiva: d.bandaEfectiva,
     // Decisión 43 + 45: la ficha publica la escala con la que se ha decidido y el recorte por el
     // pilar A, no una capacidad de cuota en euros que el motor ya no calcula.
@@ -199,21 +273,16 @@ function fila(
     menu: opciones,
     plazoNaturalAnticipo: plazoNatural(),
     accion: d.accion,
-    motivoAccion: motivoAccion(d.accion, r, {
-      banda: d.bandaEfectiva,
-      L: d.L,
-      LPrev: prev.LPrev,
-      LVigente: d.LVigente,
-      TMax: T,
-      motivoCierre,
-      causaReduccion: d.causaReduccion,
-      causaCrossDefault,
-      bandaPred,
-      mesesParaReapertura: d.mesesParaReapertura,
-      cierrePendiente: d.cierrePendiente,
-    }),
+    motivoAccion: x.condicionAvalMatriz
+      ? `${motivoDeAccion} [Requiere Aval Solidario de Matriz]`
+      : motivoDeAccion,
     motivoGrupo,
     bandaPred3mUsada: bandaPred,
+    bandaPredGrupo3mUsada: grupoPred,
+    scorePredSolo3m: pred.solo?.scorePred3m ?? pred.scorePred3m,
+    scorePredGrupo3m: pred.grupo?.scorePred3m ?? null,
+    condicionAvalMatriz: x.condicionAvalMatriz,
+    revisionStage2Candidata: r.revisionStage2Candidata,
     estado,
   };
 }
@@ -258,9 +327,53 @@ export function decideGroup(
 
     const decide = (r: DecisionInput, escalonesExtra: number): Candidata => {
       const prev = estados.get(r.company) ?? ESTADO_INICIAL;
-      const e = elegibilidad(r, prev);
       const pred = prevision(previsiones, r);
-      return { r, prev, e, pred, d: decidirAccion(r, e, pred.bandaPred3m, prev, escalonesExtra) };
+      const aval = puedeUsarAval(r, elegibilidad(r, prev), pred);
+      const autonomous = elegibilidad(r, prev);
+      const eWithAval = aval ? conPuertasDeAval(autonomous) : autonomous;
+      const solo = pred.solo ?? pred;
+      const grupo = pred.grupo ?? pred;
+      const groupWorse =
+        grupo.metodo !== "desconectado" && esPeor(grupo.bandaPred3m, solo.bandaPred3m);
+      const currentGroupWorse = esPeor(banda(r.scoreGrupo), banda(r.score));
+      const selectedBase = aval
+        ? grupo
+        : groupWorse
+          ? { ...solo, bandaPred3m: grupo.bandaPred3m }
+          : solo;
+      // Un holding débil nunca mejora la banda autónoma: aunque el forecast de grupo esté en
+      // sombra o rebote, la decisión conserva como mínimo la peor banda observada hoy.
+      const selected =
+        !aval && currentGroupWorse
+          ? { ...selectedBase, bandaPred3m: peor(selectedBase.bandaPred3m, banda(r.scoreGrupo)) }
+          : selectedBase;
+      const scoreDecision = aval || currentGroupWorse ? r.scoreGrupo : r.score;
+      const decisionR = { ...r, scoreDecision };
+      const forecastOpenBlocked =
+        !aval &&
+        prev.LPrev === 0 &&
+        solo.metodo !== "desconectado" &&
+        (solo.scorePred3m ?? 100) < P.scorePredMinApertura;
+      const e = forecastOpenBlocked
+        ? {
+            ...eWithAval,
+            elegible: false,
+            puertasFallidas: [...eWithAval.puertasFallidas, "estado" as const],
+            motivo: `Previsión autónoma inferior a ${P.scorePredMinApertura} en 3 meses`,
+          }
+        : eWithAval;
+      let d = decidirAccion(decisionR, e, selected.bandaPred3m, prev, escalonesExtra);
+      if (r.revisionStage2Candidata && d.accion === "ampliar")
+        d = { ...d, accion: "mantener", LVigente: prev.LPrev, causaReduccion: null };
+      return {
+        r,
+        decisionR,
+        prev,
+        e,
+        pred: { ...pred, ...selected },
+        d,
+        condicionAvalMatriz: aval,
+      };
     };
 
     let candidatas = rows.map((r) => decide(r, 0));
@@ -285,7 +398,7 @@ export function decideGroup(
     // Primero el estado de todas (§8) y luego el cross-default, que mira el mes ya cerrado.
     const cerradas = candidatas.map((x) => {
       const d = aplicarTecho(x.d, LVigentes.get(x.r.company) ?? x.d.LVigente, x.prev);
-      return { x, d, siguiente: siguienteEstado(x.prev, d, x.r, x.pred.bandaPred3m, x.e) };
+      return { x, d, siguiente: siguienteEstado(x.prev, d, x.decisionR, x.pred.bandaPred3m, x.e) };
     });
     const siguientes = new Map(cerradas.map(({ x, siguiente }) => [x.r.company, siguiente]));
     for (const { x, d, siguiente } of cerradas) {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/core/db";
 import { decisionRowSchema, type DecisionRowDTO } from "@/lib/features/decision/contracts";
+import { forecastParametersSchema, forecastRowSchema } from "@/lib/features/forecast/contracts";
 import {
   parametersSchema,
   scoreRowSchema,
@@ -29,12 +30,20 @@ export async function completedRun(run?: string) {
   const candidates = run
     ? await prisma.scoreRun.findMany({
         where: { id: run, status: "complete" },
-        include: { scores: { take: 1 }, parameters: true },
+        include: {
+          scores: { take: 1 },
+          forecasts: { take: 1, include: { parameters: true } },
+          parameters: true,
+        },
       })
     : await prisma.scoreRun.findMany({
         where: { status: "complete" },
         orderBy: { completedAt: "desc" },
-        include: { scores: { take: 1 }, parameters: true },
+        include: {
+          scores: { take: 1 },
+          forecasts: { take: 1, include: { parameters: true } },
+          parameters: true,
+        },
       });
   for (const candidate of candidates) {
     const parameters = parametersSchema.safeParse(candidate.parameters.data);
@@ -43,12 +52,22 @@ export async function completedRun(run?: string) {
       continue;
     }
     const sample = candidate.scores[0];
-    if (!sample) {
+    const forecastSample = candidate.forecasts[0];
+    if (!sample || !forecastSample) {
       if (run) throw new IncompatibleScoreRunError();
       continue;
     }
     const parsed = scoreRowSchema.safeParse(sample.data);
-    if (parsed.success) return candidate;
+    const forecastParsed = forecastRowSchema.safeParse(forecastSample.data);
+    const forecastParameters = forecastParametersSchema.safeParse(forecastSample.parameters.data);
+    if (
+      parsed.success &&
+      forecastParsed.success &&
+      forecastParameters.success &&
+      forecastSample.parameterVersion === forecastParameters.data.version &&
+      forecastParameters.data.versionScoring === candidate.parameterVersion
+    )
+      return candidate;
     if (run) throw new IncompatibleScoreRunError();
   }
   return null;
@@ -57,11 +76,16 @@ export function invalid(error: z.ZodError): Response {
   return Response.json({ error: z.treeifyError(error) }, { status: 400 });
 }
 /** Una fila de la API es el scoreSolo del motor nuevo más la decisión v1, si se importó. */
-function merged(row: { data: unknown; decision: { data: unknown } | null }) {
+function merged(row: {
+  data: unknown;
+  decision: { data: unknown } | null;
+  forecast: { data: unknown } | null;
+}) {
   try {
     return {
       scoreSolo: scoreRowSchema.parse(row.data),
       decision: row.decision ? decisionRowSchema.parse(row.decision.data) : null,
+      forecast: row.forecast ? forecastRowSchema.parse(row.forecast.data) : null,
     };
   } catch (error) {
     if (error instanceof z.ZodError) throw new IncompatibleScoreRunError();
@@ -105,7 +129,7 @@ export async function listCompanies(request: Request): Promise<Response> {
     prisma.companyMonthScore.count({ where }),
     prisma.companyMonthScore.findMany({
       where,
-      include: { decision: true },
+      include: { decision: true, forecast: true },
       orderBy: [{ scoreSolo: "desc" }, { companyId: "asc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -146,7 +170,7 @@ export async function companyHistory(request: Request, companyId: string): Promi
   if (!run) return Response.json({ error: "Run not found" }, { status: 404 });
   const rows = await prisma.companyMonthScore.findMany({
     where: { runId: run.id, companyId },
-    include: { decision: true },
+    include: { decision: true, forecast: true },
     orderBy: { month: "asc" },
   });
   if (!rows.length) return Response.json({ error: "Company not found" }, { status: 404 });
@@ -192,9 +216,7 @@ export async function runDetail(runId: string): Promise<Response> {
     completedAt: run.completedAt,
   });
 }
-function cell(
-  value: ScoreRowDTO[keyof ScoreRowDTO] | DecisionRowDTO[keyof DecisionRowDTO],
-): string {
+function cell(value: unknown): string {
   const s =
     typeof value === "object" && value !== null ? JSON.stringify(value) : String(value ?? "");
   return `"${s.replaceAll('"', '""')}"`;
@@ -221,6 +243,11 @@ const SCORE_KEYS = [
   "tendScore12m",
   "tend3m",
   "alertaTempranaDeterioro",
+  "evaluacionEwi",
+  "gapCicloDias",
+  "recomendacionEmbat",
+  "requiereAvalMatriz",
+  "alertaPignoracionCaja",
   "diagnosticoMejora",
   "factorDeterminante",
   "factorDeterminanteGrupo",
@@ -269,6 +296,11 @@ const DECISION_KEYS = [
   "motivoAccion",
   "motivoGrupo",
   "bandaPred3mUsada",
+  "bandaPredGrupo3mUsada",
+  "scorePredSolo3m",
+  "scorePredGrupo3m",
+  "condicionAvalMatriz",
+  "revisionStage2Candidata",
 ] as const satisfies readonly (keyof DecisionRowDTO)[];
 export async function exportScores(request: Request): Promise<Response> {
   const parsed = z
@@ -299,7 +331,7 @@ export async function exportScores(request: Request): Promise<Response> {
       runId: run.id,
       ...(parsed.data.mode === "month" ? { month: parsed.data.month ?? "2026-08" } : {}),
     },
-    include: { decision: true },
+    include: { decision: true, forecast: true },
     orderBy: [{ companyId: "asc" }, { month: "desc" }],
   });
   const seen = new Set<string>();
@@ -323,13 +355,14 @@ export async function exportScores(request: Request): Promise<Response> {
   }
   const csv =
     [
-      ["runId", ...SCORE_KEYS, ...DECISION_KEYS].join(","),
-      ...latest.map(({ scoreSolo, decision }) =>
+      ["runId", ...SCORE_KEYS, ...DECISION_KEYS, "forecast"].join(","),
+      ...latest.map(({ scoreSolo, decision, forecast }) =>
         [
           run.id,
           ...SCORE_KEYS.map((k) => scoreSolo[k]),
           // Una fila sin decisión importada deja vacías las columnas de decisión.
           ...DECISION_KEYS.map((k) => (decision ? decision[k] : "")),
+          forecast ?? "",
         ]
           .map(cell)
           .join(","),

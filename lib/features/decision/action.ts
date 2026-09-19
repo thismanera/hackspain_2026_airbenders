@@ -1,5 +1,12 @@
 import type { Elegibilidad } from "@/lib/features/decision/eligibility";
-import { banda, bandaEfectiva, esPeor, limite, type Limite } from "@/lib/features/decision/limit";
+import {
+  banda,
+  bandaEfectiva,
+  esPeor,
+  limite,
+  scoreForDecision,
+  type Limite,
+} from "@/lib/features/decision/limit";
 import { redondearAbajo, redondearArriba } from "@/lib/features/decision/money";
 import { DECISION_PARAMS as P, type Banda } from "@/lib/features/decision/params";
 import type { Accion, DecisionInput, EstadoDecision } from "@/lib/features/decision/types";
@@ -116,7 +123,7 @@ export function decidirAccion(
   // SOURCE §3.6 y decisión 37: la comparación es siempre contra la banda **actual**, no la
   // efectiva. Si comparase con la efectiva, un deterioro estructural (o un escalón de
   // cross-default) que ya bajó la banda taparía la señal de la previsión.
-  const bActual = banda(r.score);
+  const bActual = banda(scoreForDecision(r));
   if (esPeor(bandaPred, bActual) && prev.mesesPredPeorSeguidos + 1 >= P.reducirPrevMeses) {
     const LPred = limite(r, bandaPred).L;
     if (LPred < Lp)
@@ -156,7 +163,9 @@ export function siguienteEstado(
     mesesReduccionSeguidos:
       prev.LPrev > 0 && d.L < P.reducirRatio * prev.LPrev ? prev.mesesReduccionSeguidos + 1 : 0,
     // Misma comparación que en `decidirAccion`: banda prevista contra la banda actual (§3.6).
-    mesesPredPeorSeguidos: esPeor(bandaPred, banda(r.score)) ? prev.mesesPredPeorSeguidos + 1 : 0,
+    mesesPredPeorSeguidos: esPeor(bandaPred, banda(scoreForDecision(r)))
+      ? prev.mesesPredPeorSeguidos + 1
+      : 0,
     cerradoDesde: d.accion === "cerrar" ? r.month : d.accion === "abrir" ? null : prev.cerradoDesde,
     // El bloque de cross-default lo recalcula el motor (§9) con el mes del grupo ya cerrado.
     crossDefaultActivo: prev.crossDefaultActivo,

@@ -91,7 +91,8 @@ export function aggregate(
   vars: VariableSet,
   racha: { rachaB2Prev: number[] },
   percentiles: Percentiles,
-  cobertura?: Pick<Coverage, "tieneCuotas" | "tieneLineaCredito">,
+  cobertura?: Pick<Coverage, "tieneCuotas" | "tieneLineaCredito"> &
+    Partial<Pick<Coverage, "hardcoreRevolving">>,
 ): Aggregated {
   const contributions: Contribution[] = [];
   const subscores = { A: 0, B: 0, C: 0 };
@@ -110,7 +111,11 @@ export function aggregate(
             ? 50
             : subnotaB2(v.raw, racha.rachaB2Prev)
           : subnota(id, v.raw, percentiles);
-      const s = aplicable ? rawSub : null;
+      const adjustedSub =
+        id === "A5" && cobertura?.hardcoreRevolving && rawSub !== null
+          ? clamp(rawSub - PARAMS.hardcoreRevolving.penalizacionA5, 0, 100)
+          : rawSub;
+      const s = aplicable ? adjustedSub : null;
       const notaEf = s === null ? 50 : 50 + v.conf * (s - 50);
       const aportacion = aplicable ? weight * notaEf : 0;
       const health = aplicable ? sano(id, v.raw) : { umbralSano: null, sano: null };
@@ -175,7 +180,7 @@ export function estadoConGrupo(
   if (solo === "sin_datos") return "sin_datos";
   if (solo === "riesgo")
     return ajuste > 0 && perfil === "filial_subvencionada" ? "vigilar" : "riesgo";
-  const A1 = vars?.A1.raw ?? null;
+  const A1 = vars?.A1?.raw ?? null;
   const C4 = vars?.C4.raw ?? null;
   if (scoreGrupo < PARAMS.scoreRiesgo || rachaB2 >= 2 || (C4 !== null && C4 > 0.4)) return "riesgo";
   if (
