@@ -78,8 +78,7 @@ export function drivers(actual: Contribution[], pred: Contribution[]): Driver[] 
       };
     })
     .sort(
-      (x, y) =>
-        Math.abs(y.deltaAportacion) - Math.abs(x.deltaAportacion) || (x.id < y.id ? -1 : 1),
+      (x, y) => Math.abs(y.deltaAportacion) - Math.abs(x.deltaAportacion) || (x.id < y.id ? -1 : 1),
     )
     .slice(0, P.nDrivers);
 }

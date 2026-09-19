@@ -8,13 +8,16 @@ import {
 import type { Direccion } from "@/lib/features/scoring/types";
 import { clamp } from "@/lib/features/scoring/windows";
 
+/** Banda de incertidumbre del score previsto, en los mismos puntos que `Residuos`. */
+export type Intervalo = { p10: number; p90: number };
+
 /** §4: `[score_pred + p10[h][b], score_pred + p90[h][b]]` acotado a [0, 100]; `b` es la banda en `t`. */
 export function intervalo(
   scorePred: number,
   h: Horizonte,
   b: Banda,
   residuos: Residuos,
-): { p10: number; p90: number } {
+): Intervalo {
   const r = residuos[h][b];
   return { p10: clamp(scorePred + r.p10, 0, 100), p90: clamp(scorePred + r.p90, 0, 100) };
 }
