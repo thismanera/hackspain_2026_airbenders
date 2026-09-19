@@ -41,7 +41,10 @@ motor de decisión, nada más:
 | `D1` | 0-1 | peso de la empresa en el grupo |
 | `cobros_op_grupo_media6m`, `pagos_op_grupo_media6m`, `servicio_deuda_grupo_media6m` | € | flujos consolidados del grupo, sin traspasos intragrupo |
 
-De `company_month_forecast` (forecast-engine §8), mismo mes:
+De `company_month_forecast` (forecast-engine §8), mismo mes. La previsión es
+**opcional**: el motor acepta la entrada y, si no la recibe (o llega con
+`metodo = "desconectado"`), opera con `banda_pred_3m = banda` y deja
+`banda_pred_3m_usada = null` en la salida. Hoy el pipeline no la conecta.
 
 | Campo | Uso |
 | --- | --- |
