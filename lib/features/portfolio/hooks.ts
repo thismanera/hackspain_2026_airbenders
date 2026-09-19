@@ -2,6 +2,7 @@
 
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useQueryStates } from "nuqs";
+import type { TransitionStartFunction } from "react";
 
 import {
   fetchAlerts,
@@ -92,8 +93,12 @@ export function usePymeState() {
   return useQueryStates(pymeSearchParams);
 }
 
-export function useCompareState() {
-  return useQueryStates(compareSearchParams);
+/**
+ * Empresas comparadas y mes. Con `startTransition`, añadir una empresa no
+ * suspende lo que ya está en pantalla mientras llega su ficha.
+ */
+export function useCompareState(startTransition?: TransitionStartFunction) {
+  return useQueryStates(compareSearchParams, startTransition ? { startTransition } : undefined);
 }
 
 export function useGroups(month: string) {

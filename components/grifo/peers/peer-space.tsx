@@ -31,9 +31,11 @@ import { ESTADO } from "@/lib/features/portfolio/vocabulary";
 
 import { SERIES } from "./series";
 
+// 720×440 y el cubo a 135 px por unidad: con la inclinación por defecto cabe
+// entero y, acotado a 640 px de ancho, el panel entra en un portátil sin scroll.
 const W = 720;
-const H = 480;
-const VIEW = { cx: 360, cy: 232, scale: 175 };
+const H = 440;
+const VIEW = { cx: 360, cy: 210, scale: 135 };
 
 /** Los cuatro estados, mismos tokens que el resto del panel. */
 const TONE = {
@@ -277,7 +279,7 @@ export function PeerSpace({
       }
     >
       <div
-        className="relative cursor-grab touch-none select-none active:cursor-grabbing"
+        className="relative mx-auto w-full max-w-[640px] cursor-grab touch-none select-none active:cursor-grabbing"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}
