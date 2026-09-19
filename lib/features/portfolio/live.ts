@@ -113,6 +113,9 @@ export function monthScore(
       apr: option.tae,
       cost: option.costeMax,
     })) ?? [];
+  /* La ficha enseña el desglose de la TAE "desde", que es la del primer plazo
+     del menú: el mismo tramo del que sale `apr`, para que la suma cuadre. */
+  const split = d?.menu[0]?.desglose;
   return {
     company: row.company,
     month: row.month,
@@ -156,6 +159,13 @@ export function monthScore(
       maxTenorDays: d?.TMax ?? 0,
       baseApr: menu[0]?.apr ?? 0,
       apr: menu[0]?.apr ?? 0,
+      aprBreakdown: {
+        base: split?.base ?? 0,
+        tenorPremium: split?.primaPlazo ?? 0,
+        confidencePremium: split?.primaConfianza ?? 0,
+        trendAdjustment: split?.ajusteTendencia ?? 0,
+        forecastPremium: split?.primaPrevision ?? 0,
+      },
       menu,
       action: d?.accion ?? "mantener",
       adverseCapacity: row.capacidadCuotaAdv,
@@ -407,9 +417,7 @@ function portfolioRow(
     !(current.decision.action === "cerrar" && current.decision.previousLimit === 0);
   const failed = current.decision.gates.find((gate) => !gate.passed);
   const index = history.findIndex((item) => item.month === current.month);
-  const spark = history
-    .slice(Math.max(0, index - 11), index + 1)
-    .map((entry) => entry.score);
+  const spark = history.slice(Math.max(0, index - 11), index + 1).map((entry) => entry.score);
   const trail = history
     .slice(Math.max(0, index - 5), index + 1)
     .flatMap((entry): TrailPoint[] =>

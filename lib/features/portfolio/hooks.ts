@@ -11,8 +11,10 @@ import {
   fetchGroupFile,
   fetchGroups,
   fetchPortfolio,
+  fetchReading,
   portfolioKeys,
 } from "./queries";
+import type { ReadingKind } from "./reading";
 import {
   alertsSearchParams,
   compareSearchParams,
@@ -123,5 +125,18 @@ export function useBenchmark(companyId: string, month: string) {
     queryKey: portfolioKeys.benchmark(companyId, month),
     queryFn: () => fetchBenchmark(companyId, month),
     ...SCORING_CADENCE,
+  });
+}
+
+/**
+ * Lectura declarada. No usa Suspense: la plantilla ya está en el cliente y
+ * Helmcode, si responde, solo la sustituye.
+ */
+export function useReading(companyId: string, month: string, kind: ReadingKind) {
+  return useQuery({
+    queryKey: portfolioKeys.reading(companyId, month, kind),
+    queryFn: () => fetchReading(companyId, month, kind),
+    ...SCORING_CADENCE,
+    retry: false,
   });
 }

@@ -28,11 +28,7 @@ export function OfferMenu({ options }: { options: TenorOption[] }) {
   const active = options[Math.min(selected, options.length - 1)];
 
   return (
-    <Panel
-      title="Qué se puede ofrecer"
-      description="Más plazo, más importe y más caro. Elige uno para ver el coste."
-      bodyClassName="p-0"
-    >
+    <Panel title="Qué se puede ofrecer" bodyClassName="p-0">
       {/* Radios nativos, no `role="radio"` sobre botones: así las flechas del
           teclado recorren las opciones sin que tengamos que reimplementarlo. */}
       <fieldset className="w-full min-w-0 divide-y">

@@ -60,6 +60,19 @@ export type TenorOption = {
   cost: number;
 };
 
+/**
+ * Desglose del TAE "desde" (30 días). Cada 30 días extra suman 0,5 pp. Los cinco
+ * campos son sumandos en puntos porcentuales y suman exactamente `apr`: el
+ * ajuste de tendencia es negativo cuando la empresa mejora.
+ */
+export type AprBreakdown = {
+  base: number;
+  tenorPremium: number;
+  confidencePremium: number;
+  trendAdjustment: number;
+  forecastPremium: number;
+};
+
 export type Decision = {
   eligible: boolean;
   /** Frase en llano: por qué se presta, o cuál es la puerta que falla. */
@@ -71,6 +84,7 @@ export type Decision = {
   maxTenorDays: number;
   baseApr: number;
   apr: number;
+  aprBreakdown: AprBreakdown;
   menu: TenorOption[];
   action: Accion;
   adverseCapacity: number;

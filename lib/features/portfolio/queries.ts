@@ -1,3 +1,4 @@
+import type { Reading, ReadingKind } from "./reading";
 import type {
   AlertsResponse,
   BacktestResponse,
@@ -25,6 +26,8 @@ export const portfolioKeys = {
   backtest: (month: string) => ["portfolio", "backtest", month] as const,
   benchmark: (companyId: string, month: string) =>
     ["portfolio", "benchmark", companyId, month] as const,
+  reading: (companyId: string, month: string, kind: ReadingKind) =>
+    ["portfolio", "reading", companyId, month, kind] as const,
 };
 
 async function getJson<T>(url: string, notFound: string, failed: string): Promise<T> {
@@ -67,6 +70,19 @@ export function fetchBenchmark(
     `${baseUrl}/api/portfolio/companies/${encodeURIComponent(companyId)}/benchmark?month=${month}`,
     "Empresa no encontrada",
     "No se ha podido cargar el benchmark",
+  );
+}
+
+export function fetchReading(
+  companyId: string,
+  month: string,
+  kind: ReadingKind,
+  baseUrl = "",
+): Promise<Reading> {
+  return getJson(
+    `${baseUrl}/api/portfolio/companies/${encodeURIComponent(companyId)}/reading?month=${month}&kind=${kind}`,
+    "Empresa no encontrada",
+    "No se ha podido cargar la lectura",
   );
 }
 

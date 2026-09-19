@@ -34,7 +34,7 @@ import type {
   PortfolioSummary,
   TrailPoint,
 } from "./types";
-import { deriveEstado } from "./vocabulary";
+import { deriveEstado, isDecisionNews } from "./vocabulary";
 
 export type PortfolioFilters = {
   month?: string;
@@ -96,10 +96,7 @@ function blockedByOf(current: MonthScore): string | null {
 }
 
 function changedOf(current: MonthScore): boolean {
-  return (
-    current.decision.action !== "mantener" &&
-    !(current.decision.action === "cerrar" && current.decision.previousLimit === 0)
-  );
+  return isDecisionNews(current.decision);
 }
 
 const TRAIL_MONTHS = 6;

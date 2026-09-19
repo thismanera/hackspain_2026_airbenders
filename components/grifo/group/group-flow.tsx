@@ -9,7 +9,10 @@ import { formatPercent, formatScore, formatSigned } from "@/lib/features/portfol
 import type { Estado, GroupFileResponse, GroupMember } from "@/lib/features/portfolio/types";
 import { ESTADO } from "@/lib/features/portfolio/vocabulary";
 
-const WIDTH = 640;
+/* Ancho nativo del diagrama, por debajo del ancho de la hoja en escritorio: si
+   coincidiera al píxel, el redondeo del contenedor sacaría una barra de
+   desplazamiento sin que sobre nada. */
+const WIDTH = 600;
 const CARD_W = 180;
 const CARD_H = 52;
 const ROW_GAP = 14;
@@ -131,8 +134,7 @@ export function GroupFlow({
         <div className="min-w-0">
           <h3 className="text-sm font-medium">Efecto del grupo sobre cada empresa</h3>
           <p className="text-muted-foreground mt-0.5 text-xs text-pretty">
-            Cada línea lleva el ajuste del bloque D al score de la empresa: suma por aval, resta
-            por contagio.
+            Puntos de score del bloque D, no dinero.
           </p>
         </div>
         <Button
@@ -141,204 +143,204 @@ export function GroupFlow({
           size="sm"
           aria-pressed={paused}
           onClick={() => setPaused((value) => !value)}
-          className="text-muted-foreground shrink-0"
+          className="text-muted-foreground shrink-0 max-sm:w-8 max-sm:px-0"
         >
           {paused ? <Play aria-hidden /> : <Pause aria-hidden />}
-          {paused ? "Reanudar" : "Pausar"}
+          <span className="max-sm:sr-only">{paused ? "Reanudar" : "Pausar"}</span>
         </Button>
       </div>
 
-      <svg
-        viewBox={`0 0 ${WIDTH} ${height}`}
-        aria-labelledby={titleId}
-        aria-describedby={descId}
-        className="block w-full"
-      >
-        <title id={titleId}>Red del grupo {group.groupId}</title>
-        <desc id={descId}>
-          {members
-            .map(
-              (member) =>
-                `${member.id}: ${ESTADO[member.estado].label}, score ${formatScore(member.score)}, peso ${formatPercent(member.share, 0)}, ajuste ${formatSigned(member.adjustment)} (${SENSE_LABEL[senseOf(member)]}).`,
-            )
-            .join(" ")}
-        </desc>
+      {/* El texto del diagrama va en unidades del viewBox, así que escalar el
+          SVG a un ancho menor que el nativo lo deja ilegible. Por debajo de ese
+          ancho se desplaza en horizontal en lugar de encogerse. */}
+      <div className="overflow-x-auto">
+        <svg
+          viewBox={`0 0 ${WIDTH} ${height}`}
+          aria-labelledby={titleId}
+          aria-describedby={descId}
+          className="block w-full"
+          style={{ minWidth: WIDTH }}
+        >
+          <title id={titleId}>Red del grupo {group.groupId}</title>
+          <desc id={descId}>
+            {members
+              .map(
+                (member) =>
+                  `${member.id}: ${ESTADO[member.estado].label}, score ${formatScore(member.score)}, peso ${formatPercent(member.share, 0)}, ajuste ${formatSigned(member.adjustment)} (${SENSE_LABEL[senseOf(member)]}).`,
+              )
+              .join(" ")}
+          </desc>
 
-        {nodes.map(({ member, path }) => (
-          <path
-            key={member.id}
-            d={path}
-            fill="none"
-            stroke="var(--border)"
-            strokeWidth={1.25}
-            strokeLinecap="round"
-          />
-        ))}
+          {nodes.map(({ member, path }) => (
+            <path
+              key={member.id}
+              d={path}
+              fill="none"
+              stroke="var(--border)"
+              strokeWidth={1.25}
+              strokeLinecap="round"
+            />
+          ))}
 
-        {moving
-          ? nodes.map(({ member, sense, path }, index) =>
-              sense === "neutral" ? null : (
-                <rect
-                  key={member.id}
-                  x={-9}
-                  y={-1.25}
-                  width={18}
-                  height={2.5}
-                  rx={1.25}
-                  opacity={0}
-                  fill={SENSE_INK[sense]}
-                >
-                  <animateMotion
-                    dur={`${PULSE_SECONDS}s`}
-                    begin={`${(index / total) * PULSE_SECONDS}s`}
-                    repeatCount="indefinite"
-                    path={path}
-                    rotate="auto"
-                    calcMode="spline"
-                    keyTimes="0;1"
-                    keySplines="0.45 0 0.55 1"
-                  />
-                  <animate
-                    attributeName="opacity"
-                    values="0;1;1;0"
-                    keyTimes="0;0.12;0.88;1"
-                    dur={`${PULSE_SECONDS}s`}
-                    begin={`${(index / total) * PULSE_SECONDS}s`}
-                    repeatCount="indefinite"
-                  />
-                </rect>
-              ),
-            )
-          : null}
+          {/* Un punto, no una barra: una barra con rotate="auto" pivota en cada
+            esquina del conector y se lee como un bloque girando. El punto no
+            tiene orientación, así que las curvas desaparecen del ojo.
+            El sentido lo dice el recorrido: hacia la empresa cuando el grupo le
+            suma puntos, hacia el centro cuando se los quita. */}
+          {moving
+            ? nodes.map(({ member, sense, path }, index) =>
+                sense === "neutral" ? null : (
+                  <circle key={member.id} r={3.5} opacity={0} fill={SENSE_INK[sense]}>
+                    <animateMotion
+                      dur={`${PULSE_SECONDS}s`}
+                      begin={`${(index / total) * PULSE_SECONDS}s`}
+                      repeatCount="indefinite"
+                      path={path}
+                      calcMode="spline"
+                      keyTimes="0;1"
+                      keyPoints={sense === "drag" ? "1;0" : "0;1"}
+                      keySplines="0.45 0 0.55 1"
+                    />
+                    <animate
+                      attributeName="opacity"
+                      values="0;1;1;0"
+                      keyTimes="0;0.12;0.88;1"
+                      dur={`${PULSE_SECONDS}s`}
+                      begin={`${(index / total) * PULSE_SECONDS}s`}
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+                ),
+              )
+            : null}
 
-        {/* El centro no es una empresa: es el resto del grupo, el "padre" de SOURCE §1.7. */}
-        <g transform={`translate(${hub.x} ${hub.y})`}>
-          <circle r={HUB_R} fill="var(--card)" stroke="var(--border)" strokeWidth={1.25} />
-          <Landmark
-            x={-10}
-            y={-10}
-            width={20}
-            height={20}
-            strokeWidth={1.75}
-            aria-hidden
-            color="var(--foreground)"
-          />
-          <text
-            textAnchor="middle"
-            y={HUB_R + 16}
-            fontSize={11}
-            fontWeight={500}
-            fill="var(--foreground)"
-            style={{ fontFamily: "var(--font-mono)" }}
-          >
-            {group.groupId}
-          </text>
-          <text
-            textAnchor="middle"
-            y={HUB_R + 30}
-            fontSize={10.5}
-            fill="var(--muted-foreground)"
-            style={{ fontVariantNumeric: "tabular-nums" }}
-          >
-            Score {formatScore(group.score)} · {total} empresas
-          </text>
-        </g>
+          {/* El centro no es una empresa: es el resto del grupo, el "padre" de SOURCE §1.7. */}
+          <g transform={`translate(${hub.x} ${hub.y})`}>
+            <circle r={HUB_R} fill="var(--card)" stroke="var(--border)" strokeWidth={1.25} />
+            <Landmark
+              x={-10}
+              y={-10}
+              width={20}
+              height={20}
+              strokeWidth={1.75}
+              aria-hidden
+              color="var(--foreground)"
+            />
+            <text
+              textAnchor="middle"
+              y={HUB_R + 16}
+              fontSize={11}
+              fontWeight={500}
+              fill="var(--foreground)"
+              style={{ fontFamily: "var(--font-mono)" }}
+            >
+              {group.groupId}
+            </text>
+            <text
+              textAnchor="middle"
+              y={HUB_R + 30}
+              fontSize={10.5}
+              fill="var(--muted-foreground)"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              Score {formatScore(group.score)} · {total} empresas
+            </text>
+          </g>
 
-        {nodes.map(({ member, left, top, sense }) => {
-          const tile = ESTADO_TILE[member.estado];
-          return (
-            /* Enlace SVG real: abre la ficha en la hoja con clic simple y sigue
+          {nodes.map(({ member, left, top, sense }) => {
+            const tile = ESTADO_TILE[member.estado];
+            return (
+              /* Enlace SVG real: abre la ficha en la hoja con clic simple y sigue
                siendo un enlace para el teclado, el clic central y la pestaña nueva. */
-            <g key={member.id} transform={`translate(${left} ${top})`}>
-              <a
-                href={`/cartera/${member.id}?mes=${month}`}
-                aria-label={`${member.id}, ${ESTADO[member.estado].label}, score ${formatScore(member.score)}. Abrir ficha`}
-                onClick={(event) => {
-                  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey)
-                    return;
-                  event.preventDefault();
-                  onOpenCompany(member.id);
-                }}
-                className="focus-visible:outline-ring group/node cursor-pointer outline-offset-2 focus-visible:outline-2"
-              >
-                <rect
-                  width={CARD_W}
-                  height={CARD_H}
-                  rx={10}
-                  fill="var(--card)"
-                  stroke="var(--border)"
-                  strokeWidth={1.25}
-                  className="transition-[stroke] duration-150 group-hover/node:stroke-[var(--foreground)]"
-                />
-                <rect x={10} y={12} width={28} height={28} rx={8} fill={tile.fill} />
-                <Building2
-                  x={17}
-                  y={19}
-                  width={14}
-                  height={14}
-                  strokeWidth={2}
-                  aria-hidden
-                  color={tile.ink}
-                />
-                <text
-                  x={46}
-                  y={23}
-                  fontSize={11.5}
-                  fontWeight={500}
-                  fill="var(--foreground)"
-                  style={{ fontFamily: "var(--font-mono)" }}
+              <g key={member.id} transform={`translate(${left} ${top})`}>
+                <a
+                  href={`/cartera/${member.id}?mes=${month}`}
+                  aria-label={`${member.id}, ${ESTADO[member.estado].label}, score ${formatScore(member.score)}. Abrir ficha`}
+                  onClick={(event) => {
+                    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey)
+                      return;
+                    event.preventDefault();
+                    onOpenCompany(member.id);
+                  }}
+                  className="focus-visible:outline-ring group/node cursor-pointer outline-offset-2 focus-visible:outline-2"
                 >
-                  {member.id}
-                </text>
-                <text
-                  x={CARD_W - 10}
-                  y={23}
-                  textAnchor="end"
-                  fontSize={10.5}
-                  fontWeight={600}
-                  fill={SENSE_TEXT[sense]}
-                  style={{ fontVariantNumeric: "tabular-nums" }}
-                >
-                  {sense === "neutral" ? "±0" : formatSigned(member.adjustment)}
-                </text>
-                <text
-                  x={46}
-                  y={37}
-                  fontSize={10.5}
-                  fill="var(--muted-foreground)"
-                  style={{ fontVariantNumeric: "tabular-nums" }}
-                >
-                  <tspan fontWeight={600} fill="var(--foreground)">
-                    {formatScore(member.score)}
-                  </tspan>
-                  {" · "}
-                  {formatPercent(member.share, 0)} del grupo
-                </text>
-              </a>
-            </g>
-          );
-        })}
-      </svg>
+                  <rect
+                    width={CARD_W}
+                    height={CARD_H}
+                    rx={10}
+                    fill="var(--card)"
+                    stroke="var(--border)"
+                    strokeWidth={1.25}
+                    className="transition-[stroke] duration-150 group-hover/node:stroke-[var(--foreground)]"
+                  />
+                  <rect x={10} y={12} width={28} height={28} rx={8} fill={tile.fill} />
+                  <Building2
+                    x={17}
+                    y={19}
+                    width={14}
+                    height={14}
+                    strokeWidth={2}
+                    aria-hidden
+                    color={tile.ink}
+                  />
+                  <text
+                    x={46}
+                    y={23}
+                    fontSize={11.5}
+                    fontWeight={500}
+                    fill="var(--foreground)"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                  >
+                    {member.id}
+                  </text>
+                  <text
+                    x={CARD_W - 10}
+                    y={23}
+                    textAnchor="end"
+                    fontSize={10.5}
+                    fontWeight={600}
+                    fill={SENSE_TEXT[sense]}
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {sense === "neutral" ? "±0" : formatSigned(member.adjustment)}
+                  </text>
+                  <text
+                    x={46}
+                    y={37}
+                    fontSize={10.5}
+                    fill="var(--muted-foreground)"
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    <tspan fontWeight={600} fill="var(--foreground)">
+                      {formatScore(member.score)}
+                    </tspan>
+                    {" · "}
+                    {formatPercent(member.share, 0)} del grupo
+                  </text>
+                </a>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
 
       <dl className="text-muted-foreground flex flex-wrap items-center gap-x-5 gap-y-1 border-t px-4 py-2.5 text-xs">
         <div className="flex items-center gap-2">
-          <span aria-hidden className="bg-status-healthy inline-block h-0.5 w-4 rounded-full" />
-          <dt className="sr-only">Pulso teal</dt>
-          <dd>Aval, suma puntos</dd>
+          <span aria-hidden className="bg-status-healthy inline-block size-1.5 rounded-full" />
+          <dt className="sr-only">Punto teal, hacia la empresa</dt>
+          <dd>Entran puntos: aval</dd>
         </div>
         <div className="flex items-center gap-2">
-          <span aria-hidden className="bg-status-risk inline-block h-0.5 w-4 rounded-full" />
-          <dt className="sr-only">Pulso rosa</dt>
-          <dd>Contagio, resta puntos</dd>
+          <span aria-hidden className="bg-status-risk inline-block size-1.5 rounded-full" />
+          <dt className="sr-only">Punto rosa, hacia el centro</dt>
+          <dd>Salen puntos: contagio</dd>
         </div>
         <div className="flex items-center gap-2">
           <span aria-hidden className="bg-border inline-block h-px w-4" />
-          <dt className="sr-only">Sin pulso</dt>
+          <dt className="sr-only">Sin punto</dt>
           <dd>Menos de ±0,5</dd>
         </div>
-        <dd className="ml-auto text-pretty">
-          Bloque D del score, no traspasos. El grupo no es prestatario.
-        </dd>
+        <dd className="text-pretty sm:ml-auto">El grupo no es prestatario.</dd>
       </dl>
     </section>
   );
