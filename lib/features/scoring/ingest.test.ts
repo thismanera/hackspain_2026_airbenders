@@ -166,3 +166,17 @@ test("a zero granted balance still contributes the interest term", async () => {
   assert.ok(Math.abs(meta.schedule.A - (600 * 0.06) / 12) < 1e-9);
   await rm(d.dataset, { recursive: true, force: true });
 });
+
+test("a schedule row in another currency is converted to EUR with the fx table", async () => {
+  // Tres facturas USD/EUR en `mesFin` con tasa 2: la tabla acepta la mediana 0,5 € por USD (§3.2).
+  const usd = [1, 2, 3].map(
+    (n) => `u${n},A,invoice,2026-08-0${n} 00:00:00,2026-08-31 00:00:00,,200,200,USD,EUR,2,paid,,c1`,
+  );
+  const d = await dataset({
+    invoices: [...INVOICES, ...usd],
+    schedule: `${SCHEDULE_HEADER}\nla,A,pa,USD,constant quote,30/360,monthly,1200,600,12,,,0.06,fixed\n`,
+  });
+  const meta = await ingest(d.dataset, d.out, d.categories);
+  assert.ok(Math.abs(meta.schedule.A - (1200 / 12 + (600 * 0.06) / 12) * 0.5) < 1e-9);
+  await rm(d.dataset, { recursive: true, force: true });
+});

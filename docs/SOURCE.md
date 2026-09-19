@@ -379,4 +379,7 @@ el jurado.
 **Estado 19-09:** 33 de 33 decisiones validadas. Ninguna abierta.
 
 **Revisitar:** decisión 2, excepción de confianza 0,90 para las
-categorías nuevas de #12.
+categorías nuevas de #12. Y la cuota esperada de `debt_repayment`
+(scoring-engine §5.2), que usa `outstanding_balance` de
+`debt_schedule_config.csv` —una foto final— para el término de interés,
+en contra de la regla de «sin foto final»: desviación pequeña y aceptada.

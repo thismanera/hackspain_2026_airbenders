@@ -45,7 +45,6 @@ model CompanyMonthScore {
 
   @@id([runId, companyId, month])
   @@index([runId, month, estado, direction])
-  @@index([runId, companyId, month])
   @@map("company_month_scores")
 }
 

@@ -1,3 +1,12 @@
+/**
+ * Motor de decisión «legacy» (docs/decision-engine.md): reproduce las **fórmulas equivalentes** del
+ * original, no sus números bit a bit. Tres desviaciones conocidas:
+ *
+ * 1. Las medias de 6 meses se calculan sobre meses de calendario (el original promediaba sobre las
+ *    filas existentes).
+ * 2. Se usa la amortización bruta en vez del movimiento neteado de la línea de crédito.
+ * 3. El límite operativo es `media3m × 3`, no la suma de los tres meses.
+ */
 import type { Accion, Banda, DecisionRow } from "@/lib/features/decision/types";
 import type { ScoreRow } from "@/lib/features/scoring/types";
 

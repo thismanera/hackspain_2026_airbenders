@@ -272,6 +272,13 @@ Un mes de calendario **sin fila** (o sin ningún movimiento clasificable) es
 «sin dato»: no cuenta como mes esperado y rompe la racha, igual que
 `racha_deficit`.
 
+Desviación aceptada (**a revisitar**): la cuota esperada de `debt_repayment`
+usa `outstanding_balance`, que en `debt_schedule_config.csv` es la foto
+**final** del saldo y no el saldo vivo del mes `t`. Contradice la regla de
+SOURCE de «no usar la foto final», pero el término de interés es pequeño
+frente a `granted_balance / total_periods` y el CSV no trae serie histórica de
+saldo.
+
 Edge case cubierto: mes sin pago + doble pago siguiente → B1 = 1 (la suma
 6 m incluye el doble), B2 pasa de 1 a 0 y su subnota sube 70 → 80 → 90 → 100.
 
@@ -355,8 +362,11 @@ function aval_grupo(score_solo, D2, D3, D5, P):
 score = clip(score_solo + aval_grupo, 0, 100)
 ```
 
-`aval_grupo` entra en `contribuciones` como una fila más (`variable =
-"grupo"`, `aportacion = aval_grupo`), de modo que `Σ aportaciones == score`.
+El grupo entra en `contribuciones` como una fila más (`variable = "grupo"`)
+con `aportacion_grupo = score − score_solo`, es decir el aval **efectivamente
+aplicado tras el clip**, de modo que `Σ aportaciones == score` sea exacto
+también cuando el clip recorta. El campo `aval_grupo` del contrato conserva el
+valor bruto que devuelve la función.
 
 `score_grupo`: se calcula pasando `group_month_flows` por §5.1-5.3 (sin B3,
 C3, C4, C6 si no hay facturas agregadas; sin bloque D). Informativo para la

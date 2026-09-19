@@ -238,7 +238,8 @@ export async function ingest(
       const cuota =
         s.granted_balance / s.total_periods +
         ((s.outstanding_balance ?? 0) * (s.annual_interest_rate_or_spread ?? 0)) / 12;
-      const eur = toEur(fx, cuota, 1, s.currency || "EUR", "EUR", PARAMS.mesFin);
+      // `rate: null` para que `toEur` convierta de verdad la moneda de la fila (con `1` sería un no-op).
+      const eur = toEur(fx, cuota, null, s.currency || "EUR", "EUR", PARAMS.mesFin);
       if (eur === null) {
         count("unconvertible_schedule");
         continue;
