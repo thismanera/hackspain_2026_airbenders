@@ -1,10 +1,11 @@
 "use client";
 
-import { AlertOctagon, ChevronRight, Landmark, Link2, Network } from "lucide-react";
+import { AlertOctagon, Landmark, Link2, Network } from "lucide-react";
 
+import { EntitySheet } from "@/components/grifo/sheet/entity-sheet";
 import { PageIntro, StatCard } from "@/components/grifo/stat-card";
 import { StatusBadge } from "@/components/grifo/status-badge";
-import { EntitySheet } from "@/components/grifo/sheet/entity-sheet";
+import { DeltaFigure, MoneyFigure, ScoreFigure } from "@/components/grifo/table-figures";
 import {
   Table,
   TableBody,
@@ -13,87 +14,43 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/core/utils";
-import {
-  formatEuros,
-  formatMonthLong,
-  formatPercent,
-  formatScore,
-  formatSigned,
-} from "@/lib/features/portfolio/format";
+import { formatEuros, formatMonthLong, formatPercent } from "@/lib/features/portfolio/format";
 import { useGroups, useMonth, useSheetState } from "@/lib/features/portfolio/hooks";
-import type { Estado, GroupRow } from "@/lib/features/portfolio/types";
-import { ESTADO } from "@/lib/features/portfolio/vocabulary";
+import type { GroupRow } from "@/lib/features/portfolio/types";
 
-const ESTADO_ORDER: Estado[] = ["sana", "vigilar", "riesgo", "sin_datos"];
-const ESTADO_BAR = {
-  sana: "bg-status-healthy",
-  vigilar: "bg-status-watch",
-  riesgo: "bg-status-risk",
-  sin_datos: "bg-status-none",
-} satisfies Record<Estado, string>;
-
-/** Una barra por grupo: cuántas empresas hay en cada estado, con la lista en texto para el lector. */
-function HealthBar({ group }: { group: GroupRow }) {
-  const parts = ESTADO_ORDER.filter((estado) => group.byEstado[estado] > 0);
-  return (
-    <span className="flex flex-col gap-1">
-      <span aria-hidden className="bg-muted flex h-1.5 w-28 overflow-hidden rounded-full">
-        {parts.map((estado) => (
-          <span
-            key={estado}
-            className={cn("h-full", ESTADO_BAR[estado])}
-            style={{ width: `${(group.byEstado[estado] / group.members) * 100}%` }}
-          />
-        ))}
-      </span>
-      <span className="text-muted-foreground text-xs tabular-nums">
-        {parts
-          .map((estado) => `${group.byEstado[estado]} ${ESTADO[estado].label.toLowerCase()}`)
-          .join(" · ")}
-      </span>
-    </span>
-  );
-}
-
-function ExposureCell({ group }: { group: GroupRow }) {
-  const delta = group.exposure - group.previousExposure;
-  return (
-    <span className="flex flex-col items-end leading-tight">
-      <span className="font-medium tabular-nums">{formatEuros(group.exposure)}</span>
-      {delta !== 0 ? (
-        <span
-          className={cn(
-            "text-xs tabular-nums",
-            delta > 0 ? "text-status-healthy-fg" : "text-status-risk-fg",
-          )}
-        >
-          {delta > 0 ? "+" : "−"}
-          {formatEuros(Math.abs(delta))}
-        </span>
-      ) : (
-        <span className="text-muted-foreground text-xs">sin cambio</span>
-      )}
-    </span>
-  );
-}
-
-function Signals({ group }: { group: GroupRow }) {
+function monthNews(group: GroupRow): { text: string; tone: "risk" | "muted" } | null {
   if (group.crossDefault.length > 0) {
-    return (
-      <span className="text-status-risk-fg inline-flex items-center gap-1 text-xs font-medium">
-        <AlertOctagon aria-hidden className="size-3.5" />
-        Cross-default: {group.crossDefault.join(", ")}
-      </span>
-    );
+    const names = group.crossDefault.join(", ");
+    const many = group.crossDefault.length > 1;
+    return {
+      text: `${names} ${many ? "cierran y arrastran" : "cierra y arrastra"} al grupo`,
+      tone: "risk",
+    };
   }
   const parts: string[] = [];
-  if (group.moved > 0) parts.push(`${group.moved} ${group.moved === 1 ? "cambio" : "cambios"}`);
-  if (group.alertCount > 0)
-    parts.push(`${group.alertCount} ${group.alertCount === 1 ? "alerta" : "alertas"}`);
+  if (group.moved > 0) {
+    parts.push(group.moved === 1 ? "1 línea cambia" : `${group.moved} líneas cambian`);
+  }
+  if (group.alertCount > 0) {
+    parts.push(group.alertCount === 1 ? "1 alerta" : `${group.alertCount} alertas`);
+  }
+  if (parts.length === 0) return null;
+  return { text: parts.join(" · "), tone: "muted" };
+}
+
+function MonthNews({ group }: { group: GroupRow }) {
+  const news = monthNews(group);
+  if (!news) return <span className="text-muted-foreground">—</span>;
   return (
-    <span className="text-muted-foreground text-xs">
-      {parts.length ? parts.join(" · ") : "Nada nuevo"}
+    <span
+      className={
+        news.tone === "risk"
+          ? "text-status-risk-fg inline-flex items-center gap-1 text-sm text-pretty"
+          : "text-muted-foreground text-sm text-pretty"
+      }
+    >
+      {news.tone === "risk" ? <AlertOctagon aria-hidden className="size-3.5 shrink-0" /> : null}
+      {news.text}
     </span>
   );
 }
@@ -111,6 +68,7 @@ export function GruposClient() {
   const avgInterdependence = holdings.length
     ? holdings.reduce((sum, group) => sum + group.interdependence, 0) / holdings.length
     : 0;
+  const tightlyLinked = holdings.filter((group) => group.interdependence >= 0.2).length;
 
   const openGroup = (groupId: string) =>
     void setSheet({ empresa: "", grupo: groupId, pestana: "decision" });
@@ -132,7 +90,7 @@ export function GruposClient() {
           icon={Network}
           label="Holdings"
           value={holdings.length}
-          hint={`${data.totalCompanies} empresas en la cartera`}
+          hint={`${holdings.reduce((sum, group) => sum + group.members, 0)} empresas bajo un techo conjunto`}
         />
         <StatCard
           icon={Landmark}
@@ -148,7 +106,11 @@ export function GruposClient() {
           icon={Link2}
           label="Interdependencia media"
           value={formatPercent(avgInterdependence, 0)}
-          hint="D5: cuánto de lo que cobra cada empresa viene de sus hermanas"
+          hint={
+            tightlyLinked > 0
+              ? `${tightlyLinked} de ${holdings.length} facturan más de un 20 % entre hermanas`
+              : "Ningún grupo factura más de un 20 % entre hermanas"
+          }
         />
         <StatCard
           icon={AlertOctagon}
@@ -167,75 +129,57 @@ export function GruposClient() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[16%]">Grupo</TableHead>
-              <TableHead className="w-[10%]">Estado</TableHead>
-              <TableHead className="w-[10%] text-right">Score</TableHead>
-              <TableHead className="w-[18%]">Empresas</TableHead>
-              <TableHead className="w-[9%] text-right">Con línea</TableHead>
-              <TableHead className="w-[13%] text-right">Techo</TableHead>
-              <TableHead className="w-[8%] text-right">D5</TableHead>
-              <TableHead className="w-[13%]">Señales</TableHead>
-              <TableHead className="w-[3%]">
-                <span className="sr-only">Abrir grupo</span>
-              </TableHead>
+              <TableHead className="w-[22%]">Grupo</TableHead>
+              <TableHead className="w-[12%]">Estado</TableHead>
+              <TableHead className="text-right">Score</TableHead>
+              <TableHead className="text-right">Δ 3 meses</TableHead>
+              <TableHead className="text-right">Con línea</TableHead>
+              <TableHead className="text-center">Techo</TableHead>
+              <TableHead>Este mes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {holdings.map((group) => {
-              const delta = group.previousScore === null ? null : group.score - group.previousScore;
-              return (
-                <TableRow key={group.groupId} className="hover:bg-muted/40 relative">
-                  <TableCell>
-                    <button
-                      type="button"
-                      onClick={() => openGroup(group.groupId)}
-                      className="focus-visible:ring-ring flex flex-col items-start text-left leading-tight after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
-                    >
-                      <span className="font-mono text-sm font-medium">{group.groupId}</span>
-                      <span className="text-muted-foreground text-xs tabular-nums">
-                        {group.members} empresas · la mayor pesa {formatPercent(group.topShare, 0)}
-                      </span>
-                    </button>
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge estado={group.estado} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span className="flex flex-col items-end leading-tight">
-                      <span className="font-medium tabular-nums">{formatScore(group.score)}</span>
-                      {delta !== null && Math.abs(delta) >= 0.5 ? (
-                        <span
-                          className={cn(
-                            "text-xs tabular-nums",
-                            delta > 0 ? "text-status-healthy-fg" : "text-status-risk-fg",
-                          )}
-                        >
-                          {formatSigned(delta)}
-                        </span>
-                      ) : null}
+            {holdings.map((group) => (
+              <TableRow key={group.groupId} className="hover:bg-muted/40 relative">
+                <TableCell>
+                  <button
+                    type="button"
+                    onClick={() => openGroup(group.groupId)}
+                    className="focus-visible:ring-ring flex flex-col items-start text-left leading-tight after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
+                  >
+                    <span className="font-mono text-sm font-medium">{group.groupId}</span>
+                    <span className="text-muted-foreground text-xs tabular-nums">
+                      {group.members} {group.members === 1 ? "empresa" : "empresas"}
                     </span>
-                  </TableCell>
-                  <TableCell>
-                    <HealthBar group={group} />
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {group.eligible} de {group.members}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <ExposureCell group={group} />
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatPercent(group.interdependence, 0)}
-                  </TableCell>
-                  <TableCell>
-                    <Signals group={group} />
-                  </TableCell>
-                  <TableCell>
-                    <ChevronRight aria-hidden className="text-muted-foreground size-4" />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                  </button>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge estado={group.estado} />
+                </TableCell>
+                <TableCell className="text-right">
+                  <ScoreFigure value={group.score} />
+                </TableCell>
+                <TableCell className="text-right">
+                  <DeltaFigure
+                    delta={group.previousScore === null ? null : group.score - group.previousScore}
+                  />
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {group.eligible} de {group.members}
+                </TableCell>
+                <TableCell className="text-center">
+                  <MoneyFigure
+                    amount={group.exposure}
+                    previous={group.previousExposure}
+                    empty="0 €"
+                    align="center"
+                  />
+                </TableCell>
+                <TableCell>
+                  <MonthNews group={group} />
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>
@@ -254,10 +198,20 @@ export function GruposClient() {
               </button>
               <StatusBadge estado={group.estado} />
             </div>
-            <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
+            <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
               <div>
                 <dt className="text-muted-foreground text-xs">Score</dt>
-                <dd className="font-medium tabular-nums">{formatScore(group.score)}</dd>
+                <dd>
+                  <ScoreFigure value={group.score} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">Δ 3 meses</dt>
+                <dd>
+                  <DeltaFigure
+                    delta={group.previousScore === null ? null : group.score - group.previousScore}
+                  />
+                </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground text-xs">Con línea</dt>
@@ -265,16 +219,23 @@ export function GruposClient() {
                   {group.eligible} de {group.members}
                 </dd>
               </div>
-              <div className="text-right">
+              <div>
                 <dt className="text-muted-foreground text-xs">Techo</dt>
                 <dd>
-                  <ExposureCell group={group} />
+                  <MoneyFigure
+                    amount={group.exposure}
+                    previous={group.previousExposure}
+                    empty="0 €"
+                    align="start"
+                  />
                 </dd>
               </div>
             </dl>
-            <div className="mt-3 border-t pt-2.5">
-              <Signals group={group} />
-            </div>
+            {monthNews(group) ? (
+              <div className="mt-3 border-t pt-2.5">
+                <MonthNews group={group} />
+              </div>
+            ) : null}
           </li>
         ))}
       </ul>

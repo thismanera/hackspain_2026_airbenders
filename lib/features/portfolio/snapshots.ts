@@ -28,6 +28,7 @@ import {
   type PortfolioLiteRow,
 } from "./derive";
 import { peerMapFrom } from "./peer-map";
+import { readingsFor } from "./reading";
 import type {
   BenchmarkResponse,
   CompanyFileResponse,
@@ -49,6 +50,7 @@ export const SNAPSHOT_KIND = {
   backtest: "backtest",
   cohort: "cohort",
   peers: "peers",
+  reading: "reading",
 } as const;
 
 export type SnapshotKind = (typeof SNAPSHOT_KIND)[keyof typeof SNAPSHOT_KIND];
@@ -70,6 +72,10 @@ export type CompanySnapshot = {
 };
 
 export type SnapshotRow = { kind: SnapshotKind; key: string; payload: unknown };
+
+export function readingKey(companyId: string, month: string): string {
+  return `${companyId}:${month}`;
+}
 
 export function groupKey(groupId: string, month: string): string {
   return `${groupId}:${month}`;
@@ -108,6 +114,16 @@ export function* materialize(
       peersByMonth[point.month] = groupPeersAt(dataset.companies, entry, point.month);
     const payload: CompanySnapshot = { company: entry.meta, history: entry.months, peersByMonth };
     yield { kind: SNAPSHOT_KIND.company, key: entry.meta.id, payload };
+
+    for (const point of entry.months) {
+      const file = companyFileFromSnapshot(payload, point.month);
+      if (!file) continue;
+      yield {
+        kind: SNAPSHOT_KIND.reading,
+        key: readingKey(entry.meta.id, point.month),
+        payload: readingsFor(file, dataset.parameterVersion),
+      };
+    }
   }
 
   const meta: MetaSnapshot = {

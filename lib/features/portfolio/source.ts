@@ -25,11 +25,13 @@ import {
 } from "./derive";
 import { compatibleRun, unavailableIfUnreachable, type RunHeader } from "./load-dataset";
 import { scopePeerMap } from "./peer-map";
+import { readingSetSchema, type Reading, type ReadingKind } from "./reading";
 import {
   benchmarkFromSnapshot,
   companyFileFromSnapshot,
   groupKey,
   portfolioFromSnapshot,
+  readingKey,
   SNAPSHOT_KIND,
   type CompanySnapshot,
   type SnapshotKind,
@@ -135,6 +137,20 @@ export async function getAlerts(requestedMonth?: string): Promise<AlertsResponse
 
 export async function getBacktest(requestedMonth?: string): Promise<BacktestResponse> {
   return monthly<BacktestResponse>(SNAPSHOT_KIND.backtest, requestedMonth);
+}
+
+/** Lectura persistida de la ficha: la del analista si la hay, la plantilla si no. */
+export async function getReading(
+  companyId: string,
+  kind: ReadingKind,
+  requestedMonth?: string,
+): Promise<Reading | null> {
+  const raw = await snapshot<unknown>(
+    SNAPSHOT_KIND.reading,
+    readingKey(companyId, resolveMonth(requestedMonth)),
+  );
+  if (raw === null) return null;
+  return readingSetSchema.parse(raw)[kind];
 }
 
 export async function getBenchmark(

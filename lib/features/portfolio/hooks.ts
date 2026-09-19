@@ -19,6 +19,7 @@ import {
 import type { ReadingKind } from "./reading";
 import {
   alertsSearchParams,
+  companySearchParams,
   compareSearchParams,
   monthSearchParams,
   portfolioSearchParams,
@@ -47,6 +48,11 @@ export function usePortfolioFilters() {
  */
 export function useSheetState() {
   return useQueryStates(sheetSearchParams, { history: "push" });
+}
+
+/** Pestaña de la ficha completa: vive en la URL para que "Abrir ficha" aterrice donde estaba. */
+export function useCompanyPageState() {
+  return useQueryStates(companySearchParams);
 }
 
 export function usePortfolio(filters: PortfolioSearchState) {
@@ -165,7 +171,7 @@ export function useBenchmark(companyId: string, month: string) {
 
 /**
  * Lectura declarada. No usa Suspense: la plantilla ya está en el cliente y
- * Helmcode, si responde, solo la sustituye.
+ * la lectura materializada (analista o plantilla), cuando llega, solo la sustituye.
  */
 export function useReading(companyId: string, month: string, kind: ReadingKind) {
   return useQuery({

@@ -10,7 +10,7 @@ import type { ReadingKind, ReadingSource } from "@/lib/features/portfolio/readin
  * La caja de la lectura, idéntica en empresa y en grupo. Es el único panel
  * oscuro de la aplicación, y a propósito: lleva el mark y el barrido del logo
  * de TellMe, así que la inversión marca de un vistazo que ese texto está
- * redactado por el asistente y no calculado. No es un estado del score.
+ * redactado (por el analista o por plantilla) y no calculado. No es un estado del score.
  *
  * Quién lo redactó y que no decide quedan en el texto solo para lector de
  * pantalla: son declaraciones que deben existir, pero el analista ya lo sabe
@@ -40,8 +40,10 @@ export function ReadingBox({
             párrafo dejaría invisible el mark, que no pinta con currentColor. */}
         <span className="ai-label text-base">TellMe</span>
         <span className="sr-only">
-          {source === "helmcode" ? ", redactada por Helmcode" : ", redactada con plantilla"}, no
-          decide
+          {source === "analista"
+            ? ", redactada por el analista a partir de la cascada"
+            : ", redactada con plantilla"}
+          , no decide
         </span>
       </p>
       <p className="text-ai-fg text-base leading-snug font-medium text-pretty">{headline}</p>
@@ -50,8 +52,8 @@ export function ReadingBox({
 }
 
 /**
- * Una sola frase, en su propia caja y por encima de la evidencia. Helmcode
- * puede reescribir el titular; nunca decide.
+ * Una sola frase, en su propia caja y por encima de la evidencia. La lectura
+ * viene materializada del run (analista o plantilla); nunca decide.
  */
 export function DeclaredReading({
   kind,

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: "Flow",
-  description: "Circulante que se recalcula cada mes: score, límite y decisión de cada empresa",
+  description: "Score, límite y decisión de cada empresa",
   icons: {
     icon: "/embatlogo.jpg",
     shortcut: "/embatlogo.jpg",
