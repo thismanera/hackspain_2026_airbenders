@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "build": "prisma generate && next build --turbopack",
     "start": "next start -H 0.0.0.0",
     "test": "node scripts/run-tests.mjs",
     "db:setup": "node scripts/setup-db.mjs",

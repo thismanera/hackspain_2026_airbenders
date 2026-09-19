@@ -7,17 +7,17 @@ impago ni una aprobación automática.
 
 ## Por dónde empezar
 
-| Si quieres…                                        | Lee…                                                                                         |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Revisar la entrega (jurado)                        | [Paquete de entrega](./docs/product/para-el-jurado.md)                                       |
-| Orientarte en la documentación                     | [Mapa de docs/](./docs/README.md)                                                            |
-| Entender o explicar el producto                    | [Guía de módulos](./docs/product/modules-guide.md)                                           |
-| Saber qué significa cada métrica                   | [Guía de métricas de scoring](./docs/engines/scoring-metrics.md)                             |
-| Revisar el cálculo observado                       | [Motor de scoring](./docs/engines/scoring-engine.md)                                         |
-| Comprender las previsiones y el modo sombra        | [Motor de forecast](./docs/engines/forecast-engine.md)                                       |
-| Entender una oferta y sus controles                | [Motor de decisión](./docs/engines/decision-engine.md)                                       |
-| Explicar recomendaciones y escenarios recuperables | [Playbook de tesorería](./docs/engines/treasury-playbook.md)                                 |
-| Preparar una presentación                          | [Casos de uso](./docs/demo/README.md)                                                        |
+| Si quieres…                                        | Lee…                                                                                    |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Revisar la entrega (jurado)                        | [Paquete de entrega](./docs/product/para-el-jurado.md)                                  |
+| Orientarte en la documentación                     | [Mapa de docs/](./docs/README.md)                                                       |
+| Entender o explicar el producto                    | [Guía de módulos](./docs/product/modules-guide.md)                                      |
+| Saber qué significa cada métrica                   | [Guía de métricas de scoring](./docs/engines/scoring-metrics.md)                        |
+| Revisar el cálculo observado                       | [Motor de scoring](./docs/engines/scoring-engine.md)                                    |
+| Comprender las previsiones y el modo sombra        | [Motor de forecast](./docs/engines/forecast-engine.md)                                  |
+| Entender una oferta y sus controles                | [Motor de decisión](./docs/engines/decision-engine.md)                                  |
+| Explicar recomendaciones y escenarios recuperables | [Playbook de tesorería](./docs/engines/treasury-playbook.md)                            |
+| Preparar una presentación                          | [Casos de uso](./docs/demo/README.md)                                                   |
 | Consultar reglas y diferencias pendientes          | [SOURCE](./docs/product/SOURCE.md) y [auditoría](./docs/product/documentation-audit.md) |
 
 Las especificaciones anteriores se conservan en [docs/history](./docs/history/README.md).
@@ -75,6 +75,16 @@ sustituye los resultados por datos ficticios.
 | `pnpm prisma:seed`        | Seed de la base de datos (`prisma/seed.ts`)                           |
 | `pnpm run auth:generate`  | Regenera `prisma/schema/auth.prisma` tras tocar `lib/core/auth.ts`    |
 | `pnpm run rename-project` | Sustituye el nombre placeholder por el nombre real                    |
+
+### Despliegue en Vercel
+
+Deja el **Install Command** en `pnpm install --frozen-lockfile` y el **Build
+Command** en `pnpm run build`. El build ejecuta `prisma generate` antes de
+compilar Next.js, porque el cliente se genera en `generated/prisma` y esa
+carpeta no se versiona. Configura como mínimo `DATABASE_URL`,
+`BETTER_AUTH_SECRET` y `BETTER_AUTH_URL` en las variables de entorno de Vercel.
+No sustituyas el build por `next build` directamente: en un checkout limpio
+no existiría el cliente Prisma personalizado.
 
 ## Recalibración y backtests: trabajo opcional
 
