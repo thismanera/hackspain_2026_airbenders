@@ -28,7 +28,6 @@ import {
   type PortfolioSearchState,
 } from "./search-params";
 import type { Scope } from "./types";
-import { fetchScoringCompany, scoringKeys } from "@/lib/features/scoring/queries";
 
 // El score se recalcula una vez al mes: nada de refetch agresivo. Una hora de
 // frescura y un día en caché cubren de sobra una sesión de trabajo.
@@ -76,16 +75,6 @@ export function useGroupFile(groupId: string, month: string) {
     queryKey: portfolioKeys.group(groupId, month),
     queryFn: () => fetchGroupFile(groupId, month),
     ...SCORING_CADENCE,
-  });
-}
-
-export function useScoringCompany(companyId: string) {
-  return useQuery({
-    queryKey: scoringKeys.company(companyId),
-    queryFn: () => fetchScoringCompany(companyId),
-    staleTime: 60 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
-    retry: false,
   });
 }
 

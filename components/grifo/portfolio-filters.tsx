@@ -51,6 +51,13 @@ const BANDA_OPTIONS = [
   })),
 ];
 
+const PREVISION_OPTIONS = [
+  { value: "todas", label: "Cualquier previsión" },
+  { value: "baja_banda", label: "Baja de banda en 3 m" },
+  { value: "sube_banda", label: "Sube de banda en 3 m" },
+  { value: "mantiene", label: "Mantiene la banda" },
+];
+
 function FilterSelect({
   label,
   value,
@@ -140,6 +147,12 @@ export function PortfolioFilters({
         options={BANDA_OPTIONS}
         onChange={(value) => onChange({ banda: value as PortfolioSearchState["banda"] })}
       />
+      <FilterSelect
+        label="Filtrar por previsión a 3 meses"
+        value={filters.prevision}
+        options={PREVISION_OPTIONS}
+        onChange={(value) => onChange({ prevision: value as PortfolioSearchState["prevision"] })}
+      />
 
       {active > 0 ? (
         <Button variant="ghost" size="sm" onClick={onClear} className="h-8">
@@ -150,7 +163,7 @@ export function PortfolioFilters({
 
       <p
         aria-live="polite"
-        className="text-muted-foreground ml-auto text-xs tabular-nums whitespace-nowrap"
+        className="text-muted-foreground ml-auto text-xs whitespace-nowrap tabular-nums"
       >
         {shown === total ? `${total} empresas` : `${shown} de ${total} empresas`}
       </p>

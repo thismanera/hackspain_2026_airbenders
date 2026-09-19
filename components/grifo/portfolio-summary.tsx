@@ -4,6 +4,7 @@ import {
   ArrowDownRight,
   ArrowLeftRight,
   ArrowUpRight,
+  Compass,
   ShieldAlert,
   TrendingDown,
   Wallet,
@@ -110,7 +111,9 @@ function KpiCard({
         <p className="text-xl leading-tight font-semibold tracking-[-0.02em] tabular-nums sm:text-2xl">
           {value}
           {unit ? (
-            <span className="text-muted-foreground ml-1 text-sm font-normal sm:text-base">{unit}</span>
+            <span className="text-muted-foreground ml-1 text-sm font-normal sm:text-base">
+              {unit}
+            </span>
           ) : null}
         </p>
         {delta}
@@ -140,12 +143,17 @@ export function PortfolioKpis({
 
   const riskOn = filters.estado === "riesgo";
   const deteriorationOn = filters.direccion === "deterioro";
+  const forecastOn = filters.prevision === "baja_banda";
 
   const up = summary.byAccion.abrir + summary.byAccion.ampliar;
   const down = summary.byAccion.reducir + summary.byAccion.cerrar;
+  // Un snapshot materializado antes de la previsión no trae el bloque: cero, no un error.
+  const forecast = summary.forecast ?? { bandUp: 0, bandDown: 0, annualDelta: 0 };
+  const forecastOf = (s: PortfolioSummary) => s.forecast?.bandDown ?? 0;
+  const money = forecast.annualDelta;
 
   return (
-    <section aria-label="Resumen del mes" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <section aria-label="Resumen del mes" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       <KpiCard
         icon={Wallet}
         label="Límite vivo"
@@ -226,6 +234,43 @@ export function PortfolioKpis({
             <span className="text-status-risk-fg tabular-nums">{down} bajan</span>
           </>
         }
+      />
+
+      {/* La previsión va en sombra (decisión 38): no decide, pero dice quién va a
+          cambiar de banda y cuánto dinero hay en juego. Pulsar filtra las que bajan. */}
+      <KpiCard
+        icon={Compass}
+        label="Bajan de banda en 3 m"
+        value={String(forecast.bandDown)}
+        unit={`de ${summary.total}`}
+        accent={{ tile: "bg-status-watch-surface text-status-watch-fg" }}
+        delta={
+          <Delta
+            value={delta(forecastOf)}
+            format={(v) => formatSigned(v, 0)}
+            tone={delta(forecastOf) > 0 ? "bad" : "good"}
+            previousMonth={previousMonth}
+          />
+        }
+        footer={
+          <>
+            <span className="text-status-healthy-fg tabular-nums">{forecast.bandUp} suben</span>
+            {" · "}
+            <span
+              className={cn(
+                "tabular-nums",
+                money > 0 && "text-status-healthy-fg",
+                money < 0 && "text-status-risk-fg",
+              )}
+            >
+              {money === 0
+                ? "intereses sin cambio"
+                : `${money > 0 ? "+" : "−"}${formatEuros(Math.abs(money))}/año`}
+            </span>
+          </>
+        }
+        pressed={forecastOn}
+        onToggle={() => onChange({ prevision: forecastOn ? "todas" : "baja_banda" })}
       />
     </section>
   );
