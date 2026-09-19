@@ -6,6 +6,8 @@ export type Horizonte = (typeof HORIZONTES)[number];
 
 /** docs/forecast-engine.md §2. Ningún número suelto en código. */
 export const FORECAST_PARAMS = {
+  /** Incremented when calibration or connection criteria change. */
+  revision: 2,
   horizontes: HORIZONTES,
   /** Horizonte que leen la decisión (§8) y la dirección/`P_det` (§5): el resto viaja igual. */
   horizonteDecision: 3 satisfies Horizonte,

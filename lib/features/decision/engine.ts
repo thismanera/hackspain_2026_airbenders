@@ -173,7 +173,13 @@ function puertasDuras(e: Elegibilidad): boolean {
 }
 
 function puedeUsarAval(r: DecisionInput, e: Elegibilidad, pred: PrevisionInput): boolean {
-  if (!r.requiereAvalMatriz || r.scoreGrupo < P.scoreMin || puertasDuras(e)) return false;
+  const scoreAutonomoBajo =
+    r.score < P.scoreMin &&
+    r.scoreGrupo >= P.scoreMin &&
+    r.scoreGrupo > r.score &&
+    r.ajusteHolding > 0;
+  if (!(r.requiereAvalMatriz || scoreAutonomoBajo) || r.scoreGrupo < P.scoreMin || puertasDuras(e))
+    return false;
   const group = pred.grupo ?? pred;
   return group.metodo !== "desconectado"
     ? (group.scorePred3m ?? 0) >= P.scorePredMinApertura
@@ -202,10 +208,7 @@ function fila(
 ): DecisionRow {
   const { r, e, pred, prev } = x;
   const TBase = d.accion === "cerrar" ? 0 : tMax(x.decisionR, pred.bandaPred3m);
-  const T =
-    r.revisionStage2Candidata && prev.LPrev > 0
-      ? Math.min(TBase, P.revisionStage2PlazoDias)
-      : TBase;
+  const T = r.revisionStage2Candidata ? Math.min(TBase, P.revisionStage2PlazoDias) : TBase;
   const opciones =
     T === 0 ? [] : menu(x.decisionR, d.LVigente, T, d.bandaEfectiva, pred.bandaPred3m);
   const bandaPred = pred.metodo === "desconectado" ? null : pred.bandaPred3m;
