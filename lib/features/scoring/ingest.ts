@@ -114,6 +114,17 @@ export async function* csv(
   if (!checked && !allowEmpty) throw new Error(`${file}: empty CSV`);
 }
 
+async function sha256File(file: string): Promise<string> {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(file)) hash.update(chunk);
+  return hash.digest("hex");
+}
+
+/**
+ * Huella del input por contenido (sha256 de cada fichero, incluido el CSV de categorías si se
+ * usa). Un mismo dataset da la misma huella en cualquier máquina o checkout: la caché de ingesta
+ * y la comparación con el run congelado no dependen de `mtime`.
+ */
 export async function fingerprint(dataset: string, categories: string | null): Promise<string> {
   const hash = createHash("sha256");
   const files = [
@@ -131,8 +142,9 @@ export async function fingerprint(dataset: string, categories: string | null): P
       if (name === SCHEDULE_CSV && e.code === "ENOENT") return null;
       throw e;
     });
-    hash.update(s ? `${name}:${s.size}:${s.mtimeMs};` : `${name}:missing;`);
+    hash.update(s ? `${name}:${await sha256File(f)};` : `${name}:missing;`);
   }
+  hash.update(categories ? "categories:yes" : "categories:no");
   return hash.digest("hex");
 }
 

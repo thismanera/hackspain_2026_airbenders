@@ -105,6 +105,22 @@ test("la ficha recortada por mes coincide con la ficha calculada", () => {
   }
 });
 
+test("un snapshot sin impacto en euros completa la previsión al leer la ficha", () => {
+  const id = [...companies.keys()][0]!;
+  const snapshot = roundtrip(read<CompanySnapshot>(SNAPSHOT_KIND.company, id));
+  for (const point of snapshot.history) {
+    if (!point.forecast) continue;
+    const { impact: _impact, bandaSoloPred3m: _b3, bandaSoloPred6m: _b6, ...rest } = point.forecast;
+    point.forecast = rest as typeof point.forecast;
+  }
+  const file = companyFileFromSnapshot(snapshot, LATEST_MONTH);
+  const expected = companyFileFrom(dataset, id, LATEST_MONTH);
+  assert.ok(file?.latest.forecast?.impact);
+  assert.ok(expected?.latest.forecast);
+  assert.equal(file.latest.forecast.impact.tone, expected.latest.forecast.impact.tone);
+  assert.equal(file.latest.forecast.bandaSoloPred3m, expected.latest.forecast.bandaSoloPred3m);
+});
+
 test("el benchmark desde la cohorte materializada coincide con el calculado", () => {
   for (const month of [LATEST_MONTH, CALENDAR[5]]) {
     const cohort = roundtrip(read<CohortStats>(SNAPSHOT_KIND.cohort, month));

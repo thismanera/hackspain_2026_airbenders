@@ -57,7 +57,7 @@ export function ForecastPanel({
         su rango de incertidumbre.
       </p>
     );
-    return inset ? empty : <Panel title="Previsión a 3 y 6 meses">{empty}</Panel>;
+    return inset ? empty : <Panel title="Escenario a 3 y 6 meses">{empty}</Panel>;
   }
 
   const observed = history.filter((month) => month.coverage.observedMonths > 0);
@@ -169,10 +169,14 @@ export function ForecastPanel({
         {formatScore(forecast.p90Solo6m)}).
       </p>
 
-      <div className="mt-4 border-t pt-4">
-        <ForecastImpactFigures impact={forecast.impact} />
-      </div>
-      <ForecastImpactLine forecast={forecast} showAction className="mt-4 border-t pt-4" />
+      {forecast.impact ? (
+        <>
+          <div className="mt-4 border-t pt-4">
+            <ForecastImpactFigures impact={forecast.impact} />
+          </div>
+          <ForecastImpactLine forecast={forecast} showAction className="mt-4 border-t pt-4" />
+        </>
+      ) : null}
     </>
   );
 
@@ -180,8 +184,8 @@ export function ForecastPanel({
     body
   ) : (
     <Panel
-      title="Previsión a 3 y 6 meses"
-      description="Si nada cambia en la operativa. Tendencia amortiguada de los últimos seis meses, con su rango."
+      title="Escenario a 3 y 6 meses"
+      description="Si nada cambia en la operativa: tendencia amortiguada de los últimos seis meses, con su rango. Es una extrapolación heurística, no una predicción calibrada."
       aside={
         <span className="text-muted-foreground text-xs">
           {forecast.metodoSolo === "desconectado" ? "Modo sombra" : "Aplicada a la decisión"}

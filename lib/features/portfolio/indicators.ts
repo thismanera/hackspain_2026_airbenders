@@ -112,7 +112,7 @@ export const INDICATORS: Indicator[] = [
     id: "C1",
     block: "C",
     label: "Concentración de clientes",
-    question: "¿Depende de pocos clientes?",
+    question: "¿Los cobros salen de pocos clientes?",
     betterWhen: "bajo",
     format: "percent",
   },

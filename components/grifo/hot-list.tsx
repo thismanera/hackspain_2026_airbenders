@@ -1,6 +1,6 @@
 "use client";
 
-import { Flame } from "lucide-react";
+import { Flame, Snowflake } from "lucide-react";
 
 import { Panel } from "@/components/grifo/panel";
 import { Sparkline, TrendDelta } from "@/components/grifo/trend";
@@ -9,12 +9,12 @@ import { formatSigned } from "@/lib/features/portfolio/format";
 import type { PortfolioRow } from "@/lib/features/portfolio/types";
 
 const FLAME_TONE = {
-  mejora: "text-status-healthy-fg",
+  mejora: "text-status-risk-fg",
   estable: "text-muted-foreground",
-  deterioro: "text-status-risk-fg",
+  deterioro: "text-sky-600 dark:text-sky-400",
 } as const;
 
-/** El icono que marca una empresa "hot" en la tabla y el mapa: siempre el mismo. */
+/** Sube: llama roja. Baja: copo de nieve. Estable: sin icono de temperatura. */
 export function HotFlame({
   direction,
   className,
@@ -22,9 +22,14 @@ export function HotFlame({
   direction: PortfolioRow["direction"];
   className?: string;
 }) {
+  const Icon = direction === "deterioro" ? Snowflake : Flame;
   return (
-    <Flame
-      aria-label="Entre las que más se mueven este mes"
+    <Icon
+      aria-label={
+        direction === "deterioro"
+          ? "Entre las que más se enfrían este mes"
+          : "Entre las que más se mueven este mes"
+      }
       className={cn("size-3.5 shrink-0", FLAME_TONE[direction], className)}
       strokeWidth={2.25}
     />
@@ -45,6 +50,8 @@ export function HotList({
   onOpenCompany: (companyId: string) => void;
   className?: string;
 }) {
+  const ordered = [...rows].sort((a, b) => (a.hot?.rank ?? 0) - (b.hot?.rank ?? 0));
+
   return (
     <Panel
       title="Hot este mes"
@@ -52,13 +59,13 @@ export function HotList({
       className={cn("flex flex-col", className)}
       bodyClassName="flex-1 p-0"
     >
-      {rows.length === 0 ? (
+      {ordered.length === 0 ? (
         <p className="text-muted-foreground px-4 py-6 text-center text-sm">
           Nadie se mueve de forma estructural este mes.
         </p>
       ) : (
         <ol className="divide-y">
-          {rows.map((row) => (
+          {ordered.map((row) => (
             <li key={row.company.id}>
               <button
                 type="button"
@@ -79,7 +86,7 @@ export function HotList({
                       ? `${row.hot.driver} ${formatSigned(row.hot.driverDelta)}`
                       : "Varias variables a la vez"}
                     {row.hot?.hasCritical ? " · alerta crítica" : ""}
-                    {row.forecast && row.forecast.impact.tone !== "igual"
+                    {row.forecast?.impact && row.forecast.impact.tone !== "igual"
                       ? ` · en 3 m banda ${row.forecast.band3m}`
                       : ""}
                   </span>

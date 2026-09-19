@@ -68,7 +68,9 @@ export function formatEurosExact(value: number): string {
 
 /** Para ejes de gráfico y celdas muy estrechas: 148 mil €, 1,2 M €. */
 export function formatEurosCompact(value: number): string {
-  return compactEur.format(value);
+  // Bajo mil, la notación compacta difiere entre ICU de Node y del navegador ("3,0 €" vs "3 €"),
+  // lo que rompe la hidratación; ahí basta el formato entero.
+  return Math.abs(value) < 1000 ? formatEuros(value) : compactEur.format(value);
 }
 
 export function formatPercent(value: number, decimals: 0 | 1 = 1): string {

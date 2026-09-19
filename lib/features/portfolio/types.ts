@@ -1,3 +1,5 @@
+import type { AnalisisPostInflexion } from "@/lib/features/rca/types";
+
 import type { BlockId } from "./indicators";
 
 export type Estado = "sana" | "vigilar" | "riesgo" | "sin_datos";
@@ -369,6 +371,8 @@ export type CompanyFileResponse = {
   previous: MonthScore | null;
   history: MonthScore[];
   peers: GroupPeer[];
+  /** Playbook RCA del mes pedido; `undefined` en los fixtures que no lo calculan. */
+  rca?: AnalisisPostInflexion | null;
 };
 
 /** Fila de la lista de grupos: el techo y la salud del holding sin abrir la ficha. */

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { MouseEvent } from "react";
+import { useMemo, type MouseEvent } from "react";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
 import { CompanyAvatar } from "@/components/grifo/company-avatar";
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { IMPACT_TONE } from "@/components/grifo/company/forecast-impact";
 import { cn } from "@/lib/core/utils";
+import { comparePortfolioRows } from "@/lib/features/portfolio/derive";
 import { formatEurosCompact, formatScore } from "@/lib/features/portfolio/format";
 import type { PortfolioListRow } from "@/lib/features/portfolio/types";
 
@@ -34,7 +35,7 @@ import type { PortfolioListRow } from "@/lib/features/portfolio/types";
  */
 function ForecastCell({ row, align = "end" }: { row: PortfolioListRow; align?: "start" | "end" }) {
   const forecast = row.forecast;
-  if (!forecast) return <span className="text-muted-foreground tabular-nums">—</span>;
+  if (!forecast?.impact) return <span className="text-muted-foreground tabular-nums">—</span>;
   const { impact } = forecast;
   const money = impact.annualDelta;
   return (
@@ -103,7 +104,8 @@ export function PortfolioTable({
   onOpenCompany,
   onOpenGroup,
 }: { rows: PortfolioListRow[]; month: string; resetKey: string } & Openers) {
-  const { visible: rows, hidden, showMore, showAll } = useVisibleRows(allRows, resetKey);
+  const sortedRows = useMemo(() => [...allRows].sort(comparePortfolioRows), [allRows]);
+  const { visible: rows, hidden, showMore, showAll } = useVisibleRows(sortedRows, resetKey);
   const companyClick = (row: PortfolioListRow) => (event: MouseEvent<HTMLAnchorElement>) => {
     if (!onOpenCompany || !plainClick(event)) return;
     event.preventDefault();
