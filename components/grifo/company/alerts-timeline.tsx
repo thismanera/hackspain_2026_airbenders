@@ -15,25 +15,26 @@ function leadMonths(alert: Alert): number {
  * producto: los meses que el analista habría ganado. Por eso va escrita, no
  * deducible de dos fechas.
  */
-export function AlertsTimeline({ alerts }: { alerts: Alert[] }) {
+export function AlertsTimeline({
+  alerts,
+  /** Dentro de otro contenedor: sin tarjeta propia, porque no se anidan. */
+  inset = false,
+}: {
+  alerts: Alert[];
+  inset?: boolean;
+}) {
   if (alerts.length === 0) {
-    return (
-      <Panel title="Alertas">
-        <p className="text-muted-foreground flex items-center gap-2 text-sm">
-          <ShieldCheck aria-hidden className="text-status-healthy-fg size-4 shrink-0" />
-          Ninguna alerta activa este mes.
-        </p>
-      </Panel>
+    const empty = (
+      <p className="text-muted-foreground flex items-center gap-2 text-sm">
+        <ShieldCheck aria-hidden className="text-status-healthy-fg size-4 shrink-0" />
+        Ninguna alerta activa este mes.
+      </p>
     );
+    return inset ? empty : <Panel title="Alertas">{empty}</Panel>;
   }
 
-  return (
-    <Panel
-      title="Alertas"
-      description={`${alerts.length} ${alerts.length === 1 ? "señal activa" : "señales activas"} este mes.`}
-      bodyClassName="p-0"
-    >
-      <ul className="divide-y">
+  const list = (
+    <ul className={cn("divide-y", inset && "-mx-4 -my-3")}>
         {alerts.map((alert) => {
           const lead = leadMonths(alert);
           return (
@@ -63,7 +64,14 @@ export function AlertsTimeline({ alerts }: { alerts: Alert[] }) {
             </li>
           );
         })}
-      </ul>
+    </ul>
+  );
+
+  return inset ? (
+    list
+  ) : (
+    <Panel title="Alertas" bodyClassName="p-0">
+      {list}
     </Panel>
   );
 }

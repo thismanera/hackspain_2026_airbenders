@@ -15,12 +15,7 @@ import {
   formatSigned,
 } from "./format";
 import { indicator } from "./indicators";
-import type {
-  CompanyFileResponse,
-  Contribution,
-  GroupFileResponse,
-  MonthScore,
-} from "./types";
+import type { CompanyFileResponse, Contribution, GroupFileResponse, MonthScore } from "./types";
 import { ACCION, ESTADO } from "./vocabulary";
 
 export type Citation = {
@@ -114,12 +109,14 @@ export function decisionNarrative(file: CompanyFileResponse): Narrative {
 
   let headline: string;
   if (!decision.eligible) {
+    const why = (failed?.detail ?? decision.reason).trim().replace(/\.$/, "");
+    const whyLower = why.charAt(0).toLowerCase() + why.slice(1);
     headline =
       decision.previousLimit > 0
-        ? `Se cierra la línea: se retiran ${formatEuros(decision.previousLimit)}.`
-        : "Sin línea este mes.";
+        ? `Se cierra la línea de ${formatEuros(decision.previousLimit)}: ${whyLower}.`
+        : `Sin línea este mes: ${whyLower}.`;
     sentences.push({
-      text: failed?.detail ?? decision.reason,
+      text: `${why}.`,
       citations: failed ? [{ ref: `puerta:${failed.id}`, label: failed.label }] : [],
     });
   } else if (decision.action === "mantener") {
@@ -165,8 +162,7 @@ export function decisionNarrative(file: CompanyFileResponse): Narrative {
     const alreadyTold = sentences.some((sentence) =>
       sentence.text.toLowerCase().includes(alert.label.toLowerCase()),
     );
-    const lead =
-      CALENDAR.indexOf(alert.confirmedMonth) - CALENDAR.indexOf(alert.onsetMonth);
+    const lead = CALENDAR.indexOf(alert.confirmedMonth) - CALENDAR.indexOf(alert.onsetMonth);
     sentences.push({
       text: alreadyTold
         ? `La alerta se detectó en ${formatMonthShort(alert.onsetMonth)} y se confirmó en ${formatMonthShort(alert.confirmedMonth)}${lead > 0 ? ` (${lead} ${lead === 1 ? "mes" : "meses"} de aviso)` : ""}.`
@@ -184,12 +180,13 @@ export function scoreNarrative(file: CompanyFileResponse): Narrative {
   const sentences: Sentence[] = [];
 
   const estado = ESTADO[latest.estado].label;
+  const weak = weakest(latest, 2);
   const headline =
     latest.estado === "sin_datos"
       ? `Sin datos suficientes: la confianza es del ${Math.round(latest.confidence * 100)} %.`
-      : `${estado}, ${Math.round(latest.score)} sobre 100 con ${Math.round(latest.confidence * 100)} % de confianza.`;
-
-  const weak = weakest(latest, 2);
+      : weak[0]
+        ? `${estado}, ${Math.round(latest.score)} sobre 100. Lastra ${describe(weak[0])}.`
+        : `${estado}, ${Math.round(latest.score)} sobre 100.`;
   if (weak.length > 0) {
     sentences.push({
       text: `Lo que más pesa en contra: ${joinEs(weak.map(describe))}.`,
@@ -316,4 +313,37 @@ export function groupNarrative(group: GroupFileResponse): Narrative {
   }
 
   return { headline, sentences };
+}
+
+/**
+ * El bloque D visto desde una empresa: si el resto del grupo la tira o la
+ * arrastra. Es la lectura de la pestaña Grupo de la ficha, no la del grupo
+ * entero: aquí el sujeto es ella, no el techo.
+ */
+export function holdingNarrative(file: CompanyFileResponse): Narrative {
+  const group = file.latest.group;
+  if (!group) {
+    return { headline: "Va sola: el grupo no mueve la nota.", sentences: [] };
+  }
+
+  const adj = group.adjustment;
+  const headline =
+    Math.abs(adj) < 0.5
+      ? "El grupo no mueve la nota de forma apreciable este mes."
+      : adj > 0
+        ? `El resto del grupo tira de la nota: ${formatSigned(adj)} puntos.`
+        : `El resto del grupo arrastra la nota: ${formatSigned(adj)} puntos.`;
+
+  return {
+    headline,
+    sentences: [
+      {
+        text: `Pesa el ${Math.round(group.weight * 100)} % del grupo y ella el ${Math.round(group.share * 100)} %; la interdependencia es del ${Math.round(group.interdependence * 100)} %.`,
+        citations: [
+          { ref: "D1", label: "Peso en el grupo" },
+          { ref: "D5", label: "Interdependencia" },
+        ],
+      },
+    ],
+  };
 }

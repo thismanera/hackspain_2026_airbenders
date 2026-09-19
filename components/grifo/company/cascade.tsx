@@ -98,7 +98,18 @@ function Row({ contribution }: { contribution: Contribution }) {
   );
 }
 
-export function Cascade({ month }: { month: MonthScore }) {
+export function Cascade({
+  month,
+  /**
+   * En el panel lateral la pestaña ya dice "Score" y la lectura de arriba ya
+   * dice de qué va: repetir el título y ofrecer dos órdenes es carga que no
+   * cambia ninguna decisión. Queda la tabla, ordenada por lo que se ha movido.
+   */
+  bare = false,
+}: {
+  month: MonthScore;
+  bare?: boolean;
+}) {
   const [mode, setMode] = useState<Mode>("movimiento");
 
   const byMovement = [...month.contributions]
@@ -106,33 +117,8 @@ export function Cascade({ month }: { month: MonthScore }) {
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
   const missing = month.contributions.filter((entry) => entry.raw === null);
 
-  return (
-    <Panel
-      title="De dónde sale el score"
-      description="Ordenado por lo que más se ha movido este mes. La suma de puntos es el score en solitario."
-      bodyClassName="p-0"
-      aside={
-        <fieldset className="flex min-w-0 gap-1">
-          <legend className="sr-only">Ordenar la cascada</legend>
-          <Button
-            variant={mode === "movimiento" ? "secondary" : "ghost"}
-            size="sm"
-            aria-pressed={mode === "movimiento"}
-            onClick={() => setMode("movimiento")}
-          >
-            Qué se ha movido
-          </Button>
-          <Button
-            variant={mode === "bloque" ? "secondary" : "ghost"}
-            size="sm"
-            aria-pressed={mode === "bloque"}
-            onClick={() => setMode("bloque")}
-          >
-            Por bloque
-          </Button>
-        </fieldset>
-      }
-    >
+  const body = (
+    <>
       <div className="text-muted-foreground grid grid-cols-[1fr_auto] gap-x-4 border-b px-4 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_5.5rem_6rem_4.5rem_4rem]">
         <span>Variable</span>
         <span className="text-right">Valor</span>
@@ -199,6 +185,47 @@ export function Cascade({ month }: { month: MonthScore }) {
           {month.standaloneScore.toLocaleString("es-ES", { maximumFractionDigits: 1 })}
         </span>
       </div>
+    </>
+  );
+
+  if (bare) {
+    return (
+      <section
+        aria-label="De dónde sale el score"
+        className="bg-card overflow-hidden rounded-xl border"
+      >
+        {body}
+      </section>
+    );
+  }
+
+  return (
+    <Panel
+      title="De dónde sale el score"
+      bodyClassName="p-0"
+      aside={
+        <fieldset className="flex min-w-0 gap-1">
+          <legend className="sr-only">Ordenar la cascada</legend>
+          <Button
+            variant={mode === "movimiento" ? "secondary" : "ghost"}
+            size="sm"
+            aria-pressed={mode === "movimiento"}
+            onClick={() => setMode("movimiento")}
+          >
+            Qué se ha movido
+          </Button>
+          <Button
+            variant={mode === "bloque" ? "secondary" : "ghost"}
+            size="sm"
+            aria-pressed={mode === "bloque"}
+            onClick={() => setMode("bloque")}
+          >
+            Por bloque
+          </Button>
+        </fieldset>
+      }
+    >
+      {body}
     </Panel>
   );
 }

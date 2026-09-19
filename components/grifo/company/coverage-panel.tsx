@@ -32,12 +32,18 @@ function Availability({ label, available, missing }: { label: string; available:
  * Sobre qué estamos opinando. Sin esto, un score de 62 con dos meses de historia
  * y otro con dos años se leen igual, y no valen lo mismo.
  */
-export function CoveragePanel({ coverage, confidence }: { coverage: Coverage; confidence: number }) {
-  return (
-    <Panel
-      title="Cobertura del dato"
-      description="Qué información tenemos de esta empresa y hasta dónde llega nuestra opinión."
-    >
+export function CoveragePanel({
+  coverage,
+  confidence,
+  /** Dentro de otro contenedor: sin tarjeta propia, porque no se anidan. */
+  inset = false,
+}: {
+  coverage: Coverage;
+  confidence: number;
+  inset?: boolean;
+}) {
+  const body = (
+    <>
       <dl className="grid grid-cols-2 gap-4">
         <div>
           <dt className="text-muted-foreground text-xs">Confianza</dt>
@@ -75,6 +81,8 @@ export function CoveragePanel({ coverage, confidence }: { coverage: Coverage; co
           missing="Sin línea: no se puntúa la dependencia de crédito."
         />
       </ul>
-    </Panel>
+    </>
   );
+
+  return inset ? body : <Panel title="Cobertura del dato">{body}</Panel>;
 }

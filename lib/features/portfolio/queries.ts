@@ -1,3 +1,4 @@
+import type { Reading, ReadingKind } from "./reading";
 import type {
   AlertsResponse,
   BacktestResponse,
@@ -86,6 +87,19 @@ export function fetchBenchmark(
     `${baseUrl}/api/portfolio/companies/${encodeURIComponent(companyId)}/benchmark?month=${month}`,
     "Empresa no encontrada",
     "No se ha podido cargar el benchmark",
+  );
+}
+
+export function fetchReading(
+  companyId: string,
+  month: string,
+  kind: ReadingKind,
+  baseUrl = "",
+): Promise<Reading> {
+  return getJson(
+    `${baseUrl}/api/portfolio/companies/${encodeURIComponent(companyId)}/reading?month=${month}&kind=${kind}`,
+    "Empresa no encontrada",
+    "No se ha podido cargar la lectura",
   );
 }
 
