@@ -1,0 +1,179 @@
+import type { VariableId } from "@/lib/features/scoring/params";
+
+export type Company = { id: string; groupId: string; currency: string };
+export type Product = { company: string; type: string; currency: string; service: string };
+
+/** Movimiento bancario ya filtrado (booked, en ventana) con importe en € o null si no convertible. */
+export type Tx = {
+  id: string;
+  company: string;
+  product: string;
+  date: string;
+  month: string;
+  amount: number | null;
+  category: string;
+  counterparty: string;
+};
+
+/** Factura `invoice` con importe en € y signo (+ cliente, − proveedor). */
+export type Invoice = {
+  id: string;
+  company: string;
+  issued: string;
+  due: string;
+  paid: string;
+  amount: number;
+  status: string;
+  counterparty: string;
+};
+
+export const OBLIGACIONES = ["tax", "social_security", "salary", "debt_repayment"] as const;
+export type Obligacion = (typeof OBLIGACIONES)[number];
+
+export type Flow = {
+  company: string;
+  month: string;
+  observed: boolean;
+  cobrosOp: number;
+  pagosOp: number;
+  servicioDeuda: number;
+  dispCredito: number;
+  amortCredito: number;
+  recibosDevueltos: number;
+  obligaciones: Record<Obligacion, number>;
+  intragrupoIn: number;
+  intragrupoOut: number;
+  clasificado: number;
+  neutral: number;
+  sinClasificar: number;
+  nMov: number;
+  nExcluidos: number;
+  cobrosPorContraparte: Record<string, number>;
+  pagosPorContraparte: Record<string, number>;
+};
+
+export type GroupFlow = {
+  month: string;
+  cobrosOp: number;
+  pagosOp: number;
+  servicioDeuda: number;
+  nEmpresas: number;
+};
+
+export type VariableValue = { raw: number | null; conf: number };
+export type VariableSet = Record<VariableId, VariableValue>;
+
+export type Extras = {
+  cobrosOpMedia3m: number;
+  cobrosOpMedia6m: number;
+  pagosOpMedia6m: number;
+  servicioDeudaMedia6m: number;
+  amortCreditoMedia6m: number;
+  obligacionesRecMedia6m: number;
+  capacidadCuotaAdv: number;
+  cobrosOp12m: number;
+  pagosOp12m: number;
+  intragrupoIn12m: number;
+  intragrupoOut12m: number;
+  rachaB2: number;
+  rachaB2Prev: number[];
+  rachaDeficit: number;
+  C3dias: number | null;
+  C4: number | null;
+  deficitMes: boolean | null;
+  margenMes: number | null;
+  cobertura: {
+    mesesObs6m: number;
+    mesesObs12m: number;
+    pctClasificado6m: number;
+    nFacturasCli6m: number;
+    nFacturasProv6m: number;
+    tieneLineaCredito: boolean;
+    tieneCuotas: boolean;
+    C4Estimado: boolean;
+  };
+};
+
+export type Contribution = {
+  id: VariableId | "grupo";
+  raw: number | null;
+  subnota: number;
+  conf: number;
+  aportacion: number;
+  umbralSano: number | null;
+  sano: boolean | null;
+};
+
+export type Alert = { tipo: string; desdeMes: string };
+export type Direccion = "mejora" | "estable" | "deterioro";
+export type Naturaleza = "temporal" | "estructural" | "sin_cambio";
+export type Estado = "sana" | "vigilar" | "riesgo" | "sin_datos";
+
+export type Percentiles = Record<VariableId, { p5: number; p95: number }>;
+export type Parameters = {
+  version: string;
+  paramsHash: string;
+  percentiles: Percentiles;
+  trainGroups: string[];
+  validationGroups: string[];
+  inputFingerprint: string;
+};
+
+export type Senales = {
+  deterioro: boolean;
+  estructural: boolean;
+  mejora: boolean;
+  deficit: boolean;
+  impago: boolean;
+  vencidoAlto: boolean;
+  contagio: boolean;
+  datosInsuficientes: boolean;
+};
+
+/** Contrato scoring-engine §10. */
+export type ScoreRow = {
+  company: string;
+  month: string;
+  groupId: string;
+  versionParametros: string;
+  score: number;
+  scoreSolo: number;
+  avalGrupo: number;
+  confianza: number;
+  subscores: Record<"A" | "B" | "C", number>;
+  confs: Record<"A" | "B" | "C", number>;
+  estado: Estado;
+  variables: Contribution[];
+  deltaContrib: { id: VariableId | "grupo"; delta: number }[];
+  direccion: Direccion;
+  naturaleza: Naturaleza;
+  tendScore3m: number | null;
+  tend3m: Record<"A" | "B" | "C", number | null>;
+  rachaB2: number;
+  rachaDeficit: number;
+  C3dias: number | null;
+  C4: number | null;
+  cobrosOpMedia3m: number;
+  cobrosOpMedia6m: number;
+  pagosOpMedia6m: number;
+  servicioDeudaMedia6m: number;
+  amortCreditoMedia6m: number;
+  obligacionesRecMedia6m: number;
+  capacidadCuotaAdv: number;
+  D1: number;
+  D2: number | null;
+  D3: number | null;
+  D4: number | null;
+  D5: number;
+  confD: number;
+  tienePrestamoIntragrupo: boolean;
+  cobrosOpGrupoMedia6m: number;
+  pagosOpGrupoMedia6m: number;
+  servicioDeudaGrupoMedia6m: number;
+  scoreGrupo: number | null;
+  deficitMes: boolean | null;
+  margenMes: number | null;
+  senales: Senales;
+  alertas: Alert[];
+  cobertura: Extras["cobertura"] & { nHermanasConDatos: number };
+};
