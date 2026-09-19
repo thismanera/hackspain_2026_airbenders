@@ -38,7 +38,9 @@ export function fitPercentiles(
   const percentiles = {} as Percentiles;
   for (const id of VARIABLES) {
     const xs = samples
-      .filter((s) => s.id === id && s.raw !== null && Number.isFinite(s.raw) && s.conf >= PARAMS.confSana)
+      .filter(
+        (s) => s.id === id && s.raw !== null && Number.isFinite(s.raw) && s.conf >= PARAMS.confSana,
+      )
       .map((s) => s.raw as number);
     percentiles[id] = { p5: percentile(xs, 0.05), p95: percentile(xs, 0.95) };
   }

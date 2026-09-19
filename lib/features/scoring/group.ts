@@ -45,9 +45,17 @@ export function groupVariables(me: GroupMember, siblings: GroupMember[]): GroupV
   return { D1, D2, D3, D4, D5, confD: media((s) => s.confianza) };
 }
 
-export function avalGrupo(scoreSolo: number, D2: number | null, D3: number | null, D5: number): number {
+export function avalGrupo(
+  scoreSolo: number,
+  D2: number | null,
+  D3: number | null,
+  D5: number,
+): number {
   if (D2 === null) return 0;
   const w = PARAMS.wMax * Math.min(1, D5 / PARAMS.d5Saturacion);
-  const a = D2 > scoreSolo ? w * Math.min(1, (D3 ?? 0) / PARAMS.d3Ref) * (D2 - scoreSolo) : w * (D2 - scoreSolo);
+  const a =
+    D2 > scoreSolo
+      ? w * Math.min(1, (D3 ?? 0) / PARAMS.d3Ref) * (D2 - scoreSolo)
+      : w * (D2 - scoreSolo);
   return clamp(a, -PARAMS.avalMax, PARAMS.avalMax);
 }

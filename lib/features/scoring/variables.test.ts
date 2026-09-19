@@ -207,7 +207,14 @@ test("racha_deficit counts consecutive observed months in the red", () => {
 
 test("medianDelay keeps early payments and drops absurd delays", () => {
   const inv = (id: string, due: string, paid: string): Invoice => ({
-    id, company: "c", issued: "2024-12-01", due, paid, amount: 100, status: "paid", counterparty: "k",
+    id,
+    company: "c",
+    issued: "2024-12-01",
+    due,
+    paid,
+    amount: 100,
+    status: "paid",
+    counterparty: "k",
   });
   assert.deepEqual(medianDelay([inv("1", "2025-01-10", "2025-01-05")]), { value: -5, n: 1 });
   assert.deepEqual(medianDelay([inv("1", "2025-01-10", "2027-01-05")]), { value: null, n: 0 });

@@ -79,7 +79,12 @@ export function obligacionStat(w6: Slots, k: Obligacion, scheduleMonthly: number
   const mesesEsperados = amounts.slice(first).filter((a) => a !== null).length;
   let racha = 0;
   for (let i = amounts.length - 1; i >= first && amounts[i] === 0; i--) racha++;
-  return { recurrente: true, pagado: sum(presentes), esperado: esperadoMes * mesesEsperados, racha };
+  return {
+    recurrente: true,
+    pagado: sum(presentes),
+    esperado: esperadoMes * mesesEsperados,
+    racha,
+  };
 }
 
 export function rachaAt(history: Slots, t: number, scheduleMonthly: number): number {
@@ -96,7 +101,9 @@ function days(a: string, b: string): number {
 }
 
 /** Mediana de retraso y nº de facturas que sobreviven al guardia de |retraso| ≤ 365 días. */
-export function medianDelay(items: Invoice[]): { value: number | null; n: number } {
+export type Delay = { value: number | null; n: number };
+
+export function medianDelay(items: Invoice[]): Delay {
   const delays = items.map((i) => days(i.paid, i.due)).filter((d) => Math.abs(d) <= 365);
   return { value: median(delays), n: delays.length };
 }

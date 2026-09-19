@@ -6,7 +6,12 @@ import path from "node:path";
 import { ingest, readPartition } from "@/lib/features/scoring/ingest";
 import type { Invoice, Tx } from "@/lib/features/scoring/types";
 
-type Overrides = { schedule?: string | null; transactions?: string[]; invoices?: string[]; categories?: string };
+type Overrides = {
+  schedule?: string | null;
+  transactions?: string[];
+  invoices?: string[];
+  categories?: string;
+};
 
 const TX_HEADER =
   "transaction_id,company_id,product_id,date,value_date,amount,exchange_rate,status,accounting_status,category,description,counterparty_id";
@@ -34,16 +39,28 @@ const INVOICES = [
   "i6,A,invoice,2025-03-04 00:00:00,2025-03-31 00:00:00,,-70,70,EUR,EUR,1,cancel,,c2",
 ];
 
-async function dataset(o: Overrides = {}): Promise<{ dataset: string; out: string; categories: string }> {
+async function dataset(
+  o: Overrides = {},
+): Promise<{ dataset: string; out: string; categories: string }> {
   const dir = await mkdtemp(path.join(tmpdir(), "ingest-"));
   const w = (name: string, body: string) => writeFile(path.join(dir, name), body);
-  await w("companies.csv", "company_id,group_id,country,currency,erp,created_at\nA,G,ES,EUR,,\nB,G,,USD,,\n");
-  await w("banking_products.csv", "product_id,company_id,label,type,bank_name,service,currency,created_at\npa,A,,checking,,,EUR,\npb,B,,checking,,,USD,\npu,A,,checking,,,USD,\npz,ZZZ,,checking,,,EUR,\n");
-  await w("debt_products.csv", "product_id,company_id,label,type,bank_name,service,currency,created_at,granted,outstanding,liquidity\nla,A,LOAN_01,loan,Other (customer-defined),custom,EUR,,-1000,-500,\n");
+  await w(
+    "companies.csv",
+    "company_id,group_id,country,currency,erp,created_at\nA,G,ES,EUR,,\nB,G,,USD,,\n",
+  );
+  await w(
+    "banking_products.csv",
+    "product_id,company_id,label,type,bank_name,service,currency,created_at\npa,A,,checking,,,EUR,\npb,B,,checking,,,USD,\npu,A,,checking,,,USD,\npz,ZZZ,,checking,,,EUR,\n",
+  );
+  await w(
+    "debt_products.csv",
+    "product_id,company_id,label,type,bank_name,service,currency,created_at,granted,outstanding,liquidity\nla,A,LOAN_01,loan,Other (customer-defined),custom,EUR,,-1000,-500,\n",
+  );
   if (o.schedule !== null)
     await w(
       "debt_schedule_config.csv",
-      o.schedule ?? `${SCHEDULE_HEADER}\nla,A,pa,EUR,constant quote,30/360,monthly,1200,600,12,,,0.06,fixed\n`,
+      o.schedule ??
+        `${SCHEDULE_HEADER}\nla,A,pa,EUR,constant quote,30/360,monthly,1200,600,12,,,0.06,fixed\n`,
     );
   await w("transactions.csv", [TX_HEADER, ...(o.transactions ?? TXS), ""].join("\n"));
   await w("invoices.csv", [INVOICE_HEADER, ...(o.invoices ?? INVOICES), ""].join("\n"));
@@ -59,7 +76,10 @@ async function dataset(o: Overrides = {}): Promise<{ dataset: string; out: strin
 test("ingest partitions by group, converts to EUR and applies confident categories", async () => {
   const d = await dataset();
   const meta = await ingest(d.dataset, d.out, d.categories);
-  assert.deepEqual(meta.companies.map((c) => c.id), ["A", "B"]);
+  assert.deepEqual(
+    meta.companies.map((c) => c.id),
+    ["A", "B"],
+  );
   assert.equal(meta.schedule.A, 1200 / 12 + (600 * 0.06) / 12);
   const txs = await readPartition<Tx>(d.out, "G", "tx");
   const by = Object.fromEntries(txs.map((t) => [t.id, t]));
@@ -71,7 +91,10 @@ test("ingest partitions by group, converts to EUR and applies confident categori
   assert.ok(Math.abs(by.t3.amount! - 100 / 1.16) < 1e-6); // empresa USD → EUR con la tabla de facturas
   assert.equal(by.t6.amount, 50); // misma moneda que la empresa: se ignora el exchange_rate del CSV
   const inv = await readPartition<Invoice>(d.out, "G", "invoice");
-  assert.deepEqual(inv.map((i) => i.id), ["i1", "i2", "i4", "i5"]); // note y cancel fuera
+  assert.deepEqual(
+    inv.map((i) => i.id),
+    ["i1", "i2", "i4", "i5"],
+  ); // note y cancel fuera
   assert.ok(Math.abs(inv.find((i) => i.id === "i1")!.amount - 200) < 1e-9);
   assert.equal(meta.diagnostics.unbooked_tx, 2);
   assert.equal(meta.diagnostics.excluded_document, 2);
@@ -109,7 +132,10 @@ test("the new rule-based categories are accepted at 0.90 confidence", async () =
 test("orphan rows are counted, never fatal", async () => {
   const d = await dataset({
     transactions: [...TXS, "t8,ZZZ,pa,2025-03-05 00:00:00,2025-03-05,10,1,booked,,collection,,c1"],
-    invoices: [...INVOICES, "i7,ZZZ,invoice,2025-03-01 00:00:00,2025-03-31 00:00:00,,10,0,EUR,EUR,1,paid,,c1"],
+    invoices: [
+      ...INVOICES,
+      "i7,ZZZ,invoice,2025-03-01 00:00:00,2025-03-31 00:00:00,,10,0,EUR,EUR,1,paid,,c1",
+    ],
   });
   const meta = await ingest(d.dataset, d.out, d.categories);
   assert.equal(meta.diagnostics.orphan_tx, 1);

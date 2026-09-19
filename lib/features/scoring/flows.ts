@@ -2,19 +2,47 @@ import type { MirrorKind } from "@/lib/features/scoring/mirrors";
 import { PARAMS } from "@/lib/features/scoring/params";
 import type { Flow, GroupFlow, Product, Tx } from "@/lib/features/scoring/types";
 
-const COBROS = new Set(["collection", "bulk_collection", "pos_settlement", "cash_settlement", "cash_settlements"]);
-const PAGOS = new Set(["payment", "bulk_payment", "utility", "salary", "social_security", "tax", "fee"]);
+const COBROS = new Set([
+  "collection",
+  "bulk_collection",
+  "pos_settlement",
+  "cash_settlement",
+  "cash_settlements",
+]);
+const PAGOS = new Set([
+  "payment",
+  "bulk_payment",
+  "utility",
+  "salary",
+  "social_security",
+  "tax",
+  "fee",
+]);
 const OBLIG = new Set(["tax", "social_security", "salary"]);
 const OPERATIVAS = new Set(["checking", "saving", "wallet"]);
 
 export function emptyFlow(company: string, month: string): Flow {
   return {
-    company, month, observed: false,
-    cobrosOp: 0, pagosOp: 0, servicioDeuda: 0, dispCredito: 0, amortCredito: 0, recibosDevueltos: 0,
+    company,
+    month,
+    observed: false,
+    cobrosOp: 0,
+    pagosOp: 0,
+    servicioDeuda: 0,
+    dispCredito: 0,
+    amortCredito: 0,
+    recibosDevueltos: 0,
     obligaciones: { tax: 0, social_security: 0, salary: 0, debt_repayment: 0 },
-    intragrupoIn: 0, intragrupoOut: 0,
-    clasificado: 0, neutral: 0, sinClasificar: 0, excluido: 0, nMov: 0, nSinImporte: 0,
-    cobrosPorContraparte: {}, pagosPorContraparte: {},
+    intragrupoIn: 0,
+    intragrupoOut: 0,
+    clasificado: 0,
+    neutral: 0,
+    sinClasificar: 0,
+    excluido: 0,
+    nMov: 0,
+    nSinImporte: 0,
+    cobrosPorContraparte: {},
+    pagosPorContraparte: {},
   };
 }
 
@@ -113,7 +141,13 @@ export function groupFlows(members: Map<string, Flow>[]): Map<string, GroupFlow>
   const empresas = new Map<string, Set<string>>();
   for (const flows of members)
     for (const f of flows.values()) {
-      const g = out.get(f.month) ?? { month: f.month, cobrosOp: 0, pagosOp: 0, servicioDeuda: 0, nEmpresas: 0 };
+      const g = out.get(f.month) ?? {
+        month: f.month,
+        cobrosOp: 0,
+        pagosOp: 0,
+        servicioDeuda: 0,
+        nEmpresas: 0,
+      };
       g.cobrosOp += f.cobrosOp;
       g.pagosOp += f.pagosOp;
       g.servicioDeuda += f.servicioDeuda;
@@ -131,7 +165,10 @@ export function groupFlows(members: Map<string, Flow>[]): Map<string, GroupFlow>
  * las filas con importe conocido. Un denominador vacío no penaliza (no hay nada que clasificar).
  */
 export function pctClasificado(flows: (Flow | undefined)[]): number {
-  let clasificado = 0, resto = 0, nMov = 0, nSinImporte = 0;
+  let clasificado = 0,
+    resto = 0,
+    nMov = 0,
+    nSinImporte = 0;
   for (const f of flows) {
     if (!f) continue;
     clasificado += f.clasificado;

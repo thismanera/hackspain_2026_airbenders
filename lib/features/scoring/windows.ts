@@ -58,7 +58,11 @@ export function divide(a: number, b: number): number | null {
 }
 
 /** Slots de calendario t-n+1..t; undefined donde no hay elemento. */
-export function window<T>(items: readonly (T | undefined)[], t: number, n: number): (T | undefined)[] {
+export function window<T>(
+  items: readonly (T | undefined)[],
+  t: number,
+  n: number,
+): (T | undefined)[] {
   const out: (T | undefined)[] = [];
   for (let i = t - n + 1; i <= t; i++) out.push(i >= 0 ? items[i] : undefined);
   return out;

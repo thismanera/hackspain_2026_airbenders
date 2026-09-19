@@ -70,10 +70,7 @@ test("structural deterioration lowers the band before pricing", () => {
 });
 
 test("monthly moves are capped at +25 % and -25 %", () => {
-  const ampliar = decideLegacy([
-    row(CALENDAR[0], { cobrosOpMedia3m: 10_000 }),
-    row(CALENDAR[1]),
-  ]);
+  const ampliar = decideLegacy([row(CALENDAR[0], { cobrosOpMedia3m: 10_000 }), row(CALENDAR[1])]);
   assert.equal(ampliar[0].limiteVigente, 24_000);
   assert.equal(ampliar[1].accion, "ampliar");
   assert.equal(ampliar[1].limiteVigente, 24_000 * 1.25);

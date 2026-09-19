@@ -23,7 +23,26 @@ function series(
   );
 }
 
-const D = [false, false, false, false, false, false, false, false, true, true, true, false, false, false, false, false, false, false];
+const D = [
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  true,
+  true,
+  true,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false,
+];
 
 test("deterioration event detected and lead time measured from desdeMes", () => {
   const alerta = (mes: string): Alert[] => [{ tipo: "deterioro", desdeMes: mes }];

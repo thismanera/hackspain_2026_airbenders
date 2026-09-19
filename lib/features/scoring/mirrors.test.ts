@@ -3,8 +3,23 @@ import test from "node:test";
 import { operatingOnly, pairMirrors } from "@/lib/features/scoring/mirrors";
 import type { Product, Tx } from "@/lib/features/scoring/types";
 
-function tx(id: string, company: string, amount: number | null, category = "transfer", date = "2025-01-10"): Tx {
-  return { id, company, product: `p-${company}`, date, month: date.slice(0, 7), amount, category, counterparty: "" };
+function tx(
+  id: string,
+  company: string,
+  amount: number | null,
+  category = "transfer",
+  date = "2025-01-10",
+): Tx {
+  return {
+    id,
+    company,
+    product: `p-${company}`,
+    date,
+    month: date.slice(0, 7),
+    amount,
+    category,
+    counterparty: "",
+  };
 }
 const product = (company: string, type: string): [string, Product] => [
   `p-${company}`,

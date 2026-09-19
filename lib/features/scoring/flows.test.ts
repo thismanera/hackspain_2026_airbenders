@@ -8,8 +8,23 @@ const products = new Map<string, Product>([
   ["credit", { company: "c", type: "lineofcredit", currency: "EUR", service: "" }],
   ["card", { company: "c", type: "card", currency: "EUR", service: "" }],
 ]);
-function tx(id: string, product: string, amount: number | null, category: string, counterparty = ""): Tx {
-  return { id, company: "c", product, date: "2025-01-10", month: "2025-01", amount, category, counterparty };
+function tx(
+  id: string,
+  product: string,
+  amount: number | null,
+  category: string,
+  counterparty = "",
+): Tx {
+  return {
+    id,
+    company: "c",
+    product,
+    date: "2025-01-10",
+    month: "2025-01",
+    amount,
+    category,
+    counterparty,
+  };
 }
 
 const txs = [
@@ -31,7 +46,10 @@ const txs = [
   tx("16", "cash", 100, "payment"),
   tx("17", "cash", 25, "collection", "cp1"),
 ];
-const mirrors = new Map<string, "interno" | "intragrupo">([["15", "interno"], ["16", "intragrupo"]]);
+const mirrors = new Map<string, "interno" | "intragrupo">([
+  ["15", "interno"],
+  ["16", "intragrupo"],
+]);
 
 test("classifies every movement into exactly one bucket", () => {
   const f = monthlyFlows("c", txs, products, mirrors, true).get("2025-01")!;

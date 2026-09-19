@@ -54,7 +54,9 @@ test("aggregate: weighted blocks make up score_solo, NA pulls to 50", () => {
   assert.ok(Math.abs(r.subscores.A - (62.5 + 100 + 71.428571 + 90 + 50) / 5) < 1e-4);
   assert.ok(Math.abs(sumA - 0.45 * r.subscores.A) < 1e-9);
   const esperado =
-    PARAMS.pesos.A * r.subscores.A + PARAMS.pesos.B * r.subscores.B + PARAMS.pesos.C * r.subscores.C;
+    PARAMS.pesos.A * r.subscores.A +
+    PARAMS.pesos.B * r.subscores.B +
+    PARAMS.pesos.C * r.subscores.C;
   assert.ok(Math.abs(r.scoreSolo - esperado) < 1e-9);
   assert.ok(Math.abs(r.confs.A - (1 + 1 + 1 + 1 + 0.3) / 5) < 1e-9);
   const a1 = r.contributions.find((c) => c.id === "A1")!;
@@ -70,8 +72,11 @@ test("aggregate reads the B2 streak from its raw value", () => {
     ]),
   ) as VariableSet;
   const b2 = (raw: number | null, prev: number[]) =>
-    aggregate({ ...base, B2: { raw, conf: 1 } }, { rachaB2Prev: prev }, FIXTURE_PERCENTILES)
-      .contributions.find((c) => c.id === "B2")!.subnota;
+    aggregate(
+      { ...base, B2: { raw, conf: 1 } },
+      { rachaB2Prev: prev },
+      FIXTURE_PERCENTILES,
+    ).contributions.find((c) => c.id === "B2")!.subnota;
   assert.equal(b2(2, [0, 0, 0]), 0);
   assert.equal(b2(1, [0, 0, 0]), 70);
   assert.equal(b2(0, [1, 0, 0]), 80);

@@ -82,8 +82,7 @@ function spearman(pairs: [number, number][]): number | null {
  */
 export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): BacktestReport {
   const [desde, hasta] = options.months ?? [];
-  const enVentana = (month: string) =>
-    desde === undefined || (month >= desde && month <= hasta!);
+  const enVentana = (month: string) => desde === undefined || (month >= desde && month <= hasta!);
   const companies = new Map<string, ScoreRow[]>();
   for (const r of rows) {
     const list = companies.get(r.company) ?? [];
@@ -134,7 +133,9 @@ export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): Backt
       matched++;
       const iEvento = monthIndex(e.month);
       if (iEvento === -1) continue;
-      const first = candidates.sort((a, b) => (a.desdeMes < b.desdeMes ? -1 : a.desdeMes > b.desdeMes ? 1 : 0))[0];
+      const first = candidates.sort((a, b) =>
+        a.desdeMes < b.desdeMes ? -1 : a.desdeMes > b.desdeMes ? 1 : 0,
+      )[0];
       leads.push(iEvento - monthIndex(first.desdeMes));
     }
     for (const [company, list] of companies)

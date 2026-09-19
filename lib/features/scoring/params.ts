@@ -97,5 +97,7 @@ function canonical(value: unknown): unknown {
 }
 
 export function hashParams(p: Record<string, unknown>): string {
-  return createHash("sha256").update(JSON.stringify(canonical(p))).digest("hex");
+  return createHash("sha256")
+    .update(JSON.stringify(canonical(p)))
+    .digest("hex");
 }

@@ -12,7 +12,11 @@ test("split is deterministic, disjoint and by group", () => {
 });
 
 test("percentiles use only confident samples and freeze into a version", () => {
-  const samples = Array.from({ length: 100 }, (_, i) => ({ id: "A1" as const, raw: i / 100, conf: i < 50 ? 0.2 : 1 }));
+  const samples = Array.from({ length: 100 }, (_, i) => ({
+    id: "A1" as const,
+    raw: i / 100,
+    conf: i < 50 ? 0.2 : 1,
+  }));
   const p = fitPercentiles(samples, ["g1"], ["g2"], "fp");
   assert.ok(p.percentiles.A1.p5! >= 0.5);
   assert.ok(p.percentiles.A1.p95! <= 0.99 + 1e-9);
