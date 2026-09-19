@@ -132,7 +132,12 @@ export function proyectarEmpresa(ctx: CompanyCtx, h: number, clip: Clip): Proyec
 
   const b2 = actualDe(actual, "B2", ctx.t);
   const b1 = proyectada(vars, "B1").raw;
-  const rachaB2Pred = row.rachaB2 + (b1 !== null && b1 < P.b1UmbralRacha ? 1 : 0);
+  const b1Actual = actualDe(actual, "B1", ctx.t).raw;
+  // La racha solo sube si B1 *cruza* el umbral: estaba en 0,9 o por encima en t y la proyección
+  // cae por debajo. Si ya venía por debajo, la racha de la fila ya lo cuenta y no se duplica.
+  const cruzaUmbral =
+    b1Actual !== null && b1Actual >= P.b1UmbralRacha && b1 !== null && b1 < P.b1UmbralRacha;
+  const rachaB2Pred = row.rachaB2 + (cruzaUmbral ? 1 : 0);
   vars.B2 =
     b2.raw === null
       ? { raw: null, conf: b2.conf }

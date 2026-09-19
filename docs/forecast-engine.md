@@ -84,7 +84,7 @@ Excepciones a la regla general:
 
 | Variable | Proyección |
 | --- | --- |
-| B2 racha | sin tendencia: `racha_pred = racha(t)`. Solo sube si `B1` proyectado cae por debajo de 0,9: entonces `racha_pred = racha(t) + 1` |
+| B2 racha | sin tendencia: `racha_pred = racha(t)`. Solo sube si `B1` cruza por debajo (`B1(t) ≥ 0,9` y `B1` proyectado `< 0,9`): entonces `racha_pred = racha(t) + 1` |
 | A2 meses en déficit, racha_deficit | se recalculan sobre `caja_op` proyectado: `caja_op(t+i) = (cobros_op(t) + tend_cobros · Σ_{j≤i} amortiguacion[j]) − (pagos_op(t) + tend_pagos · Σ_{j≤i} amortiguacion[j])` (misma amortiguación que las variables); la ventana de 6 meses desliza |
 | C5 volatilidad | constante (`x(t)`): la dispersión no tiene tendencia útil en 6 puntos |
 | conf_v | constante (`conf_v(t)`): no se inventa confianza futura |
@@ -216,11 +216,13 @@ decisión (decision-engine ignora `banda_pred_3m`) y se dice en el pitch.
 
 | Conjunto | Filas 3m | MAE v1 | MAE baseline | Acierto banda v1 | baseline | Cobertura p10-p90 |
 | --- | --- | --- | --- | --- | --- | --- |
-| Ajuste | 14 070 | 3,26 | 3,14 | — | — | — |
-| Validación h=3 | 2 088 | 3,81 | 3,63 | 0,789 | 0,799 | 0,775 |
-| Validación h=6 | 1 044 | 6,00 | 5,72 | 0,678 | 0,706 | 0,761 |
+| Ajuste | 14 070 | 3,204 | 3,137 | — | — | — |
+| Validación h=3 | 2 088 | 3,720 | 3,625 | 0,797 | 0,799 | 0,782 |
+| Validación h=6 | 1 044 | 5,916 | 5,718 | 0,682 | 0,706 | 0,760 |
 
 Lead time de cierre con/sin previsión: 6 / 6 meses (previsión desconectada).
+Reducciones preventivas: 0 (0 falsas, ratio sin definir): con v1 desconectada
+ninguna decisión cambia respecto a la de sin previsión.
 La puerta del MAE saltó (v1 pierde contra el baseline ingenuo en los tres
 conjuntos), así que las filas salen `metodo = "desconectado"` y decisión las
 ignora hasta afinar los parámetros de §3.
@@ -241,15 +243,18 @@ hueco de k = 1 (+0,1218 en ajuste, +0,1829 en validación h=3):
 | `D2_pred = D2` en vez de propagar el `score_solo` previsto de las hermanas | −0,0060 (5 %) | +0,0017 (neutro) |
 | `racha_b2_prev` con la racha real también en los meses proyectados | 0,0000 | 0,0000 |
 
-La racha de B2 es la fuente principal: sube un mes siempre que `B1`
-proyectado queda bajo 0,9, aunque ya estuviera bajo 0,9 en `t`, así que
-castiga a toda empresa con B1 crónicamente bajo sin que nada haya cambiado.
-Con k = 0,1 explica el 74 % del hueco de ajuste y el 75 % del de validación.
-Las cuatro alternativas a la vez con k = 0,1 dejan el hueco en +0,0026
-(ajuste) y +0,0042 (validación h=3), con acierto de banda 79,8 % contra
-79,9 % del baseline: casi empate, pero empate perdido. Ninguna combinación
-bate al baseline en ajuste **y** validación, que es la puerta de §9, así que
-no se tocan las reglas de §3.2 y v1 se queda desconectada.
+La racha de B2 era la fuente principal: subía un mes siempre que `B1`
+proyectado quedaba bajo 0,9, aunque ya estuviera bajo 0,9 en `t`, así que
+castigaba a toda empresa con B1 crónicamente bajo sin que nada hubiera
+cambiado. Con k = 0,1 explicaba el 74 % del hueco de ajuste y el 75 % del de
+validación. **Esa regla ya es la del cruce** (§3.2: sube solo si `B1(t) ≥ 0,9`
+y `B1` proyectado `< 0,9`), y las cifras de la tabla de arriba son las de
+después de ese arreglo. Las cuatro alternativas a la vez con k = 0,1 dejan el
+hueco en +0,0026 (ajuste) y +0,0042 (validación h=3), con acierto de banda
+79,8 % contra 79,9 % del baseline: casi empate, pero empate perdido. Ninguna
+combinación bate al baseline en ajuste **y** validación, que es la puerta de
+§9, así que el resto de reglas de §3.2 se quedan como están y v1 sigue
+desconectada.
 
 ## 10. Fixtures y tests
 

@@ -64,6 +64,17 @@ test("NA in t stays NA; B2 rises one month only if projected B1 drops below the 
   assert.deepEqual(p.rachaB2Prev, [1, 1, 0]); // t+2, t+1 proyectados; t real = 0
 });
 
+test("B1 already below the threshold at t does not raise the B2 racha again", () => {
+  const r = rowsFromSeries("c", "g", {
+    B1: [0.85, 0.85, 0.85, 0.85, 0.85, 0.85],
+    B2: [2, 2, 2, 2, 2, 2],
+  });
+  const p = proyectarEmpresa(ctx(r, 5), 3, paramsFixture().clip);
+  assert.ok(p.vars.B1.raw! < 0.9);
+  assert.equal(p.rachaB2Pred, r.rows[5].rachaB2);
+  assert.equal(p.vars.B2.raw, r.rows[5].variables.find((c) => c.id === "B2")!.raw);
+});
+
 test("clip bounds the projection to the fitted range", () => {
   const r = rowsFromSeries("c", "g", { A4: [0.05, 0.1, 0.15, 0.2, 0.25, 0.3] });
   const clip = paramsFixture().clip;
