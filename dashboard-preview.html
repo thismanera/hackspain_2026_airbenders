@@ -380,8 +380,9 @@
       .ownership-list b {display:block;margin-bottom:6px;color:var(--lime);font-size:19px;font-weight:850;}
       .privacy-lock {
         margin-top:16px;padding:16px 18px;border-radius:14px;display:flex;align-items:center;gap:14px;
-        background:#0f2119;color:#f4f8f5;font-size:17px;font-weight:800;
+        background:#0f2119;color:#c9d8cf;font-size:17px;font-weight:600;line-height:1.4;
       }
+      .privacy-lock b {color:var(--lime);font-weight:850;}
       .privacy-lock i {
         width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;
         background:var(--lime);color:var(--nav);font-style:normal;font-size:15px;
@@ -2126,7 +2127,7 @@
           next: "Siguiente",
           html: `<div class="boot-scene wide">
             <div class="boot-kicker">Primero, la empresa</div>
-            <h1>La nota es de la empresa.<br><span class="boot-accent">Ella la ve primero.</span></h1>
+            <h1>La nota es de la empresa.<br><span class="boot-accent">La ve ella. Nadie más.</span></h1>
             <p class="lead">Sabe cómo está, por qué, y cuánto debería costarle financiarse.</p>
             <div class="ownership-card">
               <div class="ownership-list">
@@ -2134,7 +2135,7 @@
                 <div><b>El porqué</b>Qué la sube y qué la baja</div>
                 <div><b>Su oferta</b>Cuánto, a qué plazo y a qué precio</div>
               </div>
-              <div class="privacy-lock"><i>✓</i><span>Si no pide financiación, nadie más la ve.</span></div>
+              <div class="privacy-lock"><i>🔒</i><span><b>Nadie más ve sus datos.</b> Ni sus movimientos, ni sus facturas, ni su nota. Todo se queda en Embat.</span></div>
             </div>
           </div>`
         },
