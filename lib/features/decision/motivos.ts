@@ -47,7 +47,8 @@ export function motivoAccion(
     LVigente: number;
     TMax: number;
     motivoCierre: string | null;
-    causaReduccion: "estructural" | "confirmada" | "prevision" | null;
+    causaReduccion: "estructural" | "confirmada" | "prevision" | "grupo" | null;
+    causaCrossDefault?: string | null;
     bandaPred: Banda | null;
     mesesParaReapertura: number | null;
   },
@@ -63,7 +64,9 @@ export function motivoAccion(
           ? "deterioro estructural"
           : ctx.causaReduccion === "prevision"
             ? `previsión: banda ${ctx.bandaPred} en 3 meses`
-            : "2 meses por debajo";
+            : ctx.causaReduccion === "grupo"
+              ? `cross-default de ${ctx.causaCrossDefault ?? "una empresa del grupo"}`
+              : "2 meses por debajo";
       return `Límite baja de ${eur(ctx.LPrev)} a ${eur(ctx.LVigente)}: ${causa}, ${topDelta(r)}`;
     }
     case "cerrar":

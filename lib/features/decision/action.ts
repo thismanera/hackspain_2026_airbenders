@@ -12,13 +12,16 @@ function clip(x: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, x));
 }
 
+/** §8 + §9: "grupo" es la bajada inmediata por cross-default (caída de una hermana). */
+export type CausaReduccion = "estructural" | "confirmada" | "prevision" | "grupo" | null;
+
 export type Decision = {
   accion: Accion;
   L: number;
   LVigente: number;
   bandaEfectiva: Banda;
   limite: Limite;
-  causaReduccion: "estructural" | "confirmada" | "prevision" | null;
+  causaReduccion: CausaReduccion;
   mesesParaReapertura: number | null;
   escalonesExtra: number;
 };
@@ -64,6 +67,11 @@ export function decidirAccion(
   const estructural = r.direccion === "deterioro" && r.naturaleza === "estructural";
   if (estructural && L < Lp)
     return { ...base, accion: "reducir", LVigente: L, causaReduccion: "estructural" };
+
+  // §9: la caída de una hermana grande es señal dura como el deterioro estructural: el escalón de
+  // banda baja el límite este mismo mes, sin histéresis ni los 2 meses de confirmación.
+  if (escalonesExtra > 0 && L < Lp)
+    return { ...base, accion: "reducir", LVigente: L, causaReduccion: "grupo" };
 
   if (esPeor(bandaPred, b) && prev.mesesPredPeorSeguidos + 1 >= P.reducirPrevMeses) {
     const LPred = limite(r, bandaPred).L;
