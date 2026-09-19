@@ -31,11 +31,12 @@ import { ESTADO } from "@/lib/features/portfolio/vocabulary";
 
 import { SERIES } from "./series";
 
-// 720×440 y el cubo a 135 px por unidad: con la inclinación por defecto cabe
-// entero y, acotado a 640 px de ancho, el panel entra en un portátil sin scroll.
+// 720×460 y el cubo a 150 px por unidad: con la inclinación por defecto cabe
+// entero. El ancho real lo fija la altura de la ventana (ver el wrapper), así
+// que llena lo que haya sin desbordar.
 const W = 720;
-const H = 440;
-const VIEW = { cx: 360, cy: 210, scale: 135 };
+const H = 460;
+const VIEW = { cx: 360, cy: 220, scale: 150 };
 
 /** Los cuatro estados, mismos tokens que el resto del panel. */
 const TONE = {
@@ -278,8 +279,10 @@ export function PeerSpace({
         </div>
       }
     >
+      {/* Tan ancho como permita la altura de la ventana (menos cabecera, intro y
+          leyendas), nunca más que la columna. 720/460 = 1.565. */}
       <div
-        className="relative mx-auto w-full max-w-[640px] cursor-grab touch-none select-none active:cursor-grabbing"
+        className="relative mx-auto w-full max-w-[min(100%,calc((100dvh_-_18rem)*1.565))] min-w-[min(100%,480px)] cursor-grab touch-none select-none active:cursor-grabbing"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}

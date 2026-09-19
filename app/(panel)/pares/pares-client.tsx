@@ -1,8 +1,7 @@
 "use client";
 
-import { useSuspenseQueries } from "@tanstack/react-query";
 import { Pause, Play, Search } from "lucide-react";
-import { Suspense, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { CompanyPicker } from "@/components/grifo/company-picker";
 import { CompareTable } from "@/components/grifo/peers/compare-table";
@@ -17,69 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CALENDAR } from "@/lib/features/portfolio/calendar";
 import { formatMonthShort } from "@/lib/features/portfolio/format";
-import { useCompareState, usePeers, useSheetState } from "@/lib/features/portfolio/hooks";
-import { fetchCompanyFile, portfolioKeys } from "@/lib/features/portfolio/queries";
+import {
+  useCompanyFiles,
+  useCompareState,
+  usePeers,
+  useSheetState,
+} from "@/lib/features/portfolio/hooks";
 import { COMPARE_SLOTS } from "@/lib/features/portfolio/search-params";
-
-/**
- * Lo que depende de las fichas de las empresas elegidas. Vive en su propio
- * Suspense para que pedir una ficha nueva no apague el cubo.
- */
-function Comparison({
-  ids,
-  month,
-  onToggle,
-  onOpen,
-  onAdd,
-}: {
-  ids: string[];
-  month: string;
-  onToggle: (companyId: string) => void;
-  onOpen: (companyId: string) => void;
-  onAdd: () => void;
-}) {
-  const results = useSuspenseQueries({
-    queries: ids.map((companyId) => ({
-      queryKey: portfolioKeys.company(companyId, month),
-      queryFn: () => fetchCompanyFile(companyId, month),
-      staleTime: 60 * 60 * 1000,
-    })),
-  });
-  const files = results.map((result) => result.data);
-
-  return (
-    <>
-      <div className="grid gap-3 md:grid-cols-3">
-        {files.map((file, index) => (
-          <Slot
-            key={file.company.id}
-            file={file}
-            color={SERIES[index]}
-            onRemove={() => onToggle(file.company.id)}
-            onOpen={() => onOpen(file.company.id)}
-          />
-        ))}
-        {files.length < COMPARE_SLOTS ? <EmptySlot index={files.length} onAdd={onAdd} /> : null}
-      </div>
-      {files.length >= 2 ? (
-        <>
-          <CompareTrend files={files} month={month} />
-          <CompareTable files={files} />
-        </>
-      ) : null}
-    </>
-  );
-}
-
-function ComparisonSkeleton({ count }: { count: number }) {
-  return (
-    <div className="grid gap-3 md:grid-cols-3">
-      {Array.from({ length: Math.min(COMPARE_SLOTS, count + 1) }, (_, index) => (
-        <Skeleton key={index} className="h-40 rounded-xl" />
-      ))}
-    </div>
-  );
-}
+import type { CompanyFileResponse } from "@/lib/features/portfolio/types";
 
 export function ParesClient() {
   const [, startTransition] = useTransition();
@@ -89,6 +33,7 @@ export function ParesClient() {
   const ids = state.empresas.slice(0, COMPARE_SLOTS);
 
   const { data: peers } = usePeers(state.mes, "partner");
+  const fileQueries = useCompanyFiles(ids, state.mes);
   const { playing, toggle: togglePlayer } = useMonthPlayer(CALENDAR);
 
   const toggle = (companyId: string) =>
@@ -99,6 +44,12 @@ export function ParesClient() {
     });
   const openCompany = (companyId: string) =>
     void setSheet({ empresa: companyId, grupo: "", pestana: "decision" });
+
+  // Solo las fichas que ya han llegado entran en el gráfico y la tabla; el hueco
+  // de la que falta se pinta como esqueleto en su slot, sin tocar el resto.
+  const loaded = fileQueries
+    .map((query) => query.data)
+    .filter((file): file is CompanyFileResponse => file !== undefined);
 
   return (
     <div className="flex flex-col gap-4">
@@ -113,41 +64,62 @@ export function ParesClient() {
         }
       />
 
-      <PeerSpace
-        data={peers}
-        scope="partner"
-        selected={ids}
-        onToggle={toggle}
-        title={`El espacio de pares a cierre de ${formatMonthShort(state.mes)}`}
-        description="Cerca en el cubo = parecidas en los números. Color: estado del mes."
-        aside={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={togglePlayer}
-            aria-pressed={playing}
-            disabled={CALENDAR.length < 2}
-          >
-            {playing ? (
-              <Pause aria-hidden className="size-3.5" />
-            ) : (
-              <Play aria-hidden className="size-3.5" />
-            )}
-            {playing ? "Pausar" : "Ver el año"}
-          </Button>
-        }
-      />
+      {peers ? (
+        <PeerSpace
+          data={peers}
+          scope="partner"
+          selected={ids}
+          onToggle={toggle}
+          title={`El espacio de pares a cierre de ${formatMonthShort(state.mes)}`}
+          description="Cerca en el cubo = parecidas en los números. Color: estado del mes."
+          aside={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={togglePlayer}
+              aria-pressed={playing}
+              disabled={CALENDAR.length < 2}
+            >
+              {playing ? (
+                <Pause aria-hidden className="size-3.5" />
+              ) : (
+                <Play aria-hidden className="size-3.5" />
+              )}
+              {playing ? "Pausar" : "Ver el año"}
+            </Button>
+          }
+        />
+      ) : (
+        <Skeleton className="h-[32rem] rounded-xl" />
+      )}
 
       {ids.length > 0 ? (
-        <Suspense fallback={<ComparisonSkeleton count={ids.length} />}>
-          <Comparison
-            ids={ids}
-            month={state.mes}
-            onToggle={toggle}
-            onOpen={openCompany}
-            onAdd={() => setPickerOpen(true)}
-          />
-        </Suspense>
+        <div className="grid gap-3 md:grid-cols-3">
+          {ids.map((companyId, index) => {
+            const file = fileQueries[index]?.data;
+            return file ? (
+              <Slot
+                key={companyId}
+                file={file}
+                color={SERIES[index]}
+                onRemove={() => toggle(companyId)}
+                onOpen={() => openCompany(companyId)}
+              />
+            ) : (
+              <Skeleton key={companyId} className="h-40 rounded-xl" />
+            );
+          })}
+          {ids.length < COMPARE_SLOTS ? (
+            <EmptySlot index={ids.length} onAdd={() => setPickerOpen(true)} />
+          ) : null}
+        </div>
+      ) : null}
+
+      {loaded.length >= 2 ? (
+        <>
+          <CompareTrend files={loaded} month={state.mes} />
+          <CompareTable files={loaded} />
+        </>
       ) : null}
 
       <CompanyPicker

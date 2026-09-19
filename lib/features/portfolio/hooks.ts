@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useQueryStates } from "nuqs";
 import type { TransitionStartFunction } from "react";
 
@@ -125,12 +125,31 @@ export function useBacktest(month: string) {
   });
 }
 
-/** El cubo de pares. Con `companyId`, la vista de empresa: solo ella lleva nombre. */
+/**
+ * El cubo de pares. Con `companyId`, la vista de empresa: solo ella lleva nombre.
+ * No suspende: al cambiar de mes conserva el cubo anterior hasta que llega el
+ * nuevo. Si suspendiera, cualquier actualización urgente durante la carga (el
+ * giro automático) obligaría a React a enseñar el fallback y la página
+ * parpadearía.
+ */
 export function usePeers(month: string, scope: Scope, companyId?: string) {
-  return useSuspenseQuery({
+  return useQuery({
     queryKey: portfolioKeys.peers(month, scope, companyId),
     queryFn: () => fetchPeers(month, scope, companyId),
+    placeholderData: keepPreviousData,
     ...SCORING_CADENCE,
+  });
+}
+
+/** Fichas de las empresas comparadas, sin suspender: cada una llega cuando llega. */
+export function useCompanyFiles(companyIds: string[], month: string) {
+  return useQueries({
+    queries: companyIds.map((companyId) => ({
+      queryKey: portfolioKeys.company(companyId, month),
+      queryFn: () => fetchCompanyFile(companyId, month),
+      placeholderData: keepPreviousData,
+      ...SCORING_CADENCE,
+    })),
   });
 }
 
