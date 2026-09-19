@@ -1,8 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Building2, Check } from "lucide-react";
+import { Check } from "lucide-react";
 
+import { CompanyAvatar } from "@/components/grifo/company-avatar";
 import { StatusBadge } from "@/components/grifo/status-badge";
 import {
   CommandDialog,
@@ -77,14 +78,11 @@ export function CompanyPicker({
                     onOpenChange(false);
                   }}
                 >
-                  {taken ? (
-                    <Check aria-hidden className="size-4" />
-                  ) : (
-                    <Building2 aria-hidden className="text-muted-foreground size-4" />
-                  )}
+                  <CompanyAvatar companyId={row.company.id} size="sm" className="shrink-0" />
                   <span className={cn("font-mono", taken && "text-muted-foreground")}>
                     {row.company.id}
                   </span>
+                  {taken ? <Check aria-hidden className="size-4" /> : null}
                   <span className="text-muted-foreground text-xs">
                     {row.company.groupId}
                     {row.company.groupSize > 1 ? ` · ${row.company.groupSize} empresas` : ""}

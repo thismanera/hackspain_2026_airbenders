@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CompanyAvatar } from "@/components/grifo/company-avatar";
 import { Panel } from "@/components/grifo/panel";
 import { StatusDot } from "@/components/grifo/status-badge";
 import { cn } from "@/lib/core/utils";
@@ -81,6 +82,7 @@ export function GroupPanel({
           const content = (
             <>
               <span className="flex min-w-0 items-center gap-2">
+                <CompanyAvatar companyId={peer.id} size="sm" className="shrink-0" />
                 <StatusDot estado={peer.estado} />
                 <span className="truncate font-mono text-sm">{peer.id}</span>
               </span>

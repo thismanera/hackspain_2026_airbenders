@@ -4,6 +4,7 @@ import { AlertTriangle, ChevronRight } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
+import { CompanyAvatar } from "@/components/grifo/company-avatar";
 import { GroupFlow } from "@/components/grifo/group/group-flow";
 import { NarrativeCard } from "@/components/grifo/narrative-card";
 import { Figure, Panel } from "@/components/grifo/panel";
@@ -106,23 +107,26 @@ function MembersTable({
               className="hover:bg-muted/40 relative transition-colors duration-150"
             >
               <td className="px-4 py-2.5">
-                <button
-                  type="button"
-                  onClick={() => onOpenCompany(member.id)}
-                  className="focus-visible:ring-ring flex flex-col items-start text-left leading-tight after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
-                >
-                  <span className="flex items-center gap-2 font-mono font-medium">
-                    {member.id}
-                    {member.alertCount > 0 ? (
-                      <span className="text-status-watch-fg inline-flex items-center gap-0.5 text-xs">
-                        <AlertTriangle aria-hidden className="size-3" />
-                        <span className="tabular-nums">{member.alertCount}</span>
-                        <span className="sr-only">alertas</span>
-                      </span>
-                    ) : null}
-                  </span>
-                  <StatusBadge estado={member.estado} className="mt-1" />
-                </button>
+                <div className="flex items-center gap-2.5">
+                  <CompanyAvatar companyId={member.id} size="sm" />
+                  <button
+                    type="button"
+                    onClick={() => onOpenCompany(member.id)}
+                    className="focus-visible:ring-ring flex flex-col items-start text-left leading-tight after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
+                  >
+                    <span className="flex items-center gap-2 font-mono font-medium">
+                      {member.id}
+                      {member.alertCount > 0 ? (
+                        <span className="text-status-watch-fg inline-flex items-center gap-0.5 text-xs">
+                          <AlertTriangle aria-hidden className="size-3" />
+                          <span className="tabular-nums">{member.alertCount}</span>
+                          <span className="sr-only">alertas</span>
+                        </span>
+                      ) : null}
+                    </span>
+                    <StatusBadge estado={member.estado} className="mt-1" />
+                  </button>
+                </div>
               </td>
               <td className="px-2 py-2.5 text-right tabular-nums">
                 {formatPercent(member.share, 0)}
@@ -246,6 +250,7 @@ function MemberScores({
               className="hover:bg-muted/50 focus-visible:ring-ring grid w-full grid-cols-[minmax(0,1fr)_3rem_minmax(0,8rem)_4rem] items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 focus-visible:ring-2 focus-visible:-outline-offset-2 focus-visible:outline-none"
             >
               <span className="flex min-w-0 items-center gap-2">
+                <CompanyAvatar companyId={member.id} size="sm" className="shrink-0" />
                 <StatusDot estado={member.estado} />
                 <span className="truncate font-mono text-sm">{member.id}</span>
                 <span className="text-muted-foreground text-xs tabular-nums">

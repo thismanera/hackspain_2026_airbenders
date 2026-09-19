@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
 import { AlertsTimeline } from "@/components/grifo/company/alerts-timeline";
+import { CompanyAvatar } from "@/components/grifo/company-avatar";
 import { Cascade } from "@/components/grifo/company/cascade";
 import { CoveragePanel } from "@/components/grifo/company/coverage-panel";
 import { GatesPanel } from "@/components/grifo/company/gates";
@@ -202,6 +203,7 @@ export function CompanySheet({
               )}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-2.5">
+              <CompanyAvatar companyId={company.id} />
               <SheetTitle className="font-mono text-lg font-semibold tracking-[-0.01em]">
                 {company.id}
               </SheetTitle>
