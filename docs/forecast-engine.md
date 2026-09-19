@@ -22,6 +22,13 @@ baseline de persistencia en MAE y al menos igual en acierto de banda; si no, apa
 **modo sombra** y no modifica la oferta. La conexión se decide por separado para Solo y Grupo:
 `MAE < MAE_baseline` y `acierto_banda ≥ acierto_banda_baseline`.
 
+En inferencia, `forecast:run` copia los parámetros congelados al directorio de
+la ejecución. Si falta el forecast, decisión puede trabajar desconectada con
+warning; si existe pero su contrato o vínculo de scoring no coincide, la
+ejecución se rechaza. Un objetivo que no supera el baseline permanece en modo
+sombra y sus columnas se conservan en la submission sin intervenir en la
+política crediticia.
+
 El forecast no es una probabilidad de impago. `probDeterioro*` describe estrés operativo
 observado y debe leerse junto con confianza, estado, puertas y la condición de aval.
 

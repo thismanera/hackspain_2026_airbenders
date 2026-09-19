@@ -139,6 +139,20 @@ test("C1 y C2 usan materialidad relativa y C5 puede entrar por subnota", () => {
   assert.equal(result.aciertos.find((item) => item.variable === "C5")?.productoSugerido, "ninguno");
 });
 
+test("conserva el signo de un impacto pequeño pero material por subnota", () => {
+  const rows = [
+    row("2025-01", { C2: { aportacion: 1, subnota: 50 } }),
+    row("2025-02", { C2: { aportacion: 1.01, subnota: 75 } }),
+    row(
+      "2025-03",
+      { C2: { aportacion: 1.01, subnota: 75 } },
+      { inflexion: inflexion("pico_bajista") },
+    ),
+  ];
+  const result = analizarReaccionPostInflexion(rows)!;
+  assert.ok((result.aciertos.find((item) => item.variable === "C2")?.deltaPuntos ?? 0) > 0);
+});
+
 test("el drenaje del holding solo aumenta el escenario recuperable de grupo", () => {
   const rows = [
     row("2025-01", { A1: { aportacion: 2 } }, { scoreSolo: 70, aportacionGrupo: 0 }),

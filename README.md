@@ -31,33 +31,36 @@ end-to-end de Prisma + API route + TanStack Query con prefetch SSR).
 
 ## Scripts
 
-| Script                    | Qué hace                                                           |
-| ------------------------- | ------------------------------------------------------------------ |
-| `pnpm dev`                | Servidor de desarrollo (Turbopack)                                 |
-| `pnpm build`              | Build de producción (standalone)                                   |
-| `pnpm start`              | Sirve el build de producción                                       |
-| `pnpm test`               | Tests (`node --test`, sin framework extra)                         |
-| `pnpm db:setup`           | Arranca Postgres, aplica Prisma e importa el scoring si hace falta |
-| `pnpm db:setup:force`     | Recalcula e importa el scoring aunque ya exista una ejecución      |
-| `pnpm db:up`              | Arranca el Postgres local conservando sus datos                    |
-| `pnpm db:down`            | Detiene Postgres; el volumen y sus datos se conservan              |
-| `pnpm helmcode:check`     | Comprueba la API key de Helmcode (lista modelos + chat de prueba)  |
-| `pnpm run lint`           | [oxlint](https://oxc.rs) (no ESLint, ver `AGENTS.md`)              |
-| `pnpm run lint:fix`       | oxlint con `--fix`                                                 |
-| `pnpm run format`         | Prettier (con orden de clases de Tailwind)                         |
-| `pnpm run typecheck`      | `tsc --noEmit`                                                     |
-| `pnpm run knip`           | Detecta código y dependencias muertas                              |
-| `pnpm prisma:seed`        | Seed de la base de datos (`prisma/seed.ts`)                        |
-| `pnpm run auth:generate`  | Regenera `prisma/schema/auth.prisma` tras tocar `lib/core/auth.ts` |
-| `pnpm run rename-project` | Sustituye el nombre placeholder por el nombre real                 |
+| Script                    | Qué hace                                                              |
+| ------------------------- | --------------------------------------------------------------------- |
+| `pnpm dev`                | Servidor de desarrollo (Turbopack)                                    |
+| `pnpm build`              | Build de producción (standalone)                                      |
+| `pnpm start`              | Sirve el build de producción                                          |
+| `pnpm test`               | Tests (`node --test`, sin framework extra)                            |
+| `pnpm db:setup`           | Arranca Postgres, aplica Prisma e importa el scoring si hace falta    |
+| `pnpm db:setup:force`     | Recalcula e importa el scoring aunque ya exista una ejecución         |
+| `pnpm db:up`              | Arranca el Postgres local conservando sus datos                       |
+| `pnpm db:down`            | Detiene Postgres; el volumen y sus datos se conservan                 |
+| `pnpm helmcode:check`     | Comprueba la API key de Helmcode (lista modelos + chat de prueba)     |
+| `pnpm run lint`           | [oxlint](https://oxc.rs) (no ESLint, ver `AGENTS.md`)                 |
+| `pnpm run lint:fix`       | oxlint con `--fix`                                                    |
+| `pnpm run format`         | Prettier (con orden de clases de Tailwind)                            |
+| `pnpm run typecheck`      | `tsc --noEmit`                                                        |
+| `pnpm run knip`           | Detecta código y dependencias muertas                                 |
+| `pnpm export:submission`  | Exporta `submission.csv` y `submission.jsonl` desde un run compatible |
+| `pnpm pipeline:eval`      | Ejecuta inferencia congelada completa y genera la submission          |
+| `pnpm prisma:seed`        | Seed de la base de datos (`prisma/seed.ts`)                           |
+| `pnpm run auth:generate`  | Regenera `prisma/schema/auth.prisma` tras tocar `lib/core/auth.ts`    |
+| `pnpm run rename-project` | Sustituye el nombre placeholder por el nombre real                    |
 
-## Motor de scoring v1 y decisión
+## Motor de scoring v1 y decisión (recalibración opcional)
 
-Con PostgreSQL activo, los CSV en `dataset/` y (opcional) el CSV de
-categorías reclasificadas generado con
-`.venv\Scripts\python.exe analysis\08_categories.py && .venv\Scripts\python.exe analysis\09_export_categories.py`
-(deja `analysis/transaction_categories.csv`, que la ingesta recoge sola si
-existe):
+Con PostgreSQL activo y los CSV en `dataset/`, el scoring funciona con las
+categorías del dataset y los parámetros precalculados. El CSV opcional de
+categorías reclasificadas se puede generar con Python (ver la sección de
+regeneración), pero no forma parte del runtime. Estos comandos solo son para
+recalibrar manualmente; para ejecutar la versión congelada usa
+`pnpm pipeline:eval`:
 
 ```bash
 pnpm scoring:fit        # ingest por grupo, € y percentiles congelados
@@ -85,6 +88,110 @@ particiones ya escritas. Variables de entorno útiles: `SCORING_DATASET`,
 
 Los scripts se ejecutan con **Node 22**. Si usas [fnm](https://github.com/Schniz/fnm),
 `fnm use 22` antes de lanzarlos (o `fnm exec --using=22 pnpm scoring:fit`).
+
+## Ejecución reproducible y submission
+
+La ejecución actual trabaja sobre el dataset incluido y usa los parámetros y
+resultados de calibración precalculados en
+[`artifacts/inference/scoreSolo-holding-v7/`](./artifacts/inference/scoreSolo-holding-v7/),
+sin recalibrar durante el scoring. Un contrato, hash o versión incompatible
+sigue siendo un error para evitar mezclar artefactos. El mismo flujo queda
+preparado para recibir otro dataset, pero no necesita un entorno Python para
+ejecutar scoring, forecast, decisión o exportación.
+
+### Preparar el entorno
+
+Se necesitan Node 22 y pnpm. Desde la raíz del repositorio:
+
+```bash
+git lfs install
+git lfs pull
+pnpm install
+```
+
+También se puede preparar todo con el script reproducible:
+
+```bash
+bash scripts/setup.sh
+```
+
+El script conserva varias versiones de pnpm mediante Corepack. El proyecto usa
+la versión declarada en `package.json` (`10.28.1`) y una versión secundaria
+(`12.4.2` por defecto) puede utilizarse explícitamente sin cambiar la global:
+
+```bash
+corepack pnpm --version                 # 10.28.1 dentro de este proyecto
+corepack pnpm@12.4.2 --version          # versión secundaria
+corepack pnpm test
+```
+
+Si Corepack necesita descargar una versión, la máquina debe poder resolver
+`registry.npmjs.org`. El script no ejecuta `pnpm` global directamente para
+evitar que otra versión intente autoactualizarse o revalidar el lockfile.
+
+### Regenerar categorías (opcional)
+
+El runtime no depende de Python. Solo hace falta instalar Python 3.12 y las
+dependencias de `analysis/` si se quiere recalcular la reclasificación de
+categorías y rehacer la calibración desde los CSV:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r analysis/requirements.txt
+.venv/bin/python analysis/08_categories.py
+.venv/bin/python analysis/09_export_categories.py
+```
+
+El script de setup también lo automatiza con `bash scripts/setup.sh --with-categories`.
+Esta opción es de análisis y no forma parte de la ejecución
+normal ni de la submission precalculada.
+
+### Ejecutar la evaluación y exportar
+
+`pipeline:eval` ejecuta, sin invocar pnpm de forma recursiva, la secuencia
+`autoingest → score → forecast → decisión → submission`. El forecast se
+calcula siempre; si sus métricas no superan el baseline queda marcado como
+**modo sombra** y no modifica la decisión.
+
+```bash
+pnpm pipeline:eval
+```
+
+La salida por defecto es `output/submission.csv` y
+`output/submission.jsonl`. Incluye score autónomo y de grupo, estados,
+alertas, inflexiones, previsiones a tres meses, decisión, límite, plazo, TAE y
+producto sugerido por RCA. Los valores ausentes son celdas vacías en CSV y
+`null` en JSONL.
+
+Se pueden usar rutas distintas sin editar el código:
+
+```bash
+SCORING_DATASET=/ruta/dataset \
+SCORING_OUT=/ruta/run-inferencia \
+SCORING_PARAMS=/ruta/parameters.json \
+FORECAST_PARAMS=/ruta/forecast-parameters.json \
+SUBMISSION_OUT=/ruta/output \
+pnpm pipeline:eval
+```
+
+Si falta `ingest.json`, está corrupto o su fingerprint no coincide, el pipeline
+reingesta automáticamente. Las empresas sin movimientos conservan sus filas
+`sin_datos` y decisiones `cerrar`; ningún fallo global deja una submission
+parcial porque los dos ficheros se escriben de forma atómica.
+
+Para generar solo una submission desde un run ya calculado:
+
+```bash
+SCORING_OUT=/ruta/run \
+SCORING_PARAMS=/ruta/parameters.json \
+pnpm export:submission
+```
+
+El script imprime dos resúmenes: **corte final** (última fila de cada empresa,
+incluida la suma de `LVigente`) e **histórico** (empresa-mes, donde la suma de
+límites es exposición mensual acumulada), además de versiones, hashes, número
+de empresas/meses y rutas absolutas. Septiembre de 2026 sigue excluido de
+calibración y validación.
 
 `pnpm db:setup` aplica el esquema con `prisma db push --accept-data-loss`:
 recrea las tablas de score y elimina las columnas antiguas.

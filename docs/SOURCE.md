@@ -407,11 +407,23 @@ nunca decidiendo nada.
 Feed en cartera con `desde_mes`. Webhook a Slack cuando cambia la acción de
 una empresa. Email no.
 
-### 4.6 Entrega de las 60-80 empresas test ✅
+### 4.6 Ejecución reproducible y exportación ✅
 
 Script, no pantalla: mismo pipeline, `version_parametros` congelada, CSV con
 el contrato de scoring §10 + decision §10. La cartera puede cargarlas como
 "cartera test" para la demo.
+
+La entrega oficial se ejecuta con `pnpm pipeline:eval`. Resuelve por defecto los
+artefactos congelados de
+`artifacts/inference/scoreSolo-holding-v7/`, autoingesta si falta o cambia el
+fingerprint y escribe `output/submission.csv` y `output/submission.jsonl` de
+forma atómica. No hace falta Python para este flujo: las categorías y los
+parámetros usados en la ejecución actual ya están precalculados; Python queda
+solo para rehacer la calibración analítica. La submission conserva `scoreSolo`
+como estado autónomo, incluye `scoreGrupo` y las previsiones duales en modo
+sombra cuando no superan el baseline. Su resumen separa el corte final (última
+observación por empresa) de la exposición histórica empresa-mes; no sustituye
+los resultados de scoring, forecast o decisión.
 
 ### 4.7 Fuera de alcance ✅
 

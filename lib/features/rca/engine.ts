@@ -222,7 +222,11 @@ function monthNumber(month: string): number {
 }
 
 function rounded(value: number): number {
-  const result = Math.round(value * 10) / 10;
+  // Los pesos bajos pueden producir impactos positivos de unas centésimas
+  // (por ejemplo C2). Conservamos tres decimales para no convertir un acierto
+  // material por subnota en cero y violar el signo del contrato Zod.
+  const result = Math.round(value * 1000) / 1000;
+  if (result === 0 && value !== 0) return value;
   return Object.is(result, -0) ? 0 : result;
 }
 
