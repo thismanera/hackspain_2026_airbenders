@@ -14,7 +14,10 @@ import type {
   CompanyFileResponse,
   Direccion,
   Estado,
+  GroupFileResponse,
+  GroupMember,
   GroupPeer,
+  MonthScore,
   PortfolioResponse,
   PortfolioRow,
   PortfolioSummary,
@@ -75,6 +78,18 @@ const GATE_SHORTHAND: Record<string, string> = {
   plazo: "sin plazo posible",
 };
 
+function blockedByOf(current: MonthScore): string | null {
+  const failed = current.decision.gates.find((gate) => !gate.passed);
+  return failed ? (GATE_SHORTHAND[failed.id] ?? failed.label.toLowerCase()) : null;
+}
+
+function changedOf(current: MonthScore): boolean {
+  return (
+    current.decision.action !== "mantener" &&
+    !(current.decision.action === "cerrar" && current.decision.previousLimit === 0)
+  );
+}
+
 function rowFor(companyId: string, month: string): PortfolioRow | null {
   const dataset = buildPortfolio().get(companyId);
   if (!dataset) return null;
@@ -100,17 +115,13 @@ function rowFor(companyId: string, month: string): PortfolioRow | null {
     previousLimit: current.decision.previousLimit,
     apr: current.decision.eligible ? current.decision.apr : null,
     action: current.decision.action,
-    changed:
-      current.decision.action !== "mantener" &&
-      !(current.decision.action === "cerrar" && current.decision.previousLimit === 0),
+    changed: changedOf(current),
     eligible: current.decision.eligible,
-    blockedBy: (() => {
-      const failed = current.decision.gates.find((gate) => !gate.passed);
-      return failed ? (GATE_SHORTHAND[failed.id] ?? failed.label.toLowerCase()) : null;
-    })(),
+    blockedBy: blockedByOf(current),
     reason: current.decision.reason,
     alertCount: current.alerts.length,
     spark,
+    share: current.group?.share ?? 1,
   };
 }
 
@@ -235,5 +246,93 @@ export function getCompanyFile(
     previous: index > 0 ? dataset.months[index - 1] : null,
     history: dataset.months.slice(0, index + 1),
     peers,
+  };
+}
+
+const CROSS_DEFAULT_SHARE = 0.3;
+
+function memberAt(entry: { meta: { id: string }; months: MonthScore[] }, index: number): GroupMember {
+  const current = entry.months[index];
+  const previous = index > 0 ? entry.months[index - 1] : null;
+  return {
+    id: entry.meta.id,
+    score: current.score,
+    previousScore: previous?.score ?? null,
+    estado: current.estado,
+    direction: current.direction,
+    share: current.group?.share ?? 1,
+    interdependence: current.group?.interdependence ?? 0,
+    support: current.group?.support ?? 0,
+    adjustment: current.group?.adjustment ?? 0,
+    limit: current.decision.limit,
+    previousLimit: current.decision.previousLimit,
+    eligible: current.decision.eligible,
+    action: current.decision.action,
+    changed: changedOf(current),
+    alertCount: current.alerts.length,
+    blockedBy: blockedByOf(current),
+  };
+}
+
+function weightedScore(members: { score: number; share: number }[]): number {
+  const total = members.reduce((sum, member) => sum + member.share, 0);
+  if (total === 0) return 0;
+  return Math.round((members.reduce((sum, member) => sum + member.score * member.share, 0) / total) * 100) / 100;
+}
+
+/**
+ * El grupo no es prestatario: es el techo y el contexto de sus empresas. Aquí
+ * se consolida lo que ya está calculado por empresa; no se inventa un score
+ * nuevo, se pondera por D1 el que cada una tiene.
+ */
+export function getGroupFile(groupId: string, requestedMonth?: string): GroupFileResponse | null {
+  const entries = [...buildPortfolio().values()].filter((entry) => entry.meta.groupId === groupId);
+  if (entries.length === 0) return null;
+
+  const month = requestedMonth && CALENDAR.includes(requestedMonth) ? requestedMonth : LATEST_MONTH;
+  const index = CALENDAR.indexOf(month);
+  if (index === -1) return null;
+
+  const members = entries
+    .map((entry) => memberAt(entry, index))
+    .sort((a, b) => b.share - a.share || a.id.localeCompare(b.id));
+
+  const byEstado: Record<Estado, number> = { sana: 0, vigilar: 0, riesgo: 0, sin_datos: 0 };
+  for (const member of members) byEstado[member.estado] += 1;
+
+  const history = CALENDAR.slice(0, index + 1).map((past, t) => {
+    const snapshot = entries.map((entry) => memberAt(entry, t));
+    return {
+      month: past,
+      score: weightedScore(snapshot),
+      exposure: snapshot.reduce((sum, member) => sum + member.limit, 0),
+    };
+  });
+  const current = history[history.length - 1];
+  const previous = history.length > 1 ? history[history.length - 2] : null;
+
+  const totalShare = members.reduce((sum, member) => sum + member.share, 0) || 1;
+
+  return {
+    groupId,
+    month,
+    months: CALENDAR,
+    members,
+    score: current.score,
+    previousScore: previous?.score ?? null,
+    byEstado,
+    exposure: current.exposure,
+    previousExposure: members.reduce((sum, member) => sum + member.previousLimit, 0),
+    eligible: members.filter((member) => member.eligible).length,
+    interdependence:
+      Math.round(
+        (members.reduce((sum, member) => sum + member.interdependence * member.share, 0) /
+          totalShare) *
+          10000,
+      ) / 10000,
+    crossDefault: members
+      .filter((member) => member.action === "cerrar" && member.changed && member.share >= CROSS_DEFAULT_SHARE)
+      .map((member) => member.id),
+    history,
   };
 }
