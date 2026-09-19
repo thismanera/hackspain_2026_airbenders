@@ -34,12 +34,12 @@ máquinas de este equipo, `fnm use 22`.
   Ver la sección de abajo.
 
 Referencia viva del patrón completo (Prisma + TanStack Query SSR + nuqs +
-Suspense) en modelo `Task`:
-[`prisma/schema/tasks.prisma`](./prisma/schema/tasks.prisma) +
-[`app/api/tasks/route.ts`](./app/api/tasks/route.ts) +
-[`lib/features/tasks/`](./lib/features/tasks/) +
-[`app/tasks/page.tsx`](./app/tasks/page.tsx) +
-[`app/tasks/tasks-client.tsx`](./app/tasks/tasks-client.tsx).
+Suspense) en la feature `portfolio`:
+[`prisma/schema/scoring.prisma`](./prisma/schema/scoring.prisma) +
+[`app/api/portfolio/`](./app/api/portfolio/) +
+[`lib/features/portfolio/`](./lib/features/portfolio/) +
+[`app/(panel)/cartera/page.tsx`](<./app/(panel)/cartera/page.tsx>) +
+[`app/(panel)/cartera/cartera-client.tsx`](<./app/(panel)/cartera/cartera-client.tsx>).
 
 ## Reglas críticas
 
@@ -48,7 +48,7 @@ Suspense) en modelo `Task`:
 - **Estado y datos:** evita `useEffect` (ver sección de rendimiento más abajo).
   Usa TanStack Query para todo fetching/caching, no `useState` + `useEffect` a mano.
 - **SSR + TanStack Query:** para páginas que necesitan datos al cargar, sigue
-  el patrón de `app/tasks/page.tsx` — `getQueryClient()` +
+  el patrón de `app/(panel)/cartera/page.tsx` — `getQueryClient()` +
   `prefetchQuery` + `<HydrationBoundary>`, con el mismo `queryKey` que el hook
   cliente usa. Ver la [guía oficial de SSR avanzado](https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr).
 - **UI:** usa solo componentes shadcn/ui (`components/ui`), nunca `@base-ui/react`
@@ -79,7 +79,7 @@ Suspense) en modelo `Task`:
   `@/generated/prisma/client`. Añade modelos nuevos como archivo propio en
   `prisma/schema/<dominio>.prisma`, nunca amontonados en `main.prisma`.
 - **Validación:** valida el body de cualquier API route con `zod` (ver
-  `app/api/tasks/route.ts`).
+  `app/api/portfolio/`).
 
 ## Rendimiento y patrones de React/Next.js
 
@@ -106,7 +106,7 @@ cualquier código sensible a rendimiento. Resumen de lo más importante:
   importa símbolos directos (`import { Button } from "lib/x"`, no barrels
   `index.ts` que reexportan todo); difiere analytics/scripts de terceros a
   después de la hidratación.
-- **TanStack Query:** sigue el patrón de `lib/features/tasks/` — query key
+- **TanStack Query:** sigue el patrón de `lib/features/portfolio/` — query key
   factory tipada, `staleTime`/`gcTime` explícitos por endpoint, e invalidación
   específica en el `onSuccess` de cada mutación (`invalidateQueries({ queryKey: [...] })`
   con la key concreta, no una invalidación global sin key).
@@ -119,22 +119,22 @@ URL (filtros, búsqueda, paginación, pestaña activa) usa **nuqs**, no
 
 - Define los parsers **una sola vez** por feature, en un archivo
   `search-params.ts` que se importa tanto desde el servidor como desde el
-  cliente (ver [`lib/features/tasks/search-params.ts`](./lib/features/tasks/search-params.ts)):
+  cliente (ver [`lib/features/portfolio/search-params.ts`](./lib/features/portfolio/search-params.ts)):
   ```ts
   import { createLoader, parseAsString } from "nuqs/server";
 
-  export const tasksSearchParams = { q: parseAsString.withDefault("") };
-  export const loadTasksSearchParams = createLoader(tasksSearchParams);
+  export const portfolioSearchParams = { q: parseAsString.withDefault("") };
+  export const loadPortfolioSearchParams = createLoader(portfolioSearchParams);
   ```
-- **Server Component** (`page.tsx`): `await loadTasksSearchParams(searchParams)`
+- **Server Component** (`page.tsx`): `await loadPortfolioSearchParams(searchParams)`
   y úsalo para el `prefetchQuery` — el `queryKey` de TanStack Query debe
-  incluir el valor (`["tasks", q]`), igual que en `lib/features/tasks/queries.ts`.
-- **Client Component**: `useQueryStates(tasksSearchParams)` de `"nuqs"` (no
+  incluir el valor (`["portfolio", q]`), igual que en `lib/features/portfolio/queries.ts`.
+- **Client Component**: `useQueryStates(portfolioSearchParams)` de `"nuqs"` (no
   `"nuqs/server"`) — mismo objeto de parsers, así servidor y cliente nunca se
   desincronizan.
 - Envuelve en `<Suspense>` el Client Component que lee el estado de nuqs
   dentro de un Server Component que ya hizo `await` de los `searchParams`
-  (ver `app/tasks/page.tsx`) — es el patrón que documenta la
+  (ver `app/(panel)/cartera/page.tsx`) — es el patrón que documenta la
   [guía server-side de nuqs](https://nuqs.dev/docs/server-side) para no
   bloquear el shell estático de la página.
 

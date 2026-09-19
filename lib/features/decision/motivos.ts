@@ -35,11 +35,11 @@ export function motivoPuerta(
     case "fiabilidad":
       return alerta("impago_obligaciones")
         ? "Impago de obligaciones (alerta)"
-        : `Fiabilidad ${dec(r.subscores.B, 1)} por debajo de ${P.umbralPilar.B}`;
+        : `Pago de obligaciones ${dec(r.subscores.B, 1)} por debajo de ${P.umbralPilar.B}`;
     case "caja":
       return alerta("deficit_persistente")
         ? "Déficit persistente (alerta)"
-        : `Capacidad de deuda ${dec(r.subscores.A, 1)} por debajo de ${P.umbralPilar.A}`;
+        : `Estado de caja ${dec(r.subscores.A, 1)} por debajo de ${P.umbralPilar.A}`;
     case "clientes":
       return alerta("vencido_alto")
         ? "Vencido alto (alerta)"

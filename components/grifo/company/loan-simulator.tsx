@@ -1,55 +1,89 @@
 "use client";
 
-import { Check, Info, Lock, Send, ShieldCheck, Undo2 } from "lucide-react";
-import { useState } from "react";
+import { Check, Lock, Send, ShieldCheck, TrendingDown, TrendingUp, Undo2 } from "lucide-react";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
-import { Figure, Panel } from "@/components/grifo/panel";
+import { OfferTenorPicker } from "@/components/grifo/company/offer-menu";
+import { Panel } from "@/components/grifo/panel";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/core/utils";
-import {
-  formatApr,
-  formatDays,
-  formatEuros,
-  formatMonthLong,
-} from "@/lib/features/portfolio/format";
+import { formatEuros, formatMonthLong, formatMonthShort } from "@/lib/features/portfolio/format";
+import { decisionNarrative } from "@/lib/features/portfolio/narrative";
 import { useOptIn } from "@/lib/features/portfolio/opt-in";
-import type { CompanyFileResponse, TenorOption } from "@/lib/features/portfolio/types";
-import { BANDA } from "@/lib/features/portfolio/vocabulary";
+import type { CompanyFileResponse } from "@/lib/features/portfolio/types";
 
-export function LoanSimulator({ file }: { file: CompanyFileResponse }) {
+/**
+ * Lo que cambió respecto al mes pasado, en una sola ficha. Sustituye a la tabla
+ * de antes/ahora en la cabecera de la oferta: tres filas por dos columnas para
+ * decir «has subido 99.000 €» es hacer que el lector calcule la resta.
+ */
+function LimitDelta({ file }: { file: CompanyFileResponse }) {
+  const previous = file.previous?.decision ?? null;
+  const previousMonth = file.previous?.month ?? null;
+  if (!previous || !previousMonth) return null;
+
+  const before = previous.eligible ? previous.limit : 0;
+  const delta = file.latest.decision.limit - before;
+  if (delta === 0) {
+    return (
+      <span className="text-muted-foreground shrink-0 text-xs">
+        Igual que en {formatMonthShort(previousMonth)}
+      </span>
+    );
+  }
+
+  const up = delta > 0;
+  const Icon = up ? TrendingUp : TrendingDown;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium tabular-nums",
+        up
+          ? "bg-status-healthy-surface text-status-healthy-fg"
+          : "bg-status-watch-surface text-status-watch-fg",
+      )}
+    >
+      <Icon aria-hidden className="size-3.5" />
+      {up ? "+" : "−"}
+      {formatEuros(Math.abs(delta))}
+      <span className="font-normal opacity-80">
+        {before === 0 ? "· antes sin línea" : `vs. ${formatMonthShort(previousMonth)}`}
+      </span>
+    </span>
+  );
+}
+
+export function LoanSimulator({
+  file,
+  className,
+}: {
+  file: CompanyFileResponse;
+  className?: string;
+}) {
   const { latest, previous } = file;
   const { decision } = latest;
   const { requestedMonth, request, withdraw } = useOptIn(file.company.id);
   const requested = requestedMonth !== null;
   const changed = decision.action !== "mantener";
-
-  const options = decision.menu;
-  const [selectedTenorIndex, setSelectedTenorIndex] = useState(
-    options.length > 0 ? options.length - 1 : 0,
-  );
-
-  const activeOption: TenorOption | undefined =
-    options.length > 0 ? options[Math.min(selectedTenorIndex, options.length - 1)] : undefined;
-
-  const limitChange =
-    decision.previousLimit > 0 && decision.limit > 0
-      ? Math.round((decision.limit / decision.previousLimit - 1) * 100)
-      : null;
+  const headline = decisionNarrative(file).headline;
 
   if (!decision.eligible) {
     return (
       <Panel
         title="Tu oferta este mes"
-        description="Sin circulante preaprobado este mes. Privado: nadie fuera de Embat lo sabe."
+        description="Sin línea este mes. El partner no recibe nada hasta que la pidas."
         aside={<ActionBadge action={decision.action} changed={changed} />}
+        className={className}
       >
-        <p className="max-w-[65ch] text-base leading-relaxed text-pretty">{decision.reason}</p>
+        <p className="flex items-start gap-2.5 text-sm leading-relaxed text-pretty">
+          <Lock aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+          <span className="max-w-[65ch]">{headline}</span>
+        </p>
         {previous?.decision.eligible ? (
-          <p className="text-muted-foreground mt-4 border-t pt-3 text-xs text-pretty">
-            El mes pasado tenías hasta {formatEuros(previous.decision.limit)} preaprobados. Cuando
-            vuelvas a superar todas las puertas de elegibilidad, la oferta se rehabilitará
-            automáticamente sin necesidad de solicitud previa.
+          <p className="text-muted-foreground mt-3 border-t pt-3 text-xs text-pretty">
+            El mes pasado tenías {formatEuros(previous.decision.limit)}. Cuando pases las puertas,
+            la oferta vuelve sola.
           </p>
         ) : null}
       </Panel>
@@ -59,170 +93,74 @@ export function LoanSimulator({ file }: { file: CompanyFileResponse }) {
   return (
     <Panel
       title="Tu oferta este mes"
-      description="Preaprobada y recalculada cada mes; nadie la ve fuera de Embat hasta que decidas pedirla."
+      description="Recalculada cada mes con el score; el partner solo la recibe si la pides."
       aside={<ActionBadge action={decision.action} changed={changed} />}
+      className={className}
+      bodyClassName="p-0"
     >
-      <p className="max-w-[65ch] text-sm leading-relaxed text-pretty font-medium text-foreground">
-        {decision.reason}
-      </p>
-
-      {/* 4 Métricas de Condiciones */}
-      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Figure
-          label="Hasta"
-          value={formatEuros(decision.limit)}
-          hint={
-            limitChange !== null && limitChange !== 0 ? (
-              <span
-                className={cn(limitChange > 0 ? "text-status-healthy-fg" : "text-status-watch-fg")}
-              >
-                {limitChange > 0 ? "+" : ""}
-                {limitChange} % desde {formatEuros(decision.previousLimit)}
-              </span>
-            ) : (
-              "Igual que el mes pasado"
-            )
-          }
-        />
-        <Figure label="Banda" value={decision.band} hint={BANDA[decision.band].description} />
-        <Figure
-          label="Plazo máximo"
-          value={formatDays(decision.maxTenorDays)}
-          hint="Según banda y tendencia"
-        />
-        <Figure
-          label="TAE desde"
-          value={formatApr(decision.apr)}
-          hint={`Base ${formatApr(decision.baseApr)} de banda ${decision.band}`}
-        />
-      </dl>
-
-      {/* Simulador Interactivo de Disposición */}
-      {options.length > 0 && activeOption ? (
-        <div className="mt-5 rounded-xl border bg-muted/20 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-semibold">Simulador de disposición por plazo</h3>
-              <p className="text-muted-foreground text-xs">
-                Selecciona la combinación óptima para tus necesidades de tesorería:
-              </p>
-            </div>
-            <span className="text-muted-foreground text-xs tabular-nums">
-              {options.length} combinaciones factibles
+      {/* El acto, y nada más: cifra, cuánto ha cambiado y el botón. El porqué va
+          debajo en una frase, y el detalle de plazos en su propio bloque. */}
+      <div className="flex flex-col gap-4 px-4 py-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+          <p className="flex items-baseline gap-2">
+            <span className="text-[2rem] leading-none font-semibold tracking-[-0.02em] tabular-nums">
+              {formatEuros(decision.limit)}
             </span>
-          </div>
-
-          {/* Selector de Plazos Segmentado */}
-          <div className="mt-3 flex flex-wrap gap-2">
-            {options.map((option, idx) => {
-              const isSelected = idx === selectedTenorIndex;
-              return (
-                <button
-                  key={option.days}
-                  type="button"
-                  onClick={() => setSelectedTenorIndex(idx)}
-                  className={cn(
-                    "flex flex-1 min-w-[5.5rem] flex-col items-center justify-center rounded-lg border px-3 py-2 text-center transition-all duration-150 focus-visible:ring-2 focus-visible:outline-none",
-                    isSelected
-                      ? "border-primary bg-primary text-primary-foreground shadow-xs"
-                      : "border-border bg-card hover:bg-muted/60 text-foreground",
-                  )}
-                >
-                  <span className="text-xs font-semibold tabular-nums">{option.days} días</span>
-                  <span className={cn("text-xs tabular-nums", isSelected ? "text-primary-foreground/90 font-medium" : "text-muted-foreground")}>
-                    {formatEuros(option.maxAmount)}
-                  </span>
-                  <span className={cn("text-xs tabular-nums mt-0.5", isSelected ? "text-primary-foreground/80" : "text-muted-foreground")}>
-                    {formatApr(option.apr)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Desglose de Costes */}
-          <div className="mt-4 grid grid-cols-2 gap-3 border-t pt-3 sm:grid-cols-4 text-xs">
-            <div>
-              <span className="text-muted-foreground block">Importe a disponer</span>
-              <span className="text-base font-semibold tabular-nums text-foreground">
-                {formatEuros(activeOption.maxAmount)}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground block">Coste en intereses</span>
-              <span className="text-base font-semibold tabular-nums text-foreground">
-                {formatEuros(activeOption.cost)}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground block">TAE aplicada</span>
-              <span className="text-base font-semibold tabular-nums text-foreground">
-                {formatApr(activeOption.apr)}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground block">Coste mensual aprox.</span>
-              <span className="text-base font-semibold tabular-nums text-status-healthy-fg">
-                ~{formatEuros(Math.round(activeOption.cost / Math.max(1, activeOption.days / 30)))} / mes
-              </span>
-            </div>
-          </div>
+            <span className="text-muted-foreground text-sm">preaprobados</span>
+          </p>
+          <LimitDelta file={file} />
         </div>
-      ) : null}
 
-      {/* Bloque de Opt-in y Consentimiento */}
-      <div className="mt-5 rounded-xl border bg-card p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-2.5">
-            <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-status-healthy-fg" />
-            <div>
-              <p className="text-xs font-medium text-foreground">
-                Garantía de privacidad Embat (Opt-in estricto)
-              </p>
-              <p className="text-muted-foreground text-xs text-pretty mt-0.5">
-                {requested ? (
-                  <span className="text-status-healthy-fg font-medium">
-                    Oferta solicitada en {formatMonthLong(requestedMonth)}. El partner financiero ya ve tu
-                    score y límite, pero sigue sin tener acceso a movimientos ni facturas.
-                  </span>
-                ) : (
-                  "Hasta que no pulses 'Pedir circulante', nadie fuera de Embat conoce tu score ni esta oferta."
-                )}
-              </p>
-            </div>
-          </div>
-
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="flex shrink-0 items-center gap-2">
             {requested ? (
-              <Button variant="outline" size="sm" onClick={withdraw}>
-                <Undo2 aria-hidden className="size-3.5" />
-                Retirar solicitud
-              </Button>
-            ) : null}
-            <Button
-              size="sm"
-              onClick={() => request(latest.month)}
-              disabled={requested}
-              className={cn(
-                requested ? "bg-status-healthy text-primary-foreground" : "bg-primary text-primary-foreground",
-              )}
-            >
-              {requested ? (
-                <Check aria-hidden className="size-4" strokeWidth={2.5} />
-              ) : (
+              <>
+                {/* Pedida ya no es un botón apagado: es un estado, y los estados
+                    de este sistema se dicen con palabra además de con color. */}
+                <span className="bg-status-healthy-surface text-status-healthy-fg inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium">
+                  <Check aria-hidden className="size-3.5" strokeWidth={2.5} />
+                  Línea pedida
+                </span>
+                <Button variant="outline" size="lg" onClick={withdraw}>
+                  <Undo2 aria-hidden className="size-3.5" />
+                  Retirar petición
+                </Button>
+              </>
+            ) : (
+              <Button size="lg" onClick={() => request(latest.month)}>
                 <Send aria-hidden className="size-4" />
-              )}
-              {requested ? "Solicitado con éxito" : "Pedir circulante"}
-            </Button>
+                Pedir {formatEuros(decision.limit)}
+              </Button>
+            )}
           </div>
+          <p
+            aria-live="polite"
+            className="text-muted-foreground flex max-w-[52ch] items-start gap-1.5 text-xs text-pretty"
+          >
+            <ShieldCheck aria-hidden className="mt-px size-3.5 shrink-0" />
+            <span>
+              {requested ? (
+                <>
+                  Pedida en {formatMonthLong(requestedMonth)}. El partner ve score y límite; no ve
+                  movimientos ni facturas.
+                </>
+              ) : (
+                <>Al pedir, el partner verá score y límite. No verá movimientos ni facturas.</>
+              )}
+            </span>
+          </p>
         </div>
 
-        {requested ? (
-          <p className="text-muted-foreground mt-2 border-t pt-2 text-xs">
-            Modo demo: La solicitud queda registrada en el navegador y la empresa pasará a estar visible en la cartera del partner.
-          </p>
-        ) : null}
+        <p className="text-muted-foreground max-w-[65ch] border-t pt-3 text-xs leading-relaxed text-pretty">
+          {headline}
+        </p>
       </div>
+
+      {decision.menu.length > 0 ? (
+        <div className="border-t px-4 py-4">
+          <OfferTenorPicker options={decision.menu} />
+        </div>
+      ) : null}
     </Panel>
   );
 }

@@ -9,7 +9,7 @@ import { EmbatMark } from "@/components/grifo/embat-mark";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/core/utils";
 
-import { INTRO_SEEN_KEY } from "./intro-gate";
+import { markIntroSeen } from "./intro-gate";
 import { SCENES } from "./scenes";
 
 const stepParser = parseAsInteger.withDefault(1);
@@ -25,7 +25,7 @@ export function IntroClient() {
   const last = index === total - 1;
 
   const finish = useCallback(() => {
-    window.sessionStorage.setItem(INTRO_SEEN_KEY, "1");
+    markIntroSeen();
     router.push("/vista");
   }, [router]);
   const go = useCallback(
