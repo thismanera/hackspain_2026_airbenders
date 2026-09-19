@@ -24,6 +24,7 @@ import {
   lines,
   meta,
   put,
+  readForecasts,
   runDir,
   scoringParams,
 } from "./scoring-io";
@@ -143,12 +144,11 @@ async function doBacktest() {
   const m = await meta();
   const params = await scoringParams();
   const run = runDir(params, m.fingerprint);
-  if (!existsSync(path.join(run, "forecasts.jsonl"))) throw new Error("run forecast:run first");
+  const todas = await readForecasts(run);
+  if (!todas) throw new Error("run forecast:run first");
   const validation = new Set(params.validationGroups);
   const byGroup = await scoresByGroup(run);
-  const forecasts: ForecastRow[] = [];
-  for await (const f of lines<ForecastRow>(path.join(run, "forecasts.jsonl")))
-    if (validation.has(f.groupId)) forecasts.push(f);
+  const forecasts: ForecastRow[] = todas.filter((f) => validation.has(f.groupId));
   const prev = previsiones(forecasts);
   const decParams = parametrosDecision(params.version);
   const scores: ScoreRow[] = [];

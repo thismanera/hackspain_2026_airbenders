@@ -31,17 +31,12 @@ import {
   lines,
   meta,
   put,
+  readForecasts,
   runDir,
   scoringParams,
 } from "./scoring-io";
 
 const command = process.argv[2];
-
-async function collect<T>(gen: AsyncGenerator<T>): Promise<T[]> {
-  const out: T[] = [];
-  for await (const x of gen) out.push(x);
-  return out;
-}
 
 async function doFit() {
   const m =
@@ -118,10 +113,8 @@ async function doDecide() {
   const decParams = parametrosDecision(params.version);
   const run = runDir(params, m.fingerprint);
   // forecast-engine §8 → decision §1: si hay previsión en el run, se conecta; si no, "desconectado".
-  const forecastsFile = path.join(run, "forecasts.jsonl");
-  const prev = existsSync(forecastsFile)
-    ? previsiones(await collect(lines<ForecastRow>(forecastsFile)))
-    : undefined;
+  const forecasts = await readForecasts(run);
+  const prev = forecasts ? previsiones(forecasts) : undefined;
   // El motor v1 decide **un grupo entero** de una vez (techo consolidado y cross-default, §9):
   // agrupar por `groupId` no es una optimización, es el contrato de `decideGroup`.
   const byGroup = new Map<string, ScoreRow[]>();
@@ -267,9 +260,9 @@ async function doImport() {
   if (importedDecisions !== manifest.rows)
     throw new Error(`imported ${importedDecisions} decisions, expected ${manifest.rows}`);
   // La previsión es opcional (decision §1): sin forecasts.jsonl no hay filas que importar.
-  const forecastsFile = path.join(run, "forecasts.jsonl");
+  const rows = await readForecasts(run);
   let importedForecasts = 0;
-  if (existsSync(forecastsFile)) {
+  if (rows) {
     let forecasts: ForecastRow[] = [];
     async function flushForecasts() {
       if (!forecasts.length) return;
@@ -288,11 +281,13 @@ async function doImport() {
       importedForecasts += forecasts.length;
       forecasts = [];
     }
-    for await (const f of lines<ForecastRow>(forecastsFile)) {
+    for (const f of rows) {
       forecasts.push(forecastRowSchema.parse(f));
       if (forecasts.length >= 500) await flushForecasts();
     }
     await flushForecasts();
+    if (importedForecasts !== manifest.rows)
+      throw new Error(`imported ${importedForecasts} forecasts, expected ${manifest.rows}`);
   }
   await prisma.scoreRun.update({
     where: { id: manifest.runId },

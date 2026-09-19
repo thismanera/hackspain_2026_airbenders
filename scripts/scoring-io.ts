@@ -5,6 +5,8 @@ import path from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
+import type { ForecastParameters } from "../lib/features/forecast/params";
+import type { ForecastRow } from "../lib/features/forecast/types";
 import type { GroupInput } from "../lib/features/scoring/engine";
 import { fingerprint, readPartition, type Meta } from "../lib/features/scoring/ingest";
 import type { Invoice, Parameters, Product, Tx } from "../lib/features/scoring/types";
@@ -59,6 +61,25 @@ export async function groupInput(groupId: string, m: Meta): Promise<GroupInput> 
 }
 export function groupsOf(m: Meta): string[] {
   return [...new Set(m.companies.map((c) => c.groupId))].sort();
+}
+/** Previsiones del run, o undefined si no hay; falla si están desfasadas respecto a forecast-parameters.json. */
+export async function readForecasts(run: string): Promise<ForecastRow[] | undefined> {
+  const file = path.join(run, "forecasts.jsonl");
+  if (!existsSync(file)) return undefined;
+  const paramsFile = path.join(run, "forecast-parameters.json");
+  if (!existsSync(paramsFile))
+    throw new Error("forecast-parameters.json missing; run forecast:fit and forecast:run");
+  const fp = JSON.parse(await readFile(paramsFile, "utf8")) as ForecastParameters;
+  const rows: ForecastRow[] = [];
+  for await (const row of lines<ForecastRow>(file)) {
+    // Una previsión de otra versión de parámetros no describe este run: mejor parar que mezclar.
+    if (row.versionParametros !== fp.version)
+      throw new Error(
+        `forecasts.jsonl is stale (${row.versionParametros} != ${fp.version}); run forecast:run`,
+      );
+    rows.push(row);
+  }
+  return rows;
 }
 export async function* lines<T>(file: string): AsyncGenerator<T> {
   for await (const line of createInterface({ input: createReadStream(file), crlfDelay: Infinity }))
