@@ -8,6 +8,7 @@ export const FIXTURE_PERCENTILES: Percentiles = {
   A4: { p5: 0, p95: 0.5 },
   A5: { p5: 0, p95: 0.6 },
   B1: { p5: 0.5, p95: 1 },
+  // B2 no usa percentiles (regla directa de racha, §5.2): esta entrada nunca se lee.
   B2: { p5: 0, p95: 2 },
   B3: { p5: -10, p95: 60 },
   C1: { p5: 0.2, p95: 0.9 },

@@ -139,7 +139,7 @@ export function backtest(rows: ScoreRow[]): BacktestReport {
       recall: relevant.length ? matched / relevant.length : null,
       falseAlarmRate: alerts ? falseAlarms / alerts : null,
       leadMedian: median(leads),
-      leadP25: leads.length ? percentile(leads, 0.25) : null,
+      leadP25: percentile(leads, 0.25),
     };
   }
   return report;

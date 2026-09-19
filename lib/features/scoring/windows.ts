@@ -1,6 +1,11 @@
+import { PARAMS } from "@/lib/features/scoring/params";
+
+/** Meses del calendario de análisis, de `PARAMS.mesInicio` a `PARAMS.mesFin` (ambos inclusive). */
 export const CALENDAR: readonly string[] = (() => {
+  const [yInicio, mInicio] = PARAMS.mesInicio.split("-").map(Number);
+  const [yFin, mFin] = PARAMS.mesFin.split("-").map(Number);
   const out: string[] = [];
-  for (let y = 2024, m = 9; y < 2026 || (y === 2026 && m <= 8); m++) {
+  for (let y = yInicio, m = mInicio; y < yFin || (y === yFin && m <= mFin); m++) {
     if (m === 13) {
       y++;
       m = 1;
@@ -35,9 +40,10 @@ export function mad(xs: number[]): number | null {
   return median(xs.map((x) => Math.abs(x - m)));
 }
 
-export function percentile(xs: number[], p: number): number {
+/** Percentil interpolado; null si no hay muestras (el llamante decide el respaldo). */
+export function percentile(xs: number[], p: number): number | null {
+  if (!xs.length) return null;
   const a = [...xs].sort((x, y) => x - y);
-  if (!a.length) return 0;
   const i = (a.length - 1) * p;
   const k = Math.floor(i);
   return a[k] + (a[Math.min(k + 1, a.length - 1)] - a[k]) * (i - k);

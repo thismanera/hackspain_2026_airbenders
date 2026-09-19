@@ -109,7 +109,8 @@ export type Direccion = "mejora" | "estable" | "deterioro";
 export type Naturaleza = "temporal" | "estructural" | "sin_cambio";
 export type Estado = "sana" | "vigilar" | "riesgo" | "sin_datos";
 
-export type Percentiles = Record<VariableId, { p5: number; p95: number }>;
+/** p5/p95 congelados por variable; null cuando no hubo muestras fiables (subnota neutral 50). */
+export type Percentiles = Record<VariableId, { p5: number | null; p95: number | null }>;
 export type Parameters = {
   version: string;
   paramsHash: string;

@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { FIXTURE_PERCENTILES } from "@/lib/features/scoring/__fixtures__/percentiles";
 import { aggregate, estado, subnota, subnotaB2 } from "@/lib/features/scoring/aggregate";
-import { FIXTURE_PERCENTILES } from "@/lib/features/scoring/fixtures";
-import type { VariableSet } from "@/lib/features/scoring/types";
+import { PARAMS } from "@/lib/features/scoring/params";
+import type { Percentiles, VariableSet } from "@/lib/features/scoring/types";
 
 test("subnota scales between p5 and p95 and inverts for 'bajo'", () => {
   assert.ok(Math.abs(subnota("A1", 0.15, FIXTURE_PERCENTILES) - 62.5) < 1e-9);
@@ -12,6 +13,12 @@ test("subnota scales between p5 and p95 and inverts for 'bajo'", () => {
   assert.equal(subnota("A1", null, FIXTURE_PERCENTILES), 50);
 });
 
+test("subnota is neutral when the variable has no fitted percentiles", () => {
+  const sinAjuste: Percentiles = { ...FIXTURE_PERCENTILES, A1: { p5: null, p95: null } };
+  assert.equal(subnota("A1", 0.15, sinAjuste), 50);
+  assert.equal(subnota("A1", 0.15, { ...FIXTURE_PERCENTILES, A1: { p5: 0.1, p95: null } }), 50);
+});
+
 test("B2 rule with decay", () => {
   assert.equal(subnotaB2(2, [0, 0, 0]), 0);
   assert.equal(subnotaB2(1, [0, 0, 0]), 70);
@@ -19,10 +26,11 @@ test("B2 rule with decay", () => {
   assert.equal(subnotaB2(0, [0, 1, 0]), 90);
   assert.equal(subnotaB2(0, [0, 0, 1]), 100);
   assert.equal(subnotaB2(0, [0, 0, 0]), 100);
+  assert.equal(subnotaB2(0), 100);
   assert.ok(Math.abs(subnotaB2(0, [2, 0, 0]) - 100 / 3) < 1e-9);
 });
 
-test("aggregate: contributions sum to score_solo, NA pulls to 50", () => {
+test("aggregate: weighted blocks make up score_solo, NA pulls to 50", () => {
   const vars = {
     A1: { raw: 0.15, conf: 1 },
     A2: { raw: 0, conf: 1 },
@@ -39,17 +47,35 @@ test("aggregate: contributions sum to score_solo, NA pulls to 50", () => {
     C5: { raw: 0, conf: 1 },
     C6: { raw: 0, conf: 1 },
   } as VariableSet;
-  const r = aggregate(vars, { rachaB2: 0, rachaB2Prev: [0, 0, 0] }, FIXTURE_PERCENTILES);
+  const r = aggregate(vars, { rachaB2Prev: [0, 0, 0] }, FIXTURE_PERCENTILES);
   const sumA = r.contributions
     .filter((c) => c.id.startsWith("A"))
     .reduce((a, c) => a + c.aportacion, 0);
   assert.ok(Math.abs(r.subscores.A - (62.5 + 100 + 71.428571 + 90 + 50) / 5) < 1e-4);
   assert.ok(Math.abs(sumA - 0.45 * r.subscores.A) < 1e-9);
-  assert.ok(Math.abs(r.contributions.reduce((a, c) => a + c.aportacion, 0) - r.scoreSolo) < 1e-9);
+  const esperado =
+    PARAMS.pesos.A * r.subscores.A + PARAMS.pesos.B * r.subscores.B + PARAMS.pesos.C * r.subscores.C;
+  assert.ok(Math.abs(r.scoreSolo - esperado) < 1e-9);
   assert.ok(Math.abs(r.confs.A - (1 + 1 + 1 + 1 + 0.3) / 5) < 1e-9);
   const a1 = r.contributions.find((c) => c.id === "A1")!;
   assert.equal(a1.umbralSano, 0.1);
   assert.equal(a1.sano, true);
+});
+
+test("aggregate reads the B2 streak from its raw value", () => {
+  const base = Object.fromEntries(
+    [...PARAMS.bloques.A, ...PARAMS.bloques.B, ...PARAMS.bloques.C].map((id) => [
+      id,
+      { raw: null, conf: 0 },
+    ]),
+  ) as VariableSet;
+  const b2 = (raw: number | null, prev: number[]) =>
+    aggregate({ ...base, B2: { raw, conf: 1 } }, { rachaB2Prev: prev }, FIXTURE_PERCENTILES)
+      .contributions.find((c) => c.id === "B2")!.subnota;
+  assert.equal(b2(2, [0, 0, 0]), 0);
+  assert.equal(b2(1, [0, 0, 0]), 70);
+  assert.equal(b2(0, [1, 0, 0]), 80);
+  assert.equal(b2(null, [0, 0, 0]), 50);
 });
 
 test("estado thresholds", () => {

@@ -5,13 +5,13 @@ import { clamp } from "@/lib/features/scoring/windows";
 export function subnota(id: VariableId, raw: number | null, percentiles: Percentiles): number {
   if (raw === null || !Number.isFinite(raw)) return 50;
   const { p5, p95 } = percentiles[id];
-  if (!(p95 > p5)) return 50;
+  if (p5 === null || p95 === null || !(p95 > p5)) return 50;
   const u = clamp((raw - p5) / (p95 - p5));
   return 100 * (PARAMS.mejor[id] === "alto" ? u : 1 - u);
 }
 
 /** prev = [racha(t-1), racha(t-2), racha(t-3)]. Decisión 7. */
-export function subnotaB2(racha: number, prev: number[]): number {
+export function subnotaB2(racha: number, prev: number[] = []): number {
   if (racha >= 2) return 0;
   if (racha === 1) return PARAMS.subnotaRacha1;
   for (let k = 1; k <= PARAMS.decaimientoMeses; k++) {
@@ -44,7 +44,7 @@ export type Aggregated = {
 
 export function aggregate(
   vars: VariableSet,
-  racha: { rachaB2: number; rachaB2Prev: number[] },
+  racha: { rachaB2Prev: number[] },
   percentiles: Percentiles,
 ): Aggregated {
   const contributions: Contribution[] = [];
@@ -58,7 +58,7 @@ export function aggregate(
         id === "B2"
           ? v.raw === null
             ? 50
-            : subnotaB2(racha.rachaB2, racha.rachaB2Prev)
+            : subnotaB2(v.raw, racha.rachaB2Prev)
           : subnota(id, v.raw, percentiles);
       const notaEf = 50 + v.conf * (s - 50);
       const aportacion = (PARAMS.pesos[bloque] / ids.length) * notaEf;

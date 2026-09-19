@@ -24,12 +24,12 @@ export const PARAMS = {
   mesFin: "2026-08",
   ventanaCorta: 6,
   ventanaLarga: 12,
-  pesos: { A: 0.45, B: 0.3, C: 0.25 } as Record<Bloque, number>,
+  pesos: { A: 0.45, B: 0.3, C: 0.25 } as Readonly<Record<Bloque, number>>,
   bloques: {
     A: ["A1", "A2", "A3", "A4", "A5"],
     B: ["B1", "B2", "B3"],
     C: ["C1", "C2", "C3", "C4", "C5", "C6"],
-  } as Record<Bloque, readonly VariableId[]>,
+  } as Readonly<Record<Bloque, readonly VariableId[]>>,
   mejor: {
     A1: "alto",
     A2: "bajo",
@@ -45,14 +45,14 @@ export const PARAMS = {
     C4: "bajo",
     C5: "bajo",
     C6: "bajo",
-  } as Record<VariableId, "alto" | "bajo">,
+  } as Readonly<Record<VariableId, "alto" | "bajo">>,
   umbralSano: {
     A1: 0.1,
     A2: 1 / 6,
     A3: 1.3,
     A4: 0.25,
     A5: 0.2,
-  } as Partial<Record<VariableId, number>>,
+  } as Readonly<Partial<Record<VariableId, number>>>,
   nFacturasRef: 5,
   confSinDatos: 0.3,
   confSana: 0.5,
@@ -80,6 +80,18 @@ export const PARAMS = {
 } as const;
 export type Params = typeof PARAMS;
 
-export function hashParams(p: object): string {
-  return createHash("sha256").update(JSON.stringify(p)).digest("hex");
+/** JSON canonico: claves de objeto ordenadas recursivamente para que el hash no dependa del orden. */
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.keys(value as Record<string, unknown>)
+        .sort()
+        .map((k) => [k, canonical((value as Record<string, unknown>)[k])]),
+    );
+  return value;
+}
+
+export function hashParams(p: Record<string, unknown>): string {
+  return createHash("sha256").update(JSON.stringify(canonical(p))).digest("hex");
 }

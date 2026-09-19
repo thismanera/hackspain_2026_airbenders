@@ -14,10 +14,24 @@ test("split is deterministic, disjoint and by group", () => {
 test("percentiles use only confident samples and freeze into a version", () => {
   const samples = Array.from({ length: 100 }, (_, i) => ({ id: "A1" as const, raw: i / 100, conf: i < 50 ? 0.2 : 1 }));
   const p = fitPercentiles(samples, ["g1"], ["g2"], "fp");
-  assert.ok(p.percentiles.A1.p5 >= 0.5);
-  assert.ok(p.percentiles.A1.p95 <= 0.99 + 1e-9);
-  assert.equal(p.percentiles.C6.p5, 0); // sin muestras → [0, 1]
-  assert.equal(p.percentiles.C6.p95, 1);
+  assert.ok(p.percentiles.A1.p5! >= 0.5);
+  assert.ok(p.percentiles.A1.p95! <= 0.99 + 1e-9);
+  assert.equal(p.percentiles.C6.p5, null); // sin muestras → subnota neutral
+  assert.equal(p.percentiles.C6.p95, null);
   assert.equal(p.version.length, 64);
   assert.notEqual(p.version, fitPercentiles(samples, ["g1"], ["g2"], "other").version);
+});
+
+test("conf exactly at the threshold counts", () => {
+  const p = fitPercentiles([{ id: "A1", raw: 7, conf: 0.5 }], ["g1"], [], "fp");
+  assert.equal(p.percentiles.A1.p5, 7);
+  assert.equal(p.percentiles.A1.p95, 7);
+  const q = fitPercentiles([{ id: "A1", raw: 7, conf: 0.49 }], ["g1"], [], "fp");
+  assert.equal(q.percentiles.A1.p5, null);
+});
+
+test("version tracks the percentiles, not just the inputs metadata", () => {
+  const a = fitPercentiles([{ id: "A1", raw: 1, conf: 1 }], ["g1"], ["g2"], "fp");
+  const b = fitPercentiles([{ id: "A1", raw: 2, conf: 1 }], ["g1"], ["g2"], "fp");
+  assert.notEqual(a.version, b.version);
 });
