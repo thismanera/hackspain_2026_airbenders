@@ -54,15 +54,16 @@ export function activeFilterCount(state: PortfolioSearchState): number {
   return count;
 }
 
-/** La ficha de empresa solo necesita saber qué mes se está mirando. */
+export const SHEET_TABS = ["decision", "score", "grupo"] as const;
+export type SheetTab = (typeof SHEET_TABS)[number];
+
+/** La ficha completa: mes y pestaña, las mismas que en la hoja. */
 export const companySearchParams = {
   mes: parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH),
+  pestana: parseAsStringLiteral(SHEET_TABS).withDefault("decision"),
 };
 
 export const loadCompanySearchParams = createLoader(companySearchParams);
-
-export const SHEET_TABS = ["decision", "score", "grupo"] as const;
-export type SheetTab = (typeof SHEET_TABS)[number];
 
 /**
  * La ficha se abre encima de la cartera, sin abandonarla. Empresa o grupo, y la

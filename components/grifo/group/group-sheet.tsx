@@ -363,56 +363,46 @@ export function GroupSheet({
               reconozca igual en los dos lados. */}
           <ReadingBox headline={groupNarrative(data).headline} source="plantilla" />
 
-          <section aria-label="Cifras del grupo" className="bg-card rounded-xl border p-4">
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+          <section aria-label="Cifras del grupo" className="bg-card rounded-xl border px-4 py-3">
+            <dl className="grid grid-cols-4 gap-x-3">
               <Figure
-                label="Límite conjunto"
-                value={formatEuros(data.exposure)}
-                hint={
-                  exposureDelta !== 0 ? (
-                    <span
-                      className={
-                        exposureDelta > 0 ? "text-status-healthy-fg" : "text-status-watch-fg"
-                      }
-                    >
-                      {formatSigned(exposureDelta, 0)} € este mes
-                    </span>
-                  ) : (
-                    "Sin cambio este mes"
-                  )
+                label="Límite"
+                value={
+                  <>
+                    {formatEuros(data.exposure)}
+                    {exposureDelta !== 0 ? (
+                      <span
+                        className={cn(
+                          "ml-1.5 text-xs font-medium",
+                          exposureDelta > 0 ? "text-status-healthy-fg" : "text-status-watch-fg",
+                        )}
+                      >
+                        {formatSigned(exposureDelta, 0)}
+                      </span>
+                    ) : null}
+                  </>
                 }
               />
-              {/* La única cifra que se puede leer mal: el límite conjunto no es
-                  una línea del grupo. El aviso va aquí, pegado al número. */}
+              <Figure label="Con línea" value={`${data.eligible} / ${data.members.length}`} />
               <Figure
-                label="Con línea"
-                value={`${data.eligible} de ${data.members.length}`}
-                hint="El crédito es de cada empresa"
-              />
-              <Figure
-                label="Score consolidado"
-                value={formatScore(data.score)}
-                hint={
-                  scoreDelta !== null ? (
-                    <span
-                      className={cn(
-                        Math.abs(scoreDelta) < 0.5
-                          ? ""
-                          : scoreDelta > 0
-                            ? "text-status-healthy-fg"
-                            : "text-status-risk-fg",
-                      )}
-                    >
-                      {formatSigned(scoreDelta)} este mes
-                    </span>
-                  ) : undefined
+                label="Score"
+                value={
+                  <>
+                    {formatScore(data.score)}
+                    {scoreDelta !== null && Math.abs(scoreDelta) >= 0.5 ? (
+                      <span
+                        className={cn(
+                          "ml-1.5 text-xs font-medium",
+                          scoreDelta > 0 ? "text-status-healthy-fg" : "text-status-risk-fg",
+                        )}
+                      >
+                        {formatSigned(scoreDelta)}
+                      </span>
+                    ) : null}
+                  </>
                 }
               />
-              <Figure
-                label="Interdependencia"
-                value={formatPercent(data.interdependence, 0)}
-                hint="D5 ponderado por peso"
-              />
+              <Figure label="Interdependencia" value={formatPercent(data.interdependence, 0)} />
             </dl>
           </section>
 

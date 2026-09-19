@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { IndicatorInfo } from "@/components/grifo/company/indicator-info";
 import { Panel } from "@/components/grifo/panel";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/core/utils";
@@ -15,30 +16,23 @@ import type { Contribution, MonthScore } from "@/lib/features/portfolio/types";
 
 type Mode = "bloque" | "movimiento";
 
-function thresholdLabel(id: string): string | null {
-  const meta = indicator(id);
-  if (!meta?.healthy) return null;
-  const operator = meta.betterWhen === "alto" ? "≥" : "≤";
-  return `sano ${operator} ${formatIndicatorValue(meta.healthy, meta.format)}`;
-}
-
 function Row({ contribution }: { contribution: Contribution }) {
   const meta = indicator(contribution.indicator);
   if (!meta) return null;
 
   const missing = contribution.raw === null;
-  const threshold = thresholdLabel(contribution.indicator);
   const moved = Math.abs(contribution.delta) >= 0.05;
 
   return (
     <li className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-1 px-4 py-2 sm:grid-cols-[minmax(0,1fr)_5.5rem_6rem_4.5rem_4rem]">
       <div className="min-w-0 sm:col-span-1">
-        <p className={cn("truncate text-sm", missing && "text-muted-foreground")}>{meta.label}</p>
-        <p className="text-muted-foreground truncate text-xs">
-          <span className="font-mono">{meta.id}</span>
-          {threshold ? <> · {threshold}</> : null}
-          {missing ? <> · sin cobertura para esta empresa</> : null}
+        <p className={cn("flex items-center gap-1", missing && "text-muted-foreground")}>
+          <span className="truncate text-sm">{meta.label}</span>
+          <IndicatorInfo indicator={meta} missing={missing} />
         </p>
+        {missing ? (
+          <p className="text-muted-foreground text-xs">sin cobertura</p>
+        ) : null}
       </div>
 
       <span
