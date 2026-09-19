@@ -217,9 +217,11 @@ function top3Share(
     if (f?.observed) for (const [cp, a] of Object.entries(f[key])) by[cp] = (by[cp] ?? 0) + a;
   const vals = Object.values(by).sort((a, b) => b - a);
   const identificado = sum(vals);
+  // `identificado` y `total` suman los mismos importes en distinto orden, así que el cociente puede
+  // pasarse de 1 por un ULP cuando toda la contraparte está identificada: la confianza se recorta.
   return val(
     divide(sum(vals.slice(0, 3)), identificado),
-    (ctx.obs12 / 12) * (total > 0 ? identificado / total : 0),
+    Math.min(1, (ctx.obs12 / 12) * (total > 0 ? identificado / total : 0)),
   );
 }
 
