@@ -1,6 +1,6 @@
 import { redondearAbajo } from "@/lib/features/decision/money";
 import { DECISION_PARAMS as P, type Banda } from "@/lib/features/decision/params";
-import type { ScoreRow } from "@/lib/features/scoring/types";
+import type { DecisionInput } from "@/lib/features/decision/types";
 
 /** Bandas de mejor a peor: el orden canónico que usan `peor`, `esPeor` y `bajarBanda`. */
 export const ORDEN: readonly Banda[] = ["A", "B", "C", "D"] as const;
@@ -26,31 +26,40 @@ export function esPeor(a: Banda, b: Banda): boolean {
 }
 
 /** Banda tras el recorte por deterioro estructural (§4) y por cross-default (§9, `escalonesExtra`). */
-export function bandaEfectiva(r: ScoreRow, escalonesExtra = 0): Banda {
+export function bandaEfectiva(r: DecisionInput, escalonesExtra = 0): Banda {
   const estructural = r.direccion === "deterioro" && r.naturaleza === "estructural" ? 1 : 0;
   return bajarBanda(banda(r.score), estructural + escalonesExtra);
 }
 
 /**
- * decision-engine §4 + decisión 40: la capacidad de cuota adversa la calcula **este** motor con
- * **su** escenario de estrés (−10 % cobros / +5 % pagos, cobertura 1,3), no la de `ScoreRow`, que
- * scoring calcula con −20 %/+10 % para D3 del aval de grupo. Son dos escenarios adversos distintos
- * a propósito: el de scoring mide si el padre puede avalar (conservador sobre un dato ajeno), este
- * mide cuánto se le puede prestar a la empresa sobre sus propios cobros, ya infravalorados por el
- * 25 % de movimientos sin clasificar.
+ * Decisión 45: recorte del límite por el pilar A (capacidad de deuda), `min(1, A / factorARef)`.
+ *
+ * Sustituye a la capacidad de cuota adversa, que el motor calculaba con sus propios flujos a 6
+ * meses y su propio estrés. El pilar A ya mide lo mismo —si la caja aguanta más cuota— sobre las
+ * mismas variables, ya normalizado a 0-100 y con la confianza dentro: repetirlo aquí era decidir
+ * dos veces con dos umbrales distintos. Por encima de 70 el pilar deja de recortar; por debajo el
+ * límite baja proporcionalmente (A 35 ⇒ la mitad).
  */
-export function capacidadCuotaAdv(r: ScoreRow): number {
-  const cajaAdv = P.estresCobros * r.cobrosOpMedia6m - P.estresPagos * r.pagosOpMedia6m;
-  return Math.max(0, cajaAdv / P.coberturaMin - r.servicioDeudaMedia6m);
+export function factorA(A: number): number {
+  return Math.min(1, Math.max(0, A) / P.factorARef);
 }
 
-export type Limite = { limiteCap: number; limiteOp: number; LBruto: number; L: number };
+export type Limite = { limiteOp: number; factorA: number; LBruto: number; L: number };
 
-/** decision-engine §4. */
-export function limite(r: ScoreRow, b: Banda): Limite {
-  const limiteCap = capacidadCuotaAdv(r) * P.mesesLimiteCap;
-  const limiteOp = P.anticipoPct * r.cobrosOpMedia3m * P.anticipoMeses;
+/**
+ * decision-engine §4 (decisión 45):
+ *
+ * ```text
+ * L = anticipo_pct × tamano × anticipo_meses × factor_banda × min(1, conf/conf_ref) × factor_A
+ * ```
+ *
+ * `limiteOp` (= 0,8 × tamaño × 3) se conserva como campo publicado: es el anticipo bruto sobre el
+ * circulante y la ficha lo enseña junto al límite recortado.
+ */
+export function limite(r: DecisionInput, b: Banda): Limite {
+  const limiteOp = P.anticipoPct * r.tamano * P.anticipoMeses;
   const factorC = Math.min(1, r.confianza / P.confRef);
-  const LBruto = Math.min(limiteCap, limiteOp) * P.factorBanda[b] * factorC;
-  return { limiteCap, limiteOp, LBruto, L: redondearAbajo(LBruto, P.redondeoL) };
+  const fA = factorA(r.subscores.A);
+  const LBruto = limiteOp * P.factorBanda[b] * factorC * fA;
+  return { limiteOp, factorA: fA, LBruto, L: redondearAbajo(LBruto, P.redondeoL) };
 }

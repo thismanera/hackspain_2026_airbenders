@@ -1,7 +1,6 @@
 import { banda, esPeor } from "@/lib/features/decision/limit";
 import { DECISION_PARAMS as P, type Banda } from "@/lib/features/decision/params";
-import type { DesgloseTae } from "@/lib/features/decision/types";
-import type { ScoreRow } from "@/lib/features/scoring/types";
+import type { DecisionInput, DesgloseTae } from "@/lib/features/decision/types";
 
 export type Tae = { tae: number; desglose: DesgloseTae } | { tae: null; desglose: null };
 
@@ -12,7 +11,7 @@ export type Tae = { tae: number; desglose: DesgloseTae } | { tae: null; desglose
  * con la efectiva (SOURCE §3.3: "+0,5 pp si banda_pred_3m < banda actual"). Si comparase con la
  * efectiva, un deterioro estructural que ya bajó la banda taparía la señal de la previsión.
  */
-export function tae(bEfectiva: Banda, plazoDias: number, r: ScoreRow, bandaPred: Banda): Tae {
+export function tae(bEfectiva: Banda, plazoDias: number, r: DecisionInput, bandaPred: Banda): Tae {
   const base = P.baseTAE[bEfectiva];
   if (base === null) return { tae: null, desglose: null };
   const desglose: DesgloseTae = {

@@ -2,8 +2,7 @@ import type { Elegibilidad } from "@/lib/features/decision/eligibility";
 import { banda, bandaEfectiva, esPeor, limite, type Limite } from "@/lib/features/decision/limit";
 import { redondearAbajo, redondearArriba } from "@/lib/features/decision/money";
 import { DECISION_PARAMS as P, type Banda } from "@/lib/features/decision/params";
-import type { Accion, EstadoDecision } from "@/lib/features/decision/types";
-import type { ScoreRow } from "@/lib/features/scoring/types";
+import type { Accion, DecisionInput, EstadoDecision } from "@/lib/features/decision/types";
 
 function clip(x: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, x));
@@ -38,9 +37,10 @@ export type Decision = {
 };
 
 /**
- * Decisión 42: un fallo es **blando** si todas las puertas caídas están en `puertas_blandas` y,
- * en el caso de `caja`, si falla solo por capacidad (la racha de déficit es dura). `estado`,
- * `fiabilidad`, `clientes`, `grupo` y `racha_deficit > 2` cierran el mismo mes.
+ * Decisión 42 (+ 44): un fallo es **blando** si todas las puertas caídas están en
+ * `puertas_blandas` y, en el caso de `caja`, si falla solo por el umbral del pilar A (la alerta
+ * `deficit_persistente` es dura). `estado`, `fiabilidad`, `clientes`, `grupo` y las alertas
+ * cierran el mismo mes.
  */
 export function falloBlando(e: Elegibilidad): boolean {
   return (
@@ -56,7 +56,7 @@ export function falloBlando(e: Elegibilidad): boolean {
  * No muta `prev`; el estado siguiente lo calcula `siguienteEstado`.
  */
 export function decidirAccion(
-  r: ScoreRow,
+  r: DecisionInput,
   e: Elegibilidad,
   bandaPred: Banda,
   prev: EstadoDecision,
@@ -77,7 +77,7 @@ export function decidirAccion(
   } as const;
 
   // No elegible: ni límite recomendado ni vigente (§13, propiedad 1). `limite` se conserva en
-  // `limiteCap`/`limiteOp` porque la ficha enseña la capacidad aunque la puerta cierre.
+  // `limiteOp`/`factorA` porque la ficha enseña el anticipo bruto aunque la puerta cierre.
   //
   // Decisión 42: un fallo blando con línea viva espera `cierreConfirmadoMeses` meses seguidos
   // antes de cerrar ("un mes no es tendencia"). El mes de gracia sale `mantener` con el límite
@@ -98,7 +98,7 @@ export function decidirAccion(
         LVigente: 0,
         mesesParaReapertura: P.reaperturaMeses - prev.mesesElegibleSeguidos - 1,
       };
-    // Desviación deliberada de §8: con L = 0 no hay nada que abrir (banda D o capacidad nula),
+    // Desviación deliberada de §8: con L = 0 no hay nada que abrir (banda D o tamaño nulo),
     // así que la fila sale como `mantener` en 0 en vez de un `abrir` vacío.
     return { ...base, accion: L > 0 ? "abrir" : "mantener", LVigente: L };
   }
@@ -143,7 +143,7 @@ export function decidirAccion(
 export function siguienteEstado(
   prev: EstadoDecision,
   d: Decision,
-  r: ScoreRow,
+  r: DecisionInput,
   bandaPred: Banda,
   e: Elegibilidad,
 ): EstadoDecision {

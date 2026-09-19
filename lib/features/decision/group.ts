@@ -1,9 +1,8 @@
-import { banda } from "@/lib/features/decision/limit";
+import { banda, factorA } from "@/lib/features/decision/limit";
 import { redondearAbajo } from "@/lib/features/decision/money";
 import { eur } from "@/lib/features/decision/motivos";
 import { DECISION_PARAMS as P, type Banda } from "@/lib/features/decision/params";
-import type { Accion, Puerta } from "@/lib/features/decision/types";
-import type { ScoreRow } from "@/lib/features/scoring/types";
+import type { Accion, DecisionInput, Puerta } from "@/lib/features/decision/types";
 
 /** Decisión del mes de una empresa, ya tomada, tal como la consume el ajuste de grupo (§9). */
 export type DecisionMes = {
@@ -19,86 +18,72 @@ export type DecisionMes = {
 };
 
 export type LimiteGrupo = {
-  capacidad: number;
-  limiteCap: number;
+  tamano: number;
   limiteOp: number;
+  score: number;
+  confianza: number;
+  factorA: number;
   banda: Banda;
   L: number;
 };
 
 /**
- * §9: el grupo se trata como una sola empresa sobre los flujos consolidados de `ScoreRow`
- * (`cobrosOpGrupoMedia6m`, `pagosOpGrupoMedia6m`, `servicioDeudaGrupoMedia6m`), iguales en todas
- * las filas del grupo para un mes dado. La capacidad de cuota adversa se recalcula aquí con el
- * estrés **del motor de decisión** (`DECISION_PARAMS.estresCobros/estresPagos/coberturaMin`,
- * decisión 40), el mismo que usa `capacidadCuotaAdv` de §4: el techo consolidado y el límite
- * individual tienen que medirse con la misma vara.
+ * §9 con la decisión 47: el techo del grupo es la fórmula de §4 aplicada al grupo como si fuese
+ * una sola empresa, con **Σ tamaño** de los miembros presentes ese mes y con score, confianza y
+ * pilar A ponderados por ese mismo tamaño (media simple si Σ tamaño = 0).
  *
- * Desviación documentada: `limiteOp` usa la media de 6 meses de cobros del grupo (no existe media
- * de 3 meses consolidada en `ScoreRow`), a diferencia de `limite()` de §4, que usa `cobrosOpMedia3m`.
+ * Ya no se leen los flujos consolidados de `ScoreRow` (decisión 43: salen del contrato). Eran,
+ * además, la causa del techo cero de la decisión 41: las hermanas sin datos aportaban pagos
+ * clasificados y pocos cobros, así que la caja consolidada estresada se iba a negativo por falta
+ * de dato. Sumando tamaños esa asimetría desaparece —una hermana sin datos suma 0, no resta— y el
+ * techo solo puede salir 0 si el grupo es banda D o si nadie del grupo cobra nada, dos casos en
+ * los que el límite individual de cada miembro también es 0. Por eso la regla "techo cero → baja
+ * banda" (decisión 41) queda sin objeto y se retira.
  *
- * Banda del grupo: media de `score` ponderada por `cobrosOpMedia6m`; el recorte por confianza usa
- * la media de `confianza` con el mismo peso.
+ * Quien mueve el dinero del grupo es quien manda en la banda, en el recorte por confianza y en el
+ * recorte por pilar A.
  */
-export function limiteGrupo(rows: ScoreRow[]): LimiteGrupo {
+export function limiteGrupo(rows: DecisionInput[]): LimiteGrupo {
   if (rows.length === 0) throw new Error("limiteGrupo: grupo vacío");
-  const g = rows[0];
-  const capacidad = Math.max(
-    0,
-    (P.estresCobros * g.cobrosOpGrupoMedia6m - P.estresPagos * g.pagosOpGrupoMedia6m) /
-      P.coberturaMin -
-      g.servicioDeudaGrupoMedia6m,
-  );
-  const limiteCap = capacidad * P.mesesLimiteCap;
-  const limiteOp = P.anticipoPct * g.cobrosOpGrupoMedia6m * P.anticipoMeses;
-  const peso = rows.reduce((a, r) => a + r.cobrosOpMedia6m, 0);
-  const score =
-    peso > 0
-      ? rows.reduce((a, r) => a + r.score * r.cobrosOpMedia6m, 0) / peso
-      : rows.reduce((a, r) => a + r.score, 0) / rows.length;
-  const conf =
-    peso > 0
-      ? rows.reduce((a, r) => a + r.confianza * r.cobrosOpMedia6m, 0) / peso
-      : rows.reduce((a, r) => a + r.confianza, 0) / rows.length;
+  const tamano = rows.reduce((a, r) => a + r.tamano, 0);
+  const media = (f: (r: DecisionInput) => number): number =>
+    tamano > 0
+      ? rows.reduce((a, r) => a + f(r) * r.tamano, 0) / tamano
+      : rows.reduce((a, r) => a + f(r), 0) / rows.length;
+  const score = media((r) => r.score);
+  const confianza = media((r) => r.confianza);
+  const A = media((r) => r.subscores.A);
+  const limiteOp = P.anticipoPct * tamano * P.anticipoMeses;
   const b = banda(score);
+  const fA = factorA(A);
   const L = redondearAbajo(
-    Math.min(limiteCap, limiteOp) * P.factorBanda[b] * Math.min(1, conf / P.confRef),
+    limiteOp * P.factorBanda[b] * Math.min(1, confianza / P.confRef) * fA,
     P.redondeoL,
   );
-  return { capacidad, limiteCap, limiteOp, banda: b, L };
+  return { tamano, limiteOp, score, confianza, factorA: fA, banda: b, L };
 }
 
-/**
- * Decisión 41: `"prorrateo"` es el techo clásico (`L_grupo > 0` y Σ por encima); `"bajaBanda"` es
- * el techo con capacidad consolidada 0, que baja una banda en vez de cerrar; `null`, sin techo.
- */
-export type ModoTecho = "prorrateo" | "bajaBanda" | null;
+/** `"prorrateo"` cuando `Σ L_vigente` pasa del techo; `null`, sin techo mordiente. */
+export type ModoTecho = "prorrateo" | null;
 
 export type AjusteGrupo = {
   decisiones: DecisionMes[];
   /** Empresas caídas con cross-default, en orden alfabético (salida determinista). */
   caidas: string[];
   afectadas: string[];
-  /** Decisión 41: miembros vivos que bajan una banda porque `L_grupo = 0` (orden alfabético). */
-  afectadasTecho: string[];
   modo: ModoTecho;
   motivoGrupo: string | null;
 };
-
-/** Decisión 41: texto del techo con capacidad consolidada nula, igual en la ficha y en el motivo. */
-export const MOTIVO_TECHO_CERO = "Grupo sin capacidad consolidada: banda −1";
 
 /**
  * §9: techo del grupo (si `Σ LVigente > L_grupo`, prorrateo redondeado abajo) y detección de
  * cross-default (cierre de una empresa con `D1 ≥ D1CrossDefault`).
  *
- * **Decisión 41**: con `L_grupo = 0` el prorrateo cerraría a todos los miembros, incluido el único
- * solvente. Las hermanas sin datos aportan pagos clasificados y pocos cobros, así que la caja
- * consolidada estresada se va a negativo por falta de dato, no por riesgo. Con capacidad
- * consolidada nula el grupo penaliza bajando **una banda** (−30 % de límite, +2 pp) y lo dice en
- * la ficha; el prorrateo se mantiene íntegro siempre que `L_grupo > 0`. Es la única opción
- * coherente con el aval: una filial puede recibir +10 puntos de aval del padre y no puede a la
- * vez quedar cerrada por el techo de ese mismo padre.
+ * Decisión 47: el prorrateo es la **única** regla de techo. La excepción de la decisión 41
+ * (`L_grupo = 0` ⇒ bajar una banda en vez de prorratear a cero) desaparece con su causa: el techo
+ * se mide sobre Σ tamaño, no sobre una caja consolidada estresada que se iba a negativo por falta
+ * de dato. `L_grupo = 0` solo ocurre en banda D o con Σ tamaño = 0, y en los dos casos el límite
+ * individual de cada miembro ya es 0.
  *
  * Una *caída* es un cierre **nuevo y propio**, y por eso se descartan dos casos que si no
  * realimentan el contagio hasta el bloqueo mutuo:
@@ -108,13 +93,12 @@ export const MOTIVO_TECHO_CERO = "Grupo sin capacidad consolidada: banda −1";
  * - Empresa que llegaba al mes **ya cerrada** (`yaCerrada`): su cierre es el mismo evento del mes
  *   anterior. Sin esta regla la causa se redetecta cada mes y la bandera nunca deja de rearmarse.
  *
- * Puro: devuelve en `afectadas` las hermanas que sobreviven a una caída y en `afectadasTecho` las
- * que baja el techo cero, para que el motor (§9, paso 2) recompute su límite con los
- * `escalonesExtra` acumulados (máximo 2) y vuelva a aplicar el techo. Aquí no se baja ninguna
- * banda.
+ * Puro: devuelve en `afectadas` las hermanas que sobreviven a una caída, para que el motor (§9,
+ * paso 2) recompute su límite con el escalón de banda y vuelva a aplicar el techo. Aquí no se
+ * baja ninguna banda.
  */
 export function ajusteGrupo(
-  rows: ScoreRow[],
+  rows: DecisionInput[],
   decisiones: DecisionMes[],
   LGrupo: number,
 ): AjusteGrupo {
@@ -122,19 +106,11 @@ export function ajusteGrupo(
   let motivoGrupo: string | null = null;
   let ajustadas = decisiones;
   let modo: ModoTecho = null;
-  let afectadasTecho: string[] = [];
-  if (P.techoCeroBajaBanda && LGrupo === 0 && decisiones.some((d) => d.LVigente > 0)) {
-    modo = "bajaBanda";
-    afectadasTecho = decisiones
-      .filter((d) => d.accion !== "cerrar")
-      .map((d) => d.company)
-      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-    motivoGrupo = MOTIVO_TECHO_CERO;
-  } else if (suma > LGrupo) {
+  if (suma > LGrupo) {
     modo = "prorrateo";
     ajustadas = decisiones.map((d) => ({
       ...d,
-      LVigente: redondearAbajo((d.LVigente * LGrupo) / suma, P.redondeoL),
+      LVigente: suma > 0 ? redondearAbajo((d.LVigente * LGrupo) / suma, P.redondeoL) : 0,
     }));
     motivoGrupo = `Techo de grupo: ${eur(LGrupo)}`;
   }
@@ -152,5 +128,5 @@ export function ajusteGrupo(
   const afectadas = caidas.length
     ? decisiones.filter((d) => !caidas.includes(d.company)).map((d) => d.company)
     : [];
-  return { decisiones: ajustadas, caidas, afectadas, afectadasTecho, modo, motivoGrupo };
+  return { decisiones: ajustadas, caidas, afectadas, modo, motivoGrupo };
 }

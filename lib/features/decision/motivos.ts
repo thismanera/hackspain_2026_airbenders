@@ -1,6 +1,5 @@
 import { DECISION_PARAMS as P } from "@/lib/features/decision/params";
-import type { Accion, Banda, Puerta } from "@/lib/features/decision/types";
-import type { ScoreRow } from "@/lib/features/scoring/types";
+import type { Accion, Banda, DecisionInput, Puerta } from "@/lib/features/decision/types";
 
 /** Un solo formateador para todos los importes: construirlo por llamada es caro. */
 const EUR = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 });
@@ -15,39 +14,64 @@ export function dec(x: number, n = 2): string {
   return x.toFixed(n).replace(".", ",");
 }
 
-/** decision-engine §3 tabla de motivos. */
-export function motivoPuerta(p: Puerta, r: ScoreRow, causaCrossDefault: string | null): string {
+/**
+ * decision-engine §3 tabla de motivos (decisión 44).
+ *
+ * Las tres puertas de pilar tienen dos textos, uno por cada mitad: la alerta (hecho, cierra ya) y
+ * el umbral del pilar. Así la ficha dice cuál de las dos ha fallado sin tener que enseñar la
+ * variable cruda, que ya no entra en el motor.
+ */
+export function motivoPuerta(
+  p: Puerta,
+  r: DecisionInput,
+  causaCrossDefault: string | null,
+): string {
+  const alerta = (t: DecisionInput["alertas"][number]) => r.alertas.includes(t);
   switch (p) {
     case "historia":
       return `Historial insuficiente: confianza ${dec(r.confianza)} < ${dec(P.confMin, 1)}`;
     case "estado":
       return `Score ${Math.round(r.score)} por debajo de ${P.scoreMin}`;
     case "fiabilidad":
-      return `${r.rachaB2} meses seguidos sin pagar obligaciones`;
+      return alerta("impago_obligaciones")
+        ? "Impago de obligaciones (alerta)"
+        : `Fiabilidad ${dec(r.subscores.B, 1)} por debajo de ${P.umbralPilar.B}`;
     case "caja":
-      return r.rachaDeficit > P.rachaDeficitMax
-        ? `${r.rachaDeficit} meses seguidos en déficit`
-        : "Caja estresada no cubre cuotas actuales";
+      return alerta("deficit_persistente")
+        ? "Déficit persistente (alerta)"
+        : `Capacidad de deuda ${dec(r.subscores.A, 1)} por debajo de ${P.umbralPilar.A}`;
     case "clientes":
-      // La puerta "clientes" solo falla con `C4` no nulo (eligibility.ts: `C4 === null` la pasa).
-      return `${pct(r.C4!)} de facturas vencidas sin cobrar`;
+      return alerta("vencido_alto")
+        ? "Vencido alto (alerta)"
+        : `Clientes ${dec(r.subscores.C, 1)} por debajo de ${P.umbralPilar.C}`;
     case "grupo":
       return `Cierre de ${causaCrossDefault ?? "una empresa del grupo"} (${pct(r.D1)} del grupo)`;
   }
 }
 
-/** `excluir` evita repetir en el sufijo la causa que ya va en el texto ("techo de grupo, grupo +0,3"). */
-function topDelta(r: ScoreRow, excluir?: string): string {
-  const top = r.deltaContrib
-    .filter((c) => c.id !== excluir)
-    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0];
-  return top ? `${top.id} ${top.delta >= 0 ? "+" : ""}${dec(top.delta, 1)}` : "sin cambios";
+/**
+ * Decisión 43: el sufijo de `motivo_accion` sale de la **tendencia** a 3 meses, que sí está en el
+ * contrato de entrada, y no de `delta_contrib`, que era la cascada entera de scoring. Se elige el
+ * pilar que más se ha movido; sin tendencia por pilar se cae al movimiento del score.
+ */
+function topTendencia(r: DecisionInput): string {
+  const pilares = (["A", "B", "C"] as const)
+    .map((id) => ({ id, delta: r.tend3m[id] }))
+    .filter((x): x is { id: "A" | "B" | "C"; delta: number } => x.delta !== null)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  const top = pilares[0];
+  if (top) return `${top.id} ${signo(top.delta)}`;
+  return r.tendScore3m !== null ? `score ${signo(r.tendScore3m)}` : "sin cambios";
+}
+
+function signo(x: number): string {
+  return `${x >= 0 ? "+" : ""}${dec(x, 1)}`;
 }
 
 /** decision-engine §11. */
 export function motivoAccion(
   accion: Accion,
-  r: ScoreRow,
+  r: DecisionInput,
   ctx: {
     banda: Banda;
     L: number;
@@ -66,7 +90,7 @@ export function motivoAccion(
     case "abrir":
       return `Elegible: score ${Math.round(r.score)} (banda ${ctx.banda}), límite ${eur(ctx.L)} hasta ${ctx.TMax} d`;
     case "ampliar":
-      return `Límite sube de ${eur(ctx.LPrev)} a ${eur(ctx.LVigente)}: ${topDelta(r)}`;
+      return `Límite sube de ${eur(ctx.LPrev)} a ${eur(ctx.LVigente)}: ${topTendencia(r)}`;
     case "reducir": {
       const causa =
         ctx.causaReduccion === "estructural"
@@ -78,7 +102,7 @@ export function motivoAccion(
                 ? `cross-default de ${ctx.causaCrossDefault}`
                 : "techo de grupo"
               : "2 meses por debajo";
-      const detalle = topDelta(r, ctx.causaReduccion === "grupo" ? "grupo" : undefined);
+      const detalle = topTendencia(r);
       return `Límite baja de ${eur(ctx.LPrev)} a ${eur(ctx.LVigente)}: ${causa}, ${detalle}`;
     }
     case "cerrar":

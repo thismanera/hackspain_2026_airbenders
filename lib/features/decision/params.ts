@@ -5,26 +5,27 @@ export type Banda = "A" | "B" | "C" | "D";
 
 /** docs/decision-engine.md §2. Ningún número suelto en código. */
 export const DECISION_PARAMS = {
-  // elegibilidad (decisiones 18, 39)
+  // elegibilidad (decisiones 18, 39, 44)
   confMin: 0.4,
   scoreMin: 45,
-  rachaB2Max: 1,
-  rachaDeficitMax: 2,
-  C4Max: 0.4,
-  // cierre confirmado (decisión 42): las puertas blandas (confianza y la mitad de capacidad de
-  // `caja`) necesitan `cierreConfirmadoMeses` meses seguidos para cerrar; el resto cierra ya.
+  /**
+   * Decisión 44: las puertas de fiabilidad, caja y clientes se leen del pilar correspondiente y
+   * de su alerta, no de las variables crudas (`rachaB2`, `rachaDeficit`, `C4`), que salen del
+   * contrato de entrada con la decisión 43. `B` es fiabilidad, `A` capacidad de deuda/caja y `C`
+   * clientes.
+   */
+  umbralPilar: { A: 50, B: 60, C: 50 },
+  // cierre confirmado (decisión 42): las puertas blandas (confianza y la mitad de `caja` que mira
+  // el pilar A) necesitan `cierreConfirmadoMeses` meses seguidos para cerrar; el resto cierra ya.
   cierreConfirmadoMeses: 2,
   puertasBlandas: ["historia", "caja"] as readonly Puerta[],
-  // capacidad y límite (11, 12, 40): el motor de decisión calcula **su** capacidad de cuota adversa
-  // con **su** estrés, distinto a propósito del de scoring (`PARAMS.estresCobros` 0,8 / 1,1), que
-  // alimenta D3 del aval de grupo. Ver decision-engine §4 y SOURCE §3.1.
-  estresCobros: 0.9,
-  estresPagos: 1.05,
-  coberturaMin: 1.3,
-  mesesLimiteCap: 12,
+  // límite (11, 12, 45): sin capacidad de cuota. `L` cuelga del tamaño (`cobros_op_media3m`), de
+  // la banda, de la confianza y del pilar A. Ver decision-engine §4 y SOURCE §3.1.
   anticipoPct: 0.8,
   anticipoMeses: 3,
   confRef: 0.6,
+  /** Decisión 45: `factor_A = min(1, A / factorARef)`; a 70 el pilar A deja de recortar. */
+  factorARef: 70,
   redondeoL: 1000,
   // bandas (12, 21)
   bandas: { A: 75, B: 60, C: 45 } as Readonly<Record<"A" | "B" | "C", number>>,
@@ -38,6 +39,8 @@ export const DECISION_PARAMS = {
     D: { base: 0, temporal: 0, estructural: 0 },
   } as Readonly<Record<Banda, Readonly<{ base: number; temporal: number; estructural: number }>>>,
   plazosMenu: [30, 60, 90, 120, 180] as readonly number[],
+  /** Decisión 46: el menú es una rampa lineal `L × min(1, plazo / rampaDias)`. */
+  rampaDias: 180,
   // interés (21, 37)
   primaPlazoPp30d: 0.005,
   primaConfianzaPp: 0.01,
@@ -53,10 +56,8 @@ export const DECISION_PARAMS = {
   reducirPrevMeses: 2,
   histeresisPct: 0.25,
   reaperturaMeses: 2,
-  // grupo (17, 41)
+  // grupo (17, 47)
   D1CrossDefault: 0.3,
-  /** Capacidad consolidada 0 (`L_grupo = 0`): en vez de cerrar, el grupo baja una banda (§9). */
-  techoCeroBajaBanda: true,
   // uso simulado para métricas (§14)
   usoSimulado: 0.6,
   plazoNaturalDefecto: 60,

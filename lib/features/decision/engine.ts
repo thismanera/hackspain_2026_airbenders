@@ -1,13 +1,15 @@
 import { decidirAccion, siguienteEstado, type Decision } from "@/lib/features/decision/action";
 import { elegibilidad, type Elegibilidad } from "@/lib/features/decision/eligibility";
 import { ajusteGrupo, limiteGrupo, type AjusteGrupo } from "@/lib/features/decision/group";
-import { banda, capacidadCuotaAdv, esPeor, peor } from "@/lib/features/decision/limit";
+import { proyectar } from "@/lib/features/decision/input";
+import { banda, esPeor, peor } from "@/lib/features/decision/limit";
 import { menu, plazoNatural } from "@/lib/features/decision/menu";
 import { motivoAccion } from "@/lib/features/decision/motivos";
 import { DECISION_PARAMS as P, hashDecisionParams } from "@/lib/features/decision/params";
 import { tMax } from "@/lib/features/decision/tenor";
 import {
   ESTADO_INICIAL,
+  type DecisionInput,
   type DecisionParameters,
   type DecisionRow,
   type EstadoDecision,
@@ -30,7 +32,7 @@ export function parametrosDecision(versionScoring: string): DecisionParameters {
 export type Previsiones = Map<string, PrevisionInput>;
 
 /** Sin previsión conectada la banda prevista es la actual y `banda_pred_3m_usada` sale null (§10). */
-function prevision(previsiones: Previsiones | undefined, r: ScoreRow): PrevisionInput {
+function prevision(previsiones: Previsiones | undefined, r: DecisionInput): PrevisionInput {
   const p = previsiones?.get(`${r.company}|${r.month}`);
   if (!p || p.metodo === "desconectado")
     return {
@@ -88,7 +90,7 @@ export function crossDefaultSiguiente(
 }
 
 type Candidata = {
-  r: ScoreRow;
+  r: DecisionInput;
   prev: EstadoDecision;
   e: Elegibilidad;
   pred: PrevisionInput;
@@ -97,7 +99,7 @@ type Candidata = {
 
 /** §9 paso 1 + 2; con una sola empresa no hay techo consolidado ni cross-default posible. */
 function aplicarGrupo(
-  rows: ScoreRow[],
+  rows: DecisionInput[],
   candidatas: Candidata[],
   LGrupo: number,
   enGrupo: boolean,
@@ -111,15 +113,7 @@ function aplicarGrupo(
     puertasFallidas: e.puertasFallidas,
     yaCerrada: prev.LPrev === 0,
   }));
-  if (!enGrupo)
-    return {
-      decisiones,
-      caidas: [],
-      afectadas: [],
-      afectadasTecho: [],
-      modo: null,
-      motivoGrupo: null,
-    };
+  if (!enGrupo) return { decisiones, caidas: [], afectadas: [], modo: null, motivoGrupo: null };
   return ajusteGrupo(rows, decisiones, LGrupo);
 }
 
@@ -178,7 +172,7 @@ function fila(
         : opciones.length > 0
           ? null
           : d.LVigente > 0
-            ? "Capacidad de cuota insuficiente para cualquier plazo"
+            ? "Límite por debajo del escalón mínimo en todos los plazos"
             : d.mesesParaReapertura !== null
               ? `Reapertura en ${d.mesesParaReapertura} meses`
               : "Límite a cero";
@@ -194,16 +188,16 @@ function fila(
     cierrePendiente: d.cierrePendiente,
     banda: banda(r.score),
     bandaEfectiva: d.bandaEfectiva,
-    // Decisión 40: la capacidad que publica la ficha es la del motor de decisión, la misma con la
-    // que se han calculado el límite, la puerta `caja` y el menú.
-    capacidadCuotaAdv: capacidadCuotaAdv(r),
-    limiteCap: d.limite.limiteCap,
+    // Decisión 43 + 45: la ficha publica la escala con la que se ha decidido y el recorte por el
+    // pilar A, no una capacidad de cuota en euros que el motor ya no calcula.
+    tamano: r.tamano,
+    factorA: d.limite.factorA,
     limiteOp: d.limite.limiteOp,
     L: d.L,
     LVigente: d.LVigente,
     TMax: T,
     menu: opciones,
-    plazoNaturalAnticipo: plazoNatural(r),
+    plazoNaturalAnticipo: plazoNatural(),
     accion: d.accion,
     motivoAccion: motivoAccion(d.accion, r, {
       banda: d.bandaEfectiva,
@@ -238,9 +232,11 @@ export function decideGroup(
   params: DecisionParameters,
   previsiones?: Previsiones,
 ): DecisionRow[] {
-  const porMes = new Map<string, ScoreRow[]>();
-  const groupId = scoreRows[0]?.groupId;
-  for (const r of scoreRows) {
+  // Decisión 43: `proyectar` es la frontera del motor. A partir de aquí nadie ve un `ScoreRow`.
+  const entradas = scoreRows.map(proyectar);
+  const porMes = new Map<string, DecisionInput[]>();
+  const groupId = entradas[0]?.groupId;
+  for (const r of entradas) {
     if (r.groupId !== groupId)
       throw new Error(`decideGroup: fila de otro grupo (${r.groupId} != ${groupId})`);
     if (!CALENDAR.includes(r.month))
@@ -260,7 +256,7 @@ export function decideGroup(
     const enGrupo = rows.length > 1;
     const LGrupo = enGrupo ? limiteGrupo(rows).L : Infinity;
 
-    const decide = (r: ScoreRow, escalonesExtra: number): Candidata => {
+    const decide = (r: DecisionInput, escalonesExtra: number): Candidata => {
       const prev = estados.get(r.company) ?? ESTADO_INICIAL;
       const e = elegibilidad(r, prev);
       const pred = prevision(previsiones, r);
@@ -269,23 +265,14 @@ export function decideGroup(
 
     let candidatas = rows.map((r) => decide(r, 0));
     let ajuste = aplicarGrupo(rows, candidatas, LGrupo, enGrupo);
-    // §9 paso 2: los escalones de banda se acumulan y se topan en 2 — uno por la caída de una
-    // hermana (cross-default) y otro por el techo con capacidad consolidada 0 (decisión 41).
-    // Ninguno de los dos deriva un `cerrar`: bajan la banda y se recalcula el techo.
-    const techoCero = ajuste.modo === "bajaBanda" ? ajuste : null;
-    const escalones = new Map<string, number>();
-    for (const c of ajuste.afectadas) escalones.set(c, (escalones.get(c) ?? 0) + 1);
-    for (const c of ajuste.afectadasTecho) escalones.set(c, (escalones.get(c) ?? 0) + 1);
-    if (escalones.size) {
-      candidatas = candidatas.map((x) => {
-        const n = escalones.get(x.r.company);
-        return n ? decide(x.r, Math.min(2, n)) : x;
-      });
+    // §9 paso 2: la caída de una hermana baja un escalón de banda a las supervivientes y se
+    // recalcula el techo. El escalón no deriva un `cerrar`: eso lo hace la puerta `grupo` del mes
+    // siguiente. Decisión 47: el escalón del techo cero (decisión 41) ya no existe, así que el
+    // recorte es como mucho de una banda.
+    if (ajuste.afectadas.length) {
+      const afectadas = new Set(ajuste.afectadas);
+      candidatas = candidatas.map((x) => (afectadas.has(x.r.company) ? decide(x.r, 1) : x));
       ajuste = aplicarGrupo(rows, candidatas, LGrupo, enGrupo);
-      // El techo cero ya se ha cobrado su escalón: el motivo se conserva aunque el recálculo deje
-      // a algún miembro sin límite y la regla no vuelva a dispararse sobre las filas nuevas.
-      if (techoCero && ajuste.motivoGrupo === null)
-        ajuste = { ...ajuste, modo: techoCero.modo, motivoGrupo: techoCero.motivoGrupo };
     }
     // Con varias caídas manda la mayor del grupo por `D1` (empate: alfabético).
     const D1 = new Map(rows.map((r) => [r.company, r.D1]));
