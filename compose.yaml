@@ -1,0 +1,22 @@
+name: hackspain-airbenders
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: scoring
+      POSTGRES_USER: scoring
+      POSTGRES_PASSWORD: scoring_dev
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - scoring_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scoring -d scoring"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  scoring_postgres_data:

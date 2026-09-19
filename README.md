@@ -12,12 +12,18 @@ esta plantilla en un proyecto nuevo", sigue leyendo.
 ## Uso rápido
 
 ```bash
+git lfs install
+git lfs pull
 pnpm install
-cp .env.example .env   # rellena DATABASE_URL con tu Postgres real
-openssl rand -base64 32   # pega el resultado en BETTER_AUTH_SECRET dentro de .env
-pnpm prisma generate
+pnpm db:setup
 pnpm dev
 ```
+
+`pnpm db:setup` crea `.env` si falta, levanta PostgreSQL, aplica el esquema
+Prisma y carga el dataset del motor de scoring. Es idempotente: si ya existe
+una ejecución completa, conserva el volumen y no vuelve a procesar los CSV.
+Cada compañero ejecuta el mismo comando después de clonar el repositorio; no
+se comparte ni se versiona un contenedor o volumen de Docker.
 
 Abre [http://localhost:3000](http://localhost:3000) (sign in/up con Better
 Auth) y [http://localhost:3000/tasks](http://localhost:3000/tasks) (ejemplo
@@ -31,6 +37,10 @@ end-to-end de Prisma + API route + TanStack Query con prefetch SSR).
 | `pnpm build`              | Build de producción (standalone)                                   |
 | `pnpm start`              | Sirve el build de producción                                       |
 | `pnpm test`               | Tests (`node --test`, sin framework extra)                         |
+| `pnpm db:setup`           | Arranca Postgres, aplica Prisma e importa el scoring si hace falta |
+| `pnpm db:setup:force`     | Recalcula e importa el scoring aunque ya exista una ejecución      |
+| `pnpm db:up`              | Arranca el Postgres local conservando sus datos                    |
+| `pnpm db:down`            | Detiene Postgres; el volumen y sus datos se conservan              |
 | `pnpm run lint`           | [oxlint](https://oxc.rs) (no ESLint, ver `AGENTS.md`)              |
 | `pnpm run lint:fix`       | oxlint con `--fix`                                                 |
 | `pnpm run format`         | Prettier (con orden de clases de Tailwind)                         |
@@ -39,6 +49,27 @@ end-to-end de Prisma + API route + TanStack Query con prefetch SSR).
 | `pnpm prisma:seed`        | Seed de la base de datos (`prisma/seed.ts`)                        |
 | `pnpm run auth:generate`  | Regenera `prisma/schema/auth.prisma` tras tocar `lib/core/auth.ts` |
 | `pnpm run rename-project` | Sustituye el nombre placeholder por el nombre real                 |
+
+## Motor de scoring v0.2
+
+Con PostgreSQL activo y los CSV en `dataset/`:
+
+```bash
+pnpm scoring:fit
+pnpm scoring:score
+pnpm scoring:backtest
+pnpm scoring:import
+```
+
+Normalmente basta con `pnpm db:setup`. Los cuatro comandos anteriores son
+útiles para ejecutar etapas concretas durante el desarrollo. Para borrar
+deliberadamente todos los datos locales habría que usar
+`docker compose down -v`; `pnpm db:down` no borra el volumen.
+
+Los resultados quedan disponibles en `/api/scoring/companies`,
+`/api/scoring/companies/[companyId]`, `/api/scoring/runs/[runId]` y
+`/api/scoring/export`. La lógica, los supuestos y el uso con empresas no vistas
+están documentados en [docs/scoring-engine.md](./docs/scoring-engine.md).
 
 ## Flujo recomendado para un proyecto nuevo
 
