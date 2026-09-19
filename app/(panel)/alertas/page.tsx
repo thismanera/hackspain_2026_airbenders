@@ -3,11 +3,13 @@ import type { Metadata } from "next";
 import type { SearchParams } from "nuqs/server";
 import { Suspense } from "react";
 
+import { EngineUnavailable } from "@/components/grifo/engine-unavailable";
 import { GlobalSearch } from "@/components/grifo/global-search";
 import { MonthSelect } from "@/components/grifo/month-select";
 import { PageHeader } from "@/components/grifo/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getQueryClient } from "@/lib/core/react-query";
+import { withEngine } from "@/lib/features/portfolio/prefetch";
 import { portfolioKeys } from "@/lib/features/portfolio/queries";
 import { getAlerts } from "@/lib/features/portfolio/source";
 import { loadAlertsSearchParams } from "@/lib/features/portfolio/search-params";
@@ -25,8 +27,11 @@ export default async function AlertasPage({
 }) {
   const state = await loadAlertsSearchParams(searchParams);
 
+  const result = await withEngine(() => getAlerts(state.mes));
   const queryClient = getQueryClient();
-  queryClient.setQueryData(portfolioKeys.alerts(state.mes), getAlerts(state.mes));
+  if (result.status === "ok") {
+    queryClient.setQueryData(portfolioKeys.alerts(state.mes), result.data);
+  }
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
@@ -40,9 +45,13 @@ export default async function AlertasPage({
         }
       />
       <main className="flex flex-col gap-4 p-4 md:p-6">
-        <Suspense fallback={<PageSkeleton />}>
-          <AlertasClient />
-        </Suspense>
+        {result.status === "unavailable" ? (
+          <EngineUnavailable />
+        ) : (
+          <Suspense fallback={<PageSkeleton />}>
+            <AlertasClient />
+          </Suspense>
+        )}
       </main>
     </HydrationBoundary>
   );

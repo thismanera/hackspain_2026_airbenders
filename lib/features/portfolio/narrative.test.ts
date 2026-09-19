@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { decisionNarrative, improvementNarrative } from "./narrative";
-import { getCompanyFile } from "./source";
+import { companyFileFrom } from "./derive";
+import { buildPortfolio } from "./fixtures";
+
+const dataset = { companies: buildPortfolio() };
 
 test("el cierre nombra la puerta una vez, no el eslogan ni un delta que sube", () => {
-  const file = getCompanyFile("COMP_1268", "2026-08");
+  const file = companyFileFrom(dataset, "COMP_1268", "2026-08");
   assert.ok(file, "COMP_1268 debería existir en los fixtures");
   const narrative = decisionNarrative(file);
   const text = [narrative.headline, ...narrative.sentences.map((sentence) => sentence.text)].join(
@@ -20,7 +23,7 @@ test("el cierre nombra la puerta una vez, no el eslogan ni un delta que sube", (
 });
 
 test("la palanca de B2 habla de pagar, no de bajar una racha", () => {
-  const file = getCompanyFile("COMP_1268", "2026-08");
+  const file = companyFileFrom(dataset, "COMP_1268", "2026-08");
   assert.ok(file);
   const text = improvementNarrative(file)
     .sentences.map((sentence) => sentence.text)

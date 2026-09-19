@@ -4,14 +4,15 @@ import { notFound } from "next/navigation";
 import type { SearchParams } from "nuqs/server";
 import { Suspense } from "react";
 
+import { EngineUnavailable } from "@/components/grifo/engine-unavailable";
 import { MonthSelect } from "@/components/grifo/month-select";
 import { PageHeader } from "@/components/grifo/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getQueryClient } from "@/lib/core/react-query";
-import { fetchCompanyFile, portfolioKeys } from "@/lib/features/portfolio/queries";
+import { withEngine } from "@/lib/features/portfolio/prefetch";
+import { portfolioKeys } from "@/lib/features/portfolio/queries";
 import { loadCompanySearchParams } from "@/lib/features/portfolio/search-params";
 import { getCompanyFile } from "@/lib/features/portfolio/source";
-import { getCompanyFileLive } from "@/lib/features/portfolio/live";
 
 import { CompanyClient } from "./company-client";
 
@@ -33,16 +34,14 @@ export default async function CompanyPage({ params, searchParams }: Props) {
     loadCompanySearchParams(searchParams),
   ]);
 
+  const result = await withEngine(() => getCompanyFile(companyId, mes));
   // Una empresa que no existe merece un 404 de verdad, no un panel de error.
-  const liveFile = await getCompanyFileLive(companyId, mes);
-  if (!liveFile && !getCompanyFile(companyId, mes)) notFound();
+  if (result.status === "ok" && !result.data) notFound();
 
   const queryClient = getQueryClient();
-  void queryClient.prefetchQuery({
-    queryKey: portfolioKeys.company(companyId, mes),
-    queryFn: () =>
-      fetchCompanyFile(companyId, mes, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
-  });
+  if (result.status === "ok" && result.data) {
+    queryClient.setQueryData(portfolioKeys.company(companyId, mes), result.data);
+  }
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
@@ -56,9 +55,13 @@ export default async function CompanyPage({ params, searchParams }: Props) {
       />
 
       <main className="p-4 md:p-6">
-        <Suspense fallback={<CompanySkeleton />}>
-          <CompanyClient companyId={companyId} month={mes} />
-        </Suspense>
+        {result.status === "unavailable" ? (
+          <EngineUnavailable />
+        ) : (
+          <Suspense fallback={<CompanySkeleton />}>
+            <CompanyClient companyId={companyId} month={mes} />
+          </Suspense>
+        )}
       </main>
     </HydrationBoundary>
   );

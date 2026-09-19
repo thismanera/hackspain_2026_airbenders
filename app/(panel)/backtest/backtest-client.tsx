@@ -13,12 +13,14 @@ import {
 } from "@/components/ui/chart";
 import {
   formatDecimal,
+  formatEurosCompact,
   formatMonthLong,
   formatMonthShort,
   formatMonthTick,
   formatPercent,
 } from "@/lib/features/portfolio/format";
 import { useBacktest, useMonth } from "@/lib/features/portfolio/hooks";
+import type { EngineMetrics, EngineScoreMetrics } from "@/lib/features/portfolio/types";
 
 const timelineConfig = {
   anticipated: { label: "Cierres avisados", color: "var(--status-healthy)" },
@@ -57,11 +59,13 @@ export function BacktestClient() {
         title="¿Avisó antes de cerrar, y cuánto antes?"
         description={
           <>
-            {data.companies} empresas del dataset de demostración hasta{" "}
-            {formatMonthLong(data.cutoff)}; cambiar el mes mueve la fecha de corte.
+            {data.companies} empresas de la cartera hasta {formatMonthLong(data.cutoff)}; cambiar el
+            mes mueve la fecha de corte.
           </>
         }
       />
+
+      {data.engine ? <EnginePanel engine={data.engine} /> : null}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
@@ -213,5 +217,119 @@ export function BacktestClient() {
         </Panel>
       </div>
     </div>
+  );
+}
+
+function ratio(value: number | null): string {
+  return value === null ? "—" : formatPercent(value, 0);
+}
+
+function decimal(value: number | null): string {
+  return value === null ? "—" : formatDecimal(value);
+}
+
+function ScoreMetricsRow({ label, metrics }: { label: string; metrics: EngineScoreMetrics }) {
+  return (
+    <tr className="border-border/60 border-t">
+      <th scope="row" className="py-2 pr-3 text-left font-medium">
+        {label}
+      </th>
+      <td className="py-2 pr-3 text-right tabular-nums">{decimal(metrics.spearman)}</td>
+      <td className="py-2 pr-3 text-right tabular-nums">
+        {decimal(metrics.stressAuc)}
+        {metrics.stressAucCi95 ? (
+          <span className="text-muted-foreground ml-1 text-xs">
+            [{formatDecimal(metrics.stressAucCi95[0])}–{formatDecimal(metrics.stressAucCi95[1])}]
+          </span>
+        ) : null}
+      </td>
+      <td className="py-2 pr-3 text-right tabular-nums">{ratio(metrics.deterioro.recall)}</td>
+      <td className="py-2 pr-3 text-right tabular-nums">
+        {ratio(metrics.deterioro.falseAlarmRate)}
+      </td>
+      <td className="py-2 pr-3 text-right tabular-nums">
+        {metrics.deterioro.leadMedian === null
+          ? "—"
+          : `${formatDecimal(metrics.deterioro.leadMedian)} m`}
+      </td>
+      <td className="py-2 text-right tabular-nums">{ratio(metrics.recuperacion.recall)}</td>
+    </tr>
+  );
+}
+
+/** Métricas persistidas por el pipeline (`ScoreRun.metrics`): validación hold-out del motor. */
+function EnginePanel({ engine }: { engine: EngineMetrics }) {
+  return (
+    <Panel
+      title="Validación del motor"
+      description={`${engine.validationCompanies} empresas de validación, ${formatMonthShort(engine.window[0])} – ${formatMonthShort(engine.window[1])}. Calculado por el pipeline, no por el panel.`}
+      bodyClassName="flex flex-col gap-4"
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-muted-foreground text-xs">
+            <tr>
+              <th scope="col" className="pr-3 pb-1 text-left font-medium">
+                Score
+              </th>
+              <th scope="col" className="pr-3 pb-1 text-right font-medium">
+                Spearman
+              </th>
+              <th scope="col" className="pr-3 pb-1 text-right font-medium">
+                AUC estrés
+              </th>
+              <th scope="col" className="pr-3 pb-1 text-right font-medium">
+                Deterioros avisados
+              </th>
+              <th scope="col" className="pr-3 pb-1 text-right font-medium">
+                Falsas alarmas
+              </th>
+              <th scope="col" className="pr-3 pb-1 text-right font-medium">
+                Anticipación
+              </th>
+              <th scope="col" className="pb-1 text-right font-medium">
+                Recuperaciones avisadas
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <ScoreMetricsRow label="Autónomo" metrics={engine.scoreSolo} />
+            <ScoreMetricsRow label="Con grupo" metrics={engine.scoreGrupo} />
+          </tbody>
+        </table>
+      </div>
+      <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <dt className="text-muted-foreground text-xs">Cierres del motor</dt>
+          <dd className="tabular-nums">
+            {engine.decision.closes}
+            <span className="text-muted-foreground ml-1 text-xs">
+              {engine.decision.falseCloses} falsos
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground text-xs">Anticipación al cierre</dt>
+          <dd className="tabular-nums">
+            {engine.decision.closeLeadMedian === null
+              ? "—"
+              : `${formatDecimal(engine.decision.closeLeadMedian)} meses`}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground text-xs">Exposición evitada</dt>
+          <dd className="tabular-nums">{formatEurosCompact(engine.decision.avoidedExposure)}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground text-xs">Ingresos simulados</dt>
+          <dd className="tabular-nums">
+            {formatEurosCompact(engine.decision.simulatedRevenue)}
+            <span className="text-muted-foreground ml-1 text-xs">
+              oscilación {formatDecimal(engine.decision.oscillation)}
+            </span>
+          </dd>
+        </div>
+      </dl>
+    </Panel>
   );
 }

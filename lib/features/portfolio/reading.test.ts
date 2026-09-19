@@ -8,10 +8,13 @@ import {
   sanitizeReading,
   templateReading,
 } from "./reading";
-import { getCompanyFile } from "./source";
+import { companyFileFrom } from "./derive";
+import { buildPortfolio } from "./fixtures";
+
+const dataset = { companies: buildPortfolio() };
 
 function file() {
-  const found = getCompanyFile("COMP_1268", "2026-08");
+  const found = companyFileFrom(dataset, "COMP_1268", "2026-08");
   assert.ok(found);
   return found;
 }

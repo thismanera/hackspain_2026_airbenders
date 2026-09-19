@@ -2,7 +2,16 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { CALENDAR, LATEST_MONTH } from "./calendar";
-import { getCompanyFile, getPeerMap } from "./source";
+import { companyFileFrom } from "./derive";
+import { buildPortfolio } from "./fixtures";
+import { peerMapFrom } from "./peer-map";
+import type { Scope } from "./types";
+
+const dataset = { companies: buildPortfolio() };
+const getPeerMap = (input: { month?: string; scope: Scope; company?: string }) =>
+  peerMapFrom(dataset, input);
+const getCompanyFile = (companyId: string, month?: string) =>
+  companyFileFrom(dataset, companyId, month);
 
 const DEMO = "COMP_0357";
 

@@ -13,12 +13,12 @@
  * empresa da siempre el mismo score, refresco tras refresco.
  */
 import { CALENDAR } from "./calendar";
+import type { CompanyDataset } from "./dataset";
 import { COMPANY_SEED } from "./companies.seed";
 import { BLOCKS, INDICATORS, type BlockId } from "./indicators";
 import type {
   Accion,
   Alert,
-  CompanyMeta,
   Contribution,
   Coverage,
   Decision,
@@ -718,11 +718,6 @@ function buildAlerts(
 /* ------------------------------------------------------------------ *
  * Construcción de la cartera completa
  * ------------------------------------------------------------------ */
-
-export type CompanyDataset = {
-  meta: CompanyMeta;
-  months: MonthScore[];
-};
 
 let cache: Map<string, CompanyDataset> | null = null;
 
