@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { scoringResponse } from "@/lib/features/portfolio/http";
 import { getPeerMap } from "@/lib/features/portfolio/source";
 
 const querySchema = z.object({
@@ -25,9 +26,8 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: "La vista de empresa necesita `empresa`" }, { status: 400 });
   }
 
-  const map = getPeerMap({ month, scope, company: empresa });
-  if (empresa && map.focus === null) {
-    return Response.json({ error: "Empresa no encontrada" }, { status: 404 });
-  }
-  return Response.json(map);
+  return scoringResponse(async () => {
+    const map = await getPeerMap({ month, scope, company: empresa });
+    return empresa && map.focus === null ? null : map;
+  }, "Empresa no encontrada");
 }

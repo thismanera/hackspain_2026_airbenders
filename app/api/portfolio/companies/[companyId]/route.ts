@@ -1,7 +1,7 @@
 import { z } from "zod";
 
+import { scoringResponse } from "@/lib/features/portfolio/http";
 import { getCompanyFile } from "@/lib/features/portfolio/source";
-import { getCompanyFileLive } from "@/lib/features/portfolio/live";
 
 const querySchema = z.object({
   month: z
@@ -20,12 +20,8 @@ export async function GET(
     return Response.json({ error: z.treeifyError(parsed.error) }, { status: 400 });
   }
 
-  const file =
-    (await getCompanyFileLive(companyId, parsed.data.month)) ??
-    getCompanyFile(companyId, parsed.data.month);
-  if (!file) {
-    return Response.json({ error: "Empresa no encontrada" }, { status: 404 });
-  }
-
-  return Response.json(file);
+  return scoringResponse(
+    () => getCompanyFile(companyId, parsed.data.month),
+    "Empresa no encontrada",
+  );
 }

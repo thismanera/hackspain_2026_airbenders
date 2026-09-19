@@ -403,6 +403,47 @@ export type BacktestResponse = {
   flipFlops: number;
   /** Cierres y alertas por mes, para el gráfico. */
   timeline: { month: string; closes: number; anticipated: number; alerts: number }[];
+  /** Métricas del backtest del motor sobre los grupos de validación; null si el run no las trae. */
+  engine: EngineMetrics | null;
+};
+
+/** Eventos de deterioro/recuperación frente a alertas del motor (scoring §13). */
+export type EngineEventMetrics = {
+  events: number;
+  alerts: number;
+  matched: number;
+  recall: number | null;
+  falseAlarmRate: number | null;
+  leadMedian: number | null;
+};
+
+export type EngineScoreMetrics = {
+  /** Spearman entre el score y el margen de caja futuro. */
+  spearman: number | null;
+  /** AUC del score frente al estrés de caja a 3 meses. */
+  stressAuc: number | null;
+  stressAucCi95: readonly [number, number] | null;
+  monotonic: boolean | null;
+  deterioro: EngineEventMetrics;
+  recuperacion: EngineEventMetrics;
+};
+
+/** Lo que el propio motor midió de sí mismo al importar el run (`score_runs.metrics`). */
+export type EngineMetrics = {
+  window: readonly [string, string];
+  validationCompanies: number;
+  scoreSolo: EngineScoreMetrics;
+  scoreGrupo: EngineScoreMetrics;
+  decision: {
+    events: number;
+    avoidedExposure: number;
+    simulatedRevenue: number;
+    /** Fracción de empresa-mes con cambio de acción. */
+    oscillation: number;
+    closes: number;
+    falseCloses: number;
+    closeLeadMedian: number | null;
+  };
 };
 
 /** Dónde queda una variable de la empresa frente al resto de la cartera ese mes. */

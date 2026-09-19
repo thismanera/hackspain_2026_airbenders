@@ -3,14 +3,17 @@ import type { Metadata } from "next";
 import type { SearchParams } from "nuqs/server";
 import { Suspense } from "react";
 
+import { EngineUnavailable } from "@/components/grifo/engine-unavailable";
 import { ExportButton } from "@/components/grifo/export-button";
 import { GlobalSearch } from "@/components/grifo/global-search";
 import { MonthSelect } from "@/components/grifo/month-select";
 import { PageHeader } from "@/components/grifo/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getQueryClient } from "@/lib/core/react-query";
-import { fetchPortfolio, portfolioKeys } from "@/lib/features/portfolio/queries";
+import { withEngine } from "@/lib/features/portfolio/prefetch";
+import { portfolioKeys } from "@/lib/features/portfolio/queries";
 import { loadPortfolioSearchParams } from "@/lib/features/portfolio/search-params";
+import { getPortfolio } from "@/lib/features/portfolio/source";
 
 import { CarteraClient } from "./cartera-client";
 
@@ -25,12 +28,20 @@ export default async function CarteraPage({
 }) {
   const filters = await loadPortfolioSearchParams(searchParams);
 
+  // Misma función que la ruta de API, sin pasar por HTTP: el HTML llega con la
+  // cartera y el cliente hidrata la misma query key sin volver a pedirla.
+  const result = await withEngine(() =>
+    getPortfolio({
+      month: filters.mes,
+      q: filters.q,
+      estado: filters.estado,
+      accion: filters.accion,
+      direccion: filters.direccion,
+      banda: filters.banda,
+    }),
+  );
   const queryClient = getQueryClient();
-  void queryClient.prefetchQuery({
-    queryKey: portfolioKeys.list(filters),
-    queryFn: () =>
-      fetchPortfolio(filters, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
-  });
+  if (result.status === "ok") queryClient.setQueryData(portfolioKeys.list(filters), result.data);
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
@@ -46,9 +57,13 @@ export default async function CarteraPage({
       />
 
       <main className="flex flex-col gap-4 p-4 md:p-6">
-        <Suspense fallback={<CarteraSkeleton />}>
-          <CarteraClient />
-        </Suspense>
+        {result.status === "unavailable" ? (
+          <EngineUnavailable />
+        ) : (
+          <Suspense fallback={<CarteraSkeleton />}>
+            <CarteraClient />
+          </Suspense>
+        )}
       </main>
     </HydrationBoundary>
   );

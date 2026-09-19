@@ -3,11 +3,13 @@ import type { Metadata } from "next";
 import type { SearchParams } from "nuqs/server";
 import { Suspense } from "react";
 
+import { EngineUnavailable } from "@/components/grifo/engine-unavailable";
 import { GlobalSearch } from "@/components/grifo/global-search";
 import { MonthSelect } from "@/components/grifo/month-select";
 import { PageHeader } from "@/components/grifo/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getQueryClient } from "@/lib/core/react-query";
+import { withEngine } from "@/lib/features/portfolio/prefetch";
 import { portfolioKeys } from "@/lib/features/portfolio/queries";
 import { getGroups } from "@/lib/features/portfolio/source";
 import { loadMonthSearchParams } from "@/lib/features/portfolio/search-params";
@@ -25,8 +27,11 @@ export default async function GruposPage({
 }) {
   const state = await loadMonthSearchParams(searchParams);
 
+  const result = await withEngine(() => getGroups(state.mes));
   const queryClient = getQueryClient();
-  queryClient.setQueryData(portfolioKeys.groups(state.mes), getGroups(state.mes));
+  if (result.status === "ok") {
+    queryClient.setQueryData(portfolioKeys.groups(state.mes), result.data);
+  }
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
@@ -40,9 +45,13 @@ export default async function GruposPage({
         }
       />
       <main className="flex flex-col gap-4 p-4 md:p-6">
-        <Suspense fallback={<PageSkeleton />}>
-          <GruposClient />
-        </Suspense>
+        {result.status === "unavailable" ? (
+          <EngineUnavailable />
+        ) : (
+          <Suspense fallback={<PageSkeleton />}>
+            <GruposClient />
+          </Suspense>
+        )}
       </main>
     </HydrationBoundary>
   );

@@ -3,9 +3,10 @@ import { test } from "node:test";
 
 import { CALENDAR } from "./calendar";
 import { buildPortfolio } from "./fixtures";
-import { getCompanyFile, getPortfolio } from "./source";
+import { companyFileFrom, portfolioFrom } from "./derive";
 
 const portfolio = buildPortfolio();
+const dataset = { companies: portfolio };
 const everyMonth = [...portfolio.values()].flatMap((entry) => entry.months);
 
 test("la cascada suma exactamente el score en solitario", () => {
@@ -90,7 +91,7 @@ test("la banda se corresponde con el score", () => {
 });
 
 test("la cartera devuelve filas ordenadas por quién necesita atención", () => {
-  const { rows, summary } = getPortfolio();
+  const { rows, summary } = portfolioFrom(dataset);
   assert.ok(rows.length > 0);
   assert.equal(summary.total, rows.length);
 
@@ -103,22 +104,22 @@ test("la cartera devuelve filas ordenadas por quién necesita atención", () => 
 });
 
 test("seguir sin línea no cuenta como movimiento del mes", () => {
-  const { rows, summary } = getPortfolio();
+  const { rows, summary } = portfolioFrom(dataset);
   const neverOpened = rows.filter((row) => row.action === "cerrar" && row.previousLimit === 0);
   assert.ok(neverOpened.every((row) => !row.changed));
   assert.equal(summary.moved, rows.filter((row) => row.changed).length);
 });
 
 test("los filtros reducen la lista sin perder el total sin filtrar", () => {
-  const all = getPortfolio();
-  const onlyRisk = getPortfolio({ estado: "riesgo" });
+  const all = portfolioFrom(dataset);
+  const onlyRisk = portfolioFrom(dataset, { estado: "riesgo" });
   assert.equal(onlyRisk.totalUnfiltered, all.totalUnfiltered);
   assert.ok(onlyRisk.rows.every((row) => row.estado === "riesgo"));
   assert.ok(onlyRisk.rows.length <= all.rows.length);
 });
 
 test("hot solo señala cambios estructurales, del mayor al menor, y sobrevive al filtro", () => {
-  const all = getPortfolio();
+  const all = portfolioFrom(dataset);
   assert.ok(all.hot.length <= 8);
   for (const [index, row] of all.hot.entries()) {
     assert.equal(row.nature, "estructural", row.company.id);
@@ -129,7 +130,7 @@ test("hot solo señala cambios estructurales, del mayor al menor, y sobrevive al
   const flagged = all.rows.filter((row) => row.hot !== null).map((row) => row.company.id);
   assert.deepEqual(flagged.sort(), all.hot.map((row) => row.company.id).sort());
 
-  const onlyRisk = getPortfolio({ estado: "riesgo" });
+  const onlyRisk = portfolioFrom(dataset, { estado: "riesgo" });
   assert.deepEqual(
     onlyRisk.hot.map((row) => row.company.id),
     all.hot.map((row) => row.company.id),
@@ -137,7 +138,7 @@ test("hot solo señala cambios estructurales, del mayor al menor, y sobrevive al
 });
 
 test("la estela son como mucho seis meses con tendencia, el actual el último", () => {
-  const { rows, month } = getPortfolio();
+  const { rows, month } = portfolioFrom(dataset);
   for (const row of rows) {
     assert.ok(row.trail.length <= 6);
     if (row.trend3m !== null) {
@@ -149,12 +150,12 @@ test("la estela son como mucho seis meses con tendencia, el actual el último", 
 });
 
 test("la ficha de una empresa inexistente es nula", () => {
-  assert.equal(getCompanyFile("COMP_NO_EXISTE"), null);
+  assert.equal(companyFileFrom(dataset, "COMP_NO_EXISTE"), null);
 });
 
 test("la ficha trae historia hasta el mes pedido y sus hermanas de grupo", () => {
-  const first = getPortfolio().rows[0];
-  const file = getCompanyFile(first.company.id);
+  const first = portfolioFrom(dataset).rows[0];
+  const file = companyFileFrom(dataset, first.company.id);
   assert.ok(file);
   assert.equal(file.history.length, CALENDAR.length);
   assert.equal(file.latest.month, file.month);
