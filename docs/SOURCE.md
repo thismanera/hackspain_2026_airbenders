@@ -1,4 +1,4 @@
-# SOURCE — Grifo (Embat · X-Ray)
+# SOURCE — Embat Flow (Embat · X-Ray)
 
 Source of truth. Corto a propósito. `☐` = pendiente de validar con Pablo; `✅` validado; `⏳` aplazado. Justificaciones en §4.
 Detalle técnico ampliado en [`scoring-engine.md`](./scoring-engine.md) (score) y [`decision-engine.md`](./decision-engine.md) (decisión).
@@ -270,13 +270,66 @@ no distingue usos.
 
 ## 3. Producto
 
-| Qué | Decisión ✅ |
-| --- | --- |
-| Comprador | Embat vende financiación embebida a sus pymes con un partner financiero que pone el dinero y paga por límite vivo monitorizado. (Descartado: lender como cliente directo.) |
-| Usuario | Analista de riesgo del lender (cartera) · pyme (su límite y por qué). |
-| Pantallas mínimas | Cartera con semáforo y alertas · ficha empresa: score, tendencia, límite, precio, acción, cascada "por qué cambió" · CSV de test. |
-| Demo moment | Juez elige pyme → 5 s → límite, precio, acción y alerta emitida N meses antes del deterioro. |
-| Bonus | Alertas por email/Slack cuando cambia la acción. |
+Comprador ✅: Embat vende financiación embebida a sus pymes con un partner
+financiero que pone el dinero y paga por límite vivo monitorizado.
+Usuario principal de la demo ✅: analista de riesgo del partner mirando la
+cartera. Vista pyme solo si sobra tiempo.
+
+### 3.1 Pantallas ✅ (cuatro, no más)
+
+| Pantalla | Qué enseña | Lee |
+| --- | --- | --- |
+| Cartera | Tabla de empresas: score, estado, dirección, límite vigente, acción del mes, alertas. Filtros por estado / acción / grupo. Totales: exposición, nº en riesgo. Feed de alertas con `desde_mes`. | `company_month_score` + `company_month_decision` |
+| Ficha empresa | Score y confianza · cascada "por qué" (14 variables + grupo) · evolución 24 meses · menú (plazo, cantidad máx, TAE, desglose) · acción y motivo · alertas · bloque grupo (aval/contagio, hermanas) | idem |
+| Grupo | Hermanas con D1 y score, score consolidado, techo de grupo, cross-default | idem |
+| Backtest | Lead time, recall, falsas alarmas, exposición evitada, simetría en recuperación | métricas scoring §13 y decision §14 |
+
+Sin simulador "qué pasa si pido X": el menú ya lo es. La UI no calcula
+nada: pinta las dos tablas.
+
+### 3.2 Selector de mes ✅
+
+Slider `2024-09 … 2026-08` global. Toda pantalla es "a cierre de mes t".
+Es lo que enseña anticipación: en `t` alertamos, en `t+k` pasó.
+
+### 3.3 Golden path de demo ✅ (90 s, tres empresas fijas elegidas del backtest)
+
+1. Cartera en un mes `t`: filtro "deterioro" → empresa **X** con alerta desde `t−3`.
+2. Ficha X: cascada señala margen y dependencia de línea; acción `reducir`.
+   Slider a `t+3`: déficit tres meses. Anticipamos `k` meses.
+3. Empresa **Y** en mejora: acción `ampliar`, menú con TAE bajando.
+4. Grupo **Z**: filial sana con contagio; hermana cerrada; techo de grupo.
+
+X, Y, Z salen del backtest, no se inventan. Datos precargados, app
+pre-calentada, vídeo de respaldo.
+
+### 3.4 Explicación ✅
+
+Sin LLM en v1: cascada + `motivo` por plantilla. Botón "explicar en
+palabras" con LLM solo si sobra tiempo, siempre a partir de la cascada,
+nunca decidiendo nada.
+
+### 3.5 Alertas ✅ (bonus del reto)
+
+Feed en cartera con `desde_mes`. Webhook a Slack cuando cambia la acción de
+una empresa. Email no.
+
+### 3.6 Entrega de las 60-80 empresas test ✅
+
+Script, no pantalla: mismo pipeline, `version_parametros` congelada, CSV con
+el contrato de scoring §10 + decision §10. La cartera puede cargarlas como
+"cartera test" para la demo.
+
+### 3.7 Fuera de alcance ✅
+
+Login, multi-tenant, disposiciones y amortizaciones reales, pagos, vista
+pyme (salvo tiempo), edición de parámetros desde UI.
+
+### 3.8 Nombre ✅
+
+**Embat Flow.** Va en submission, cabecera de la app y slide. Se presenta
+como producto embebido de Embat; en el pitch se dice explícitamente que el
+nombre es una propuesta, no una marca autorizada.
 
 ---
 
@@ -313,5 +366,14 @@ el jurado.
 | 22 | Un solo límite para anticipar cobros y aplazar pagos | El score no distingue usos; dos sublímites duplican lógica y pantalla. El uso solo fija el plazo natural. | ✅ 19-09 |
 | 23 | Reapertura tras 2 meses elegible; cierre no borra lo dispuesto | Evita abrir/cerrar mes a mes; lo vivo se devuelve a vencimiento como en cualquier línea. | ✅ 19-09 |
 | 24 | Espejos intragrupo emparejados sobre todas las categorías, no solo `transfer` | Análisis #12/#9: solo un tercio de los traspasos intragrupo va como `transfer`; el resto va como `payment`, `collection` o sin categoría, colado dentro del margen operativo. Sin emparejar por importe/fecha/signo, prestaríamos contra dinero de la matriz. Restringir a ≥ 1.000 € no mueve el volumen: dominado por importes grandes, coincidencia casual improbable. | ✅ 19-09 |
+| 25 | Usuario principal de la demo: analista de cartera del partner | El jurado es Embat y VCs: la cartera enseña anticipación y producto a la vez; la vista pyme enseña una tarjeta. | ✅ 19-09 |
+| 26 | Cuatro pantallas: cartera, ficha, grupo, backtest; sin simulador | Cada pantalla responde a una pregunta del reto. El menú ya es el simulador. La UI no calcula: pinta dos tablas. | ✅ 19-09 |
+| 27 | Selector de mes global | Toda pantalla "a cierre de mes t". Sin él no se puede enseñar que alertamos antes de que pasara. | ✅ 19-09 |
+| 28 | Golden path 90 s con tres empresas fijas del backtest | Una historia de deterioro anticipado, una de mejora, una de grupo. Reales, no inventadas: el jurado puede preguntar por ellas. | ✅ 19-09 |
+| 29 | Sin LLM en la explicación v1 | Embat: "el modelo interpreta, el código determinista actúa". Un LLM decidiendo en su demo es un no. Opcional solo para redactar a partir de la cascada. | ✅ 19-09 |
+| 30 | Alertas: feed en cartera + webhook Slack; email no | Cubre el bonus con el mínimo. Slack se enseña en directo; email no. | ✅ 19-09 |
+| 31 | Entrega test por script, no por pantalla | El entregable es un CSV con el contrato; una pantalla de subida es trabajo sin valor para el jurado. | ✅ 19-09 |
+| 32 | Fuera de alcance: login, multi-tenant, disposiciones, pagos, vista pyme, parámetros desde UI | Nada que no salga en el golden path. | ✅ 19-09 |
+| 33 | Nombre: **Embat Flow** | Coherente con la decisión 13 (producto embebido de Embat): el jurado de Embat ve su producto, no una herramienta de banco. Riesgo asumido: usar su marca sin permiso; se declara como propuesta en el pitch. | ✅ 19-09 |
 
-**Estado 19-09:** las 24 decisiones validadas. Ninguna abierta.
+**Estado 19-09:** 33 de 33 decisiones validadas. Ninguna abierta.
