@@ -17,6 +17,7 @@ import type { Parameters, Product, Tx, VariableSet } from "@/lib/features/scorin
 import { CALENDAR } from "@/lib/features/scoring/windows";
 
 const params: Parameters = {
+  contratoVersion: PARAMS.contratoVersion,
   version: "v",
   paramsHash: hashParams(PARAMS),
   percentiles: FIXTURE_PERCENTILES,

@@ -170,3 +170,20 @@ test("backtest compares autonomous and holding scores independently", () => {
   assert.equal(grupo.deterioro.matched, 1);
   assert.equal(grupo.deterioro.leadMedian, 2);
 });
+
+test("calendar gaps do not create forward stress pairs or deterioration events", () => {
+  const complete = backtest(series("c", D));
+  const r = backtest(series("c", D).filter((row) => row.month !== CALENDAR[7]));
+  assert.equal(r.deterioro.events, 0);
+  assert.ok(r.forwardStressPairs < complete.forwardStressPairs);
+});
+
+test("stress metrics expose ranking quality and decile monotonicity", () => {
+  const rows = series("c", D).map((row, index) => ({
+    ...row,
+    scoreSolo: 30 + index * 5,
+  }));
+  const r = backtest(rows);
+  assert.equal(typeof r.forwardStressPrauc, "number");
+  assert.equal(typeof r.stressDecilesMonotonic, "boolean");
+});

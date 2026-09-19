@@ -106,13 +106,13 @@ export function ajusteHolding(
 export function perfilGrupo(
   capacidadNeta6m: number,
   A1: number | null | undefined,
-  margenMedio6m: number | null | undefined,
+  margenOperativoMedio6m: number | null | undefined,
   D2: number | null,
   D4: number | null,
   rachaB2 = 0,
   b2Observed = true,
 ): PerfilGrupo {
-  if ((margenMedio6m != null && margenMedio6m < 0) || (A1 != null && A1 < 0)) {
+  if ((margenOperativoMedio6m != null && margenOperativoMedio6m < 0) || (A1 != null && A1 < 0)) {
     if (D4 !== null && D4 > 0.3 && b2Observed && rachaB2 === 0 && D2 !== null && D2 >= 60)
       return "filial_subvencionada";
   }

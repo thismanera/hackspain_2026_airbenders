@@ -7,7 +7,8 @@ import { once } from "node:events";
 import { createInterface } from "node:readline";
 
 import { decisionRowSchema, type DecisionRowDTO } from "../lib/features/decision/contracts";
-import { decideLegacy } from "../lib/features/decision/legacy";
+import { decideGroup, parametrosDecision } from "../lib/features/decision/engine";
+import { metricasDecision } from "../lib/features/decision/metrics";
 import type { DecisionRow } from "../lib/features/decision/types";
 import { backtest } from "../lib/features/scoring/backtest";
 import {
@@ -37,8 +38,15 @@ const categoriesCsv = (() => {
   );
   return existsSync(file) ? file : null;
 })();
-/** Ventana de validación del backtest (§13). */
-const BACKTEST_MONTHS: [string, string] = ["2025-09", "2026-08"];
+/** Ventanas temporales de validación; septiembre de 2026 queda fuera por estar truncado. */
+const BACKTEST_WINDOWS = {
+  trailing6: ["2026-03", "2026-08"],
+  trailing9: ["2025-12", "2026-08"],
+  trailing12: ["2025-09", "2026-08"],
+  startup6: ["2025-09", "2026-02"],
+  startup9: ["2025-09", "2026-05"],
+  startup12: ["2025-09", "2026-08"],
+} as const satisfies Record<string, readonly [string, string]>;
 /** Último mes de ajuste: los percentiles solo ven muestras ≤ 2026-02 (§11). */
 const FIT_CUTOFF = "2026-02";
 const command = process.argv[2];
@@ -162,47 +170,70 @@ async function doScore() {
 
 async function doDecide() {
   const m = await meta();
-  const params = parametersSchema.parse(JSON.parse(await readFile(parameterPath(), "utf8")));
-  const byCompany = new Map<string, ScoreRow[]>();
-  for await (const row of lines<ScoreRow>(
-    path.join(runDir(params, m.fingerprint), "scores.jsonl"),
-  )) {
-    const list = byCompany.get(row.company) ?? [];
+  const scoringParams = parametersSchema.parse(JSON.parse(await readFile(parameterPath(), "utf8")));
+  const decParams = parametrosDecision(scoringParams.version);
+  const run = runDir(scoringParams, m.fingerprint);
+  // El motor v1 decide **un grupo entero** de una vez (techo consolidado y cross-default, §9):
+  // agrupar por `groupId` no es una optimización, es el contrato de `decideGroup`.
+  const byGroup = new Map<string, ScoreRow[]>();
+  for await (const row of lines<ScoreRow>(path.join(run, "scores.jsonl"))) {
+    const list = byGroup.get(row.groupId) ?? [];
     list.push(row);
-    byCompany.set(row.company, list);
+    byGroup.set(row.groupId, list);
   }
-  const output = createWriteStream(path.join(runDir(params, m.fingerprint), "decisions.jsonl"));
+  const output = createWriteStream(path.join(run, "decisions.jsonl"));
+  const companies = new Set<string>();
   let count = 0;
-  for (const rows of byCompany.values()) {
-    // `decideLegacy` arrastra el límite vigente del mes anterior: exige orden cronológico.
-    rows.sort((a, b) => a.month.localeCompare(b.month));
-    for (const decision of decideLegacy(rows)) {
+  for (const rows of byGroup.values())
+    // Sin previsión conectada el motor opera como "desconectado" (§1): `banda_pred_3m = banda`.
+    for (const decision of decideGroup(rows, decParams)) {
       await put(output, decisionRowSchema.parse(decision));
+      companies.add(decision.company);
       count++;
     }
-  }
   await close(output);
-  console.log(JSON.stringify({ decisions: count, companies: byCompany.size }));
+  await writeFile(path.join(run, "decision-parameters.json"), JSON.stringify(decParams));
+  const summary = {
+    decisions: count,
+    companies: companies.size,
+    groups: byGroup.size,
+    version: decParams.version,
+  };
+  console.log(JSON.stringify(summary));
 }
 
 async function doBacktest() {
   const m = await meta();
   const params = parametersSchema.parse(JSON.parse(await readFile(parameterPath(), "utf8")));
+  const run = runDir(params, m.fingerprint);
   const validation = new Set(params.validationGroups);
   const rows: ScoreRow[] = [];
-  for await (const row of lines<ScoreRow>(path.join(runDir(params, m.fingerprint), "scores.jsonl")))
+  for await (const row of lines<ScoreRow>(path.join(run, "scores.jsonl")))
     if (validation.has(row.groupId)) rows.push(row);
-  const metrics = {
-    scoreSolo: backtest(rows, { months: BACKTEST_MONTHS, targetScore: "scoreSolo" }),
-    scoreGrupo: backtest(rows, { months: BACKTEST_MONTHS, targetScore: "scoreGrupo" }),
-    months: BACKTEST_MONTHS,
-    validationCompanies: new Set(rows.map((r) => r.company)).size,
-    validationRows: rows.length,
-  };
-  await writeFile(
-    path.join(runDir(params, m.fingerprint), "backtest.json"),
-    JSON.stringify(metrics),
+  const companies = new Set(rows.map((r) => r.company));
+  // Sin decisiones el bloque `decision` saldría vacío y el backtest mentiría por omisión.
+  if (!existsSync(path.join(run, "decisions.jsonl"))) throw new Error("run scoring:decide first");
+  // Las métricas del jurado (§14) se miden sobre las mismas empresas que el backtest del score.
+  const decisions: DecisionRow[] = [];
+  for await (const d of lines<DecisionRow>(path.join(run, "decisions.jsonl")))
+    if (companies.has(d.company)) decisions.push(d);
+  const report = (months: readonly [string, string]) => ({
+    scoreSolo: backtest(rows, { months, targetScore: "scoreSolo" }),
+    scoreGrupo: backtest(rows, { months, targetScore: "scoreGrupo" }),
+  });
+  const windows = Object.fromEntries(
+    Object.entries(BACKTEST_WINDOWS).map(([name, months]) => [name, report(months)]),
   );
+  const metrics = {
+    // Compatibilidad con consumidores que ya leen la ventana completa.
+    ...windows.trailing12,
+    windows,
+    months: BACKTEST_WINDOWS.trailing12,
+    validationCompanies: companies.size,
+    validationRows: rows.length,
+    decision: metricasDecision(rows, decisions),
+  };
+  await writeFile(path.join(run, "backtest.json"), JSON.stringify(metrics));
   console.log(JSON.stringify(metrics));
 }
 
@@ -275,10 +306,11 @@ async function doImport() {
         runId: manifest.runId,
         companyId: d.company,
         month: d.month,
-        band: d.banda,
+        // La ficha enseña la banda con la que se decidió (escalón de grupo incluido, §9).
+        band: d.bandaEfectiva,
         action: d.accion,
-        recommendedLimit: d.limiteRecomendado,
-        appliedLimit: d.limiteVigente,
+        recommendedLimit: d.L,
+        appliedLimit: d.LVigente,
         data: d as never,
       })),
     });
