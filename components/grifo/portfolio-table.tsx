@@ -6,6 +6,7 @@ import type { MouseEvent } from "react";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
 import { StatusBadge } from "@/components/grifo/status-badge";
+import { HotFlame } from "@/components/grifo/hot-list";
 import { Sparkline, TrendDelta } from "@/components/grifo/trend";
 import {
   Table,
@@ -176,6 +177,7 @@ export function PortfolioTable({
                       className="focus-visible:ring-ring flex items-center gap-2 after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
                     >
                       <span className="font-mono text-sm font-medium">{row.company.id}</span>
+                      {row.hot ? <HotFlame direction={row.direction} /> : null}
                       <AlertFlag count={row.alertCount} />
                     </Link>
                     <GroupTag row={row} onOpenGroup={onOpenGroup} />
