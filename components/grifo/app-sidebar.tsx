@@ -8,7 +8,7 @@ import {
   FlaskConical,
   Layers,
   Network,
-  Scale,
+  Orbit,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -52,10 +52,10 @@ const SECTIONS: { label: string; view: ViewMode; items: NavItem[] }[] = [
       { label: "Grupos", href: "/grupos", icon: Network, hint: "Aval, contagio y techo" },
       { label: "Alertas", href: "/alertas", icon: Bell, hint: "Deterioro y mejora, fechados" },
       {
-        label: "Comparar",
-        href: "/comparar",
-        icon: Scale,
-        hint: "Hasta tres empresas lado a lado",
+        label: "Pares",
+        href: "/pares",
+        icon: Orbit,
+        hint: "Empresas parecidas y sus trayectorias",
       },
     ],
   },
