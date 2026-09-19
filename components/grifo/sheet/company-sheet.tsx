@@ -207,9 +207,10 @@ export function CompanySheet({
               <span className="text-foreground font-medium tabular-nums">
                 {formatPercent(latest.confidence, 0)}
               </span>
-              <span aria-hidden>·</span>
-              <span>{formatMonthShort(month)}</span>
-            </SheetDescription>
+            </span>
+            <span aria-hidden>·</span>
+            <span>{formatMonthShort(month)}</span>
+          </SheetDescription>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row">
             <Button
@@ -231,9 +232,9 @@ export function CompanySheet({
               <ArrowUpRight aria-hidden />
             </Button>
           </div>
-        </div>
+      </header>
 
-        <TabsList variant="line" className="h-9 gap-4 p-0">
+      <TabsList variant="line" className="h-9 gap-4 p-0 px-5">
           <TabsTrigger value="decision" className="px-0 text-sm after:!bottom-[-1px]">
             Decisión
           </TabsTrigger>
@@ -246,7 +247,6 @@ export function CompanySheet({
             </TabsTrigger>
           ) : null}
         </TabsList>
-      </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         <TabsContent value="decision" className="flex flex-col gap-4">
