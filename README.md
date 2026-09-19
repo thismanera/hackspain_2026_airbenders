@@ -50,26 +50,38 @@ end-to-end de Prisma + API route + TanStack Query con prefetch SSR).
 | `pnpm run auth:generate`  | Regenera `prisma/schema/auth.prisma` tras tocar `lib/core/auth.ts` |
 | `pnpm run rename-project` | Sustituye el nombre placeholder por el nombre real                 |
 
-## Motor de scoring v0.2
+## Motor de scoring v1 y decisión
 
-Con PostgreSQL activo y los CSV en `dataset/`:
+Con PostgreSQL activo, los CSV en `dataset/` y (opcional) el CSV de
+categorías reclasificadas generado con
+`.venv\Scripts\python.exe analysis\08_categories.py && .venv\Scripts\python.exe analysis\09_export_categories.py`
+(deja `analysis/transaction_categories.csv`, que la ingesta recoge sola si
+existe):
 
 ```bash
-pnpm scoring:fit
-pnpm scoring:score
-pnpm scoring:backtest
-pnpm scoring:import
+pnpm scoring:fit        # ingest por grupo, € y percentiles congelados
+pnpm scoring:score      # company_month_score (docs/scoring-engine.md §10)
+pnpm scoring:decide     # decisión legacy sobre las filas del score (docs/decision-engine.md)
+pnpm scoring:backtest   # lead time, recall, falsas alarmas sobre validación
+pnpm scoring:import     # Postgres
 ```
 
-Normalmente basta con `pnpm db:setup`. Los cuatro comandos anteriores son
-útiles para ejecutar etapas concretas durante el desarrollo. Para borrar
-deliberadamente todos los datos locales habría que usar
-`docker compose down -v`; `pnpm db:down` no borra el volumen.
+Los cinco comandos son secuenciales: cada uno lee la salida del anterior en
+`tmp/scoring-v1/`. La primera ejecución (o cualquiera después de tocar los
+CSV) necesita `SCORING_REINGEST=1 pnpm scoring:fit`, que releva los 472 MB de
+`transactions.csv` y tarda unos minutos; las siguientes reutilizan las
+particiones ya escritas. Variables de entorno útiles: `SCORING_DATASET`,
+`SCORING_OUT`, `SCORING_CATEGORIES` y `SCORING_PARAMS`.
 
-Los resultados quedan disponibles en `/api/scoring/companies`,
-`/api/scoring/companies/[companyId]`, `/api/scoring/runs/[runId]` y
-`/api/scoring/export`. La lógica, los supuestos y el uso con empresas no vistas
-están documentados en [docs/scoring-engine.md](./docs/scoring-engine.md).
+Los scripts se ejecutan con **Node 22**. Si usas [fnm](https://github.com/Schniz/fnm),
+`fnm use 22` antes de lanzarlos (o `fnm exec --using=22 pnpm scoring:fit`).
+
+Normalmente basta con `pnpm db:setup`. Salida en `/api/scoring/companies`
+(`rows[].score` y `rows[].decision`), `/api/scoring/companies/[companyId]`,
+`/api/scoring/runs/[runId]` y `/api/scoring/export`. Lógica y decisiones en
+[docs/SOURCE.md](./docs/SOURCE.md),
+[docs/scoring-engine.md](./docs/scoring-engine.md) y
+[docs/decision-engine.md](./docs/decision-engine.md).
 
 ## Flujo recomendado para un proyecto nuevo
 
