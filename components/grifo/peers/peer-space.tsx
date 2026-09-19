@@ -1,6 +1,6 @@
 "use client";
 
-import { Pause, RotateCw } from "lucide-react";
+import { Pause, RotateCw, Scan, ZoomIn, ZoomOut } from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -53,6 +53,14 @@ const MAX_PITCH = 1.25;
 const SPIN_RAD_PER_S = 0.15;
 const FRAME_MS = 33;
 const HINT_MS = 2000;
+const MIN_ZOOM = 0.6;
+const MAX_ZOOM = 4;
+const ZOOM_STEP = 1.25;
+/** Cuánto zoom por unidad de rueda; exponencial para que sea simétrico. */
+const WHEEL_ZOOM = 0.0015;
+
+type Camera = { zoom: number; panX: number; panY: number };
+const INITIAL_CAMERA: Camera = { zoom: 1, panX: 0, panY: 0 };
 
 type PeerSpaceProps = {
   data: PeerMapResponse;
@@ -110,19 +118,65 @@ export function PeerSpace({
   className,
 }: PeerSpaceProps) {
   const [view, setView] = useState(INITIAL_VIEW);
+  const [camera, setCamera] = useState<Camera>(INITIAL_CAMERA);
   const [spinning, setSpinning] = useState(true);
   const [hovered, setHovered] = useState<string | null>(null);
   const [activeCluster, setActiveCluster] = useState<number | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const dragRef = useRef<{
     id: number;
+    mode: "rotate" | "pan";
     x0: number;
     y0: number;
     yaw0: number;
     pitch0: number;
+    panX0: number;
+    panY0: number;
     moved: boolean;
   } | null>(null);
   const suppressClickRef = useRef(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Cámara: el centro se desplaza con el pan y la escala con el zoom.
+  const screenView = useMemo(
+    () => ({
+      cx: VIEW.cx + camera.panX,
+      cy: VIEW.cy + camera.panY,
+      scale: VIEW.scale * camera.zoom,
+    }),
+    [camera],
+  );
+
+  /** Zoom manteniendo fijo el punto (px, py) del lienzo, en unidades del viewBox. */
+  const zoomAt = (factor: number, px = VIEW.cx, py = VIEW.cy) => {
+    setCamera((current) => {
+      const zoom = clamp(current.zoom * factor, MIN_ZOOM, MAX_ZOOM);
+      const ratio = zoom / current.zoom;
+      return {
+        zoom,
+        panX: px - VIEW.cx - (px - VIEW.cx - current.panX) * ratio,
+        panY: py - VIEW.cy - (py - VIEW.cy - current.panY) * ratio,
+      };
+    });
+  };
+
+  const resetCamera = () => setCamera(INITIAL_CAMERA);
+
+  // La rueda hace zoom hacia el cursor. Listener nativo no pasivo: el de React
+  // no puede impedir que la página haga scroll a la vez.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const px = ((event.clientX - rect.left) / rect.width) * W;
+      const py = ((event.clientY - rect.top) / rect.height) * H;
+      zoomAt(Math.exp(-event.deltaY * WHEEL_ZOOM), px, py);
+    };
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", onWheel);
+  }, []);
 
   // Auto-giro: un setState por frame de ~33 ms. Se para al arrastrar y al pasar
   // por encima de un punto; el botón lo dice siempre (DESIGN: sin media query,
@@ -163,19 +217,26 @@ export function PeerSpace({
     for (const point of data.points) {
       if (!point.pos) continue;
       const projected = project(point.pos, yaw, pitch);
-      placed.push({ point, ...projected, ...toScreen(projected, VIEW) });
+      placed.push({ point, ...projected, ...toScreen(projected, screenView) });
     }
     const edges = CUBE_EDGES.map(([a, b]) => {
       const pa = project(a, yaw, pitch);
       const pb = project(b, yaw, pitch);
-      return { a: toScreen(pa, VIEW), b: toScreen(pb, VIEW), depth: (pa.depth + pb.depth) / 2 };
+      return {
+        a: toScreen(pa, screenView),
+        b: toScreen(pb, screenView),
+        depth: (pa.depth + pb.depth) / 2,
+      };
     });
     const tips = AXIS_TIPS.map((tip) => {
       const projected = project(tip, yaw, pitch);
-      return { ...toScreen(projected, VIEW), depth: projected.depth };
+      return { ...toScreen(projected, screenView), depth: projected.depth };
     });
     return { placed: byDepth(placed), edges, tips };
-  }, [data.points, view]);
+  }, [data.points, view, screenView]);
+
+  /** Si el punto cae fuera del lienzo (con zoom), no recibe botón ni etiqueta. */
+  const onCanvas = (sx: number, sy: number) => sx >= 0 && sx <= W && sy >= 0 && sy <= H;
 
   const visibleTrails = useMemo(() => {
     const ids = new Set<string>(selected);
@@ -210,13 +271,18 @@ export function PeerSpace({
   };
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
+    // Botón principal gira; con Shift, o con el botón central, desplaza.
+    const pan = event.button === 1 || (event.button === 0 && event.shiftKey);
+    if (event.button !== 0 && !pan) return;
     dragRef.current = {
       id: event.pointerId,
+      mode: pan ? "pan" : "rotate",
       x0: event.clientX,
       y0: event.clientY,
       yaw0: view.yaw,
       pitch0: view.pitch,
+      panX0: camera.panX,
+      panY0: camera.panY,
       moved: false,
     };
   };
@@ -231,7 +297,17 @@ export function PeerSpace({
       drag.moved = true;
       event.currentTarget.setPointerCapture(event.pointerId);
       // Quien arrastra toma el mando: el giro automático no le quita el ángulo.
-      setSpinning(false);
+      if (drag.mode === "rotate") setSpinning(false);
+    }
+    if (drag.mode === "pan") {
+      // De píxeles de pantalla a unidades del viewBox.
+      const ratio = W / event.currentTarget.getBoundingClientRect().width;
+      setCamera((current) => ({
+        ...current,
+        panX: drag.panX0 + dx * ratio,
+        panY: drag.panY0 + dy * ratio,
+      }));
+      return;
     }
     setView({
       yaw: drag.yaw0 + dx * DRAG_SENSITIVITY,
@@ -261,8 +337,40 @@ export function PeerSpace({
       className={cn("flex flex-col", className)}
       bodyClassName="flex flex-1 flex-col gap-3 p-3"
       aside={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {aside}
+          <fieldset className="flex items-center gap-1" aria-label="Zoom">
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => zoomAt(1 / ZOOM_STEP)}
+              disabled={camera.zoom <= MIN_ZOOM}
+              aria-label="Alejar"
+              title="Alejar (rueda del ratón)"
+            >
+              <ZoomOut aria-hidden className="size-3.5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => zoomAt(ZOOM_STEP)}
+              disabled={camera.zoom >= MAX_ZOOM}
+              aria-label="Acercar"
+              title="Acercar (rueda del ratón)"
+            >
+              <ZoomIn aria-hidden className="size-3.5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={resetCamera}
+              disabled={camera.zoom === 1 && camera.panX === 0 && camera.panY === 0}
+              aria-label="Encuadrar"
+              title="Encuadrar (doble clic en el cubo)"
+            >
+              <Scan aria-hidden className="size-3.5" />
+            </Button>
+          </fieldset>
           <Button
             variant="outline"
             size="sm"
@@ -282,11 +390,17 @@ export function PeerSpace({
       {/* Tan ancho como permita la altura de la ventana (menos cabecera, intro y
           leyendas), nunca más que la columna. 720/460 = 1.565. */}
       <div
-        className="relative mx-auto w-full max-w-[min(100%,calc((100dvh_-_18rem)*1.565))] min-w-[min(100%,480px)] cursor-grab touch-none select-none active:cursor-grabbing"
+        ref={canvasRef}
+        className="relative mx-auto w-full max-w-[min(100%,calc((100dvh_-_18rem)*1.565))] min-w-[min(100%,480px)] cursor-grab touch-none overflow-hidden rounded-lg select-none active:cursor-grabbing"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerEnd}
+        onDoubleClick={(event) => {
+          // Doble clic sobre un punto es "quitar y poner"; solo el fondo reencuadra.
+          if ((event.target as HTMLElement).closest("button")) return;
+          resetCamera();
+        }}
         onClickCapture={(event) => {
           if (suppressClickRef.current) {
             event.stopPropagation();
@@ -295,7 +409,7 @@ export function PeerSpace({
         }}
         onMouseLeave={() => setHovered(null)}
       >
-        <svg viewBox={`0 0 ${W} ${H}`} aria-hidden className="h-auto w-full overflow-visible">
+        <svg viewBox={`0 0 ${W} ${H}`} aria-hidden className="h-auto w-full overflow-hidden">
           {/* Aristas del cubo: las de atrás más tenues, para que se lea el volumen. */}
           {scene.edges.map((edge, index) => (
             <line
@@ -319,7 +433,7 @@ export function PeerSpace({
                 {trailRuns(point.trail).map((run, runIndex) => {
                   const screen = run.map((entry) => {
                     const projected = project(entry.pos, view.yaw, view.pitch);
-                    return { ...toScreen(projected, VIEW), index: entry.index };
+                    return { ...toScreen(projected, screenView), index: entry.index };
                   });
                   return (
                     <g key={runIndex}>
@@ -421,7 +535,7 @@ export function PeerSpace({
         </svg>
 
         {scene.placed
-          .filter(({ point }) => interactive(point))
+          .filter(({ point, sx, sy }) => interactive(point) && onCanvas(sx, sy))
           .map(({ point, sx, sy }) => {
             const cluster = point.cluster !== null ? clusterById.get(point.cluster) : undefined;
             return (
