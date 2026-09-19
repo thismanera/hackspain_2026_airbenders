@@ -372,6 +372,7 @@ async function doSnapshot(runId?: string): Promise<number> {
     "../lib/features/portfolio/load-dataset"
   );
   const { materialize } = await import("../lib/features/portfolio/snapshots");
+  const { CURATED_PARAMETER_VERSION } = await import("../lib/features/portfolio/readings.curated");
   const id = runId ?? (await localRunId()) ?? (await compatibleRun())?.id;
   if (!id)
     throw new Error(
@@ -380,21 +381,24 @@ async function doSnapshot(runId?: string): Promise<number> {
         "un runId explícito: `pnpm scoring:snapshot <runId>`.",
     );
   const dataset = await buildDataset(await runHeader(id));
+  if (dataset.parameterVersion !== CURATED_PARAMETER_VERSION) {
+    console.warn(
+      `lecturas de analista escritas para la versión ${CURATED_PARAMETER_VERSION.slice(0, 12)}…; este run es ${dataset.parameterVersion.slice(0, 12)}…, van todas por plantilla`,
+    );
+  }
+  // Se materializa todo antes de tocar la tabla: si una lectura curada no
+  // pasa el sanitizador, el panel anterior sigue en pie.
+  const rows = Array.from(materialize(dataset), (row) => ({
+    runId: id,
+    kind: row.kind,
+    key: row.key,
+    payload: row.payload as never,
+  }));
   await prisma.portfolioSnapshot.deleteMany({ where: { runId: id } });
-  let written = 0;
-  let batch: { runId: string; kind: string; key: string; payload: never }[] = [];
-  async function flush() {
-    if (!batch.length) return;
-    await prisma.portfolioSnapshot.createMany({ data: batch });
-    written += batch.length;
-    batch = [];
+  for (let i = 0; i < rows.length; i += 100) {
+    await prisma.portfolioSnapshot.createMany({ data: rows.slice(i, i + 100) });
   }
-  for (const row of materialize(dataset)) {
-    batch.push({ runId: id, kind: row.kind, key: row.key, payload: row.payload as never });
-    if (batch.length >= 100) await flush();
-  }
-  await flush();
-  return written;
+  return rows.length;
 }
 
 await mkdir(dir, { recursive: true });

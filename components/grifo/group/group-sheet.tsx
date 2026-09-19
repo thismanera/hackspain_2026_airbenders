@@ -358,7 +358,7 @@ export function GroupSheet({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         <TabsContent value="decision" className="flex flex-col gap-4">
-          {/* Sin Helmcode para grupo: el titular sale de la plantilla, pero se
+          {/* Sin lectura materializada para grupo: el titular sale de la plantilla, pero se
               presenta en la misma caja que en empresa para que la lectura se
               reconozca igual en los dos lados. */}
           <ReadingBox headline={groupNarrative(data).headline} source="plantilla" />
