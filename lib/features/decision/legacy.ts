@@ -3,8 +3,8 @@ import type { ScoreRow } from "@/lib/features/scoring/types";
 
 const LEGACY = {
   coverageRatio: 1.3, stressReceipts: 0.8, stressPayments: 1.1, advanceRate: 0.8,
-  bandThresholds: [75, 60, 45], bandFactors: { A: 1, B: 0.7, C: 0.4, D: 0 } as Record<Banda, number>,
-  price: { A: 0.05, B: 0.07, C: 0.1, D: null } as Record<Banda, number | null>,
+  bandThresholds: [75, 60, 45], bandFactors: { A: 1, B: 0.7, C: 0.4, D: 0 } satisfies Record<Banda, number>,
+  price: { A: 0.05, B: 0.07, C: 0.1, D: null } satisfies Record<Banda, number | null>,
   confidenceTarget: 0.6, lowConfidence: 0.3, openingConfidence: 0.5, monthlyChangeCap: 0.25,
 };
 
