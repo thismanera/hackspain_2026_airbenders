@@ -161,8 +161,14 @@ export type PortfolioRow = {
 };
 
 export type PortfolioSummary = {
+  month: string;
   total: number;
   byEstado: Record<Estado, number>;
+  byDireccion: Record<Direccion, number>;
+  /** Solo cuenta las acciones que son noticia (`changed`). */
+  byAccion: Record<Accion, number>;
+  /** Empresas que pasan todas las puertas y tienen límite. */
+  eligible: number;
   /** Suma de límites de las empresas elegibles. */
   exposure: number;
   /** Empresas cuya acción no es "mantener" este mes. */
@@ -173,6 +179,10 @@ export type PortfolioResponse = {
   month: string;
   months: string[];
   summary: PortfolioSummary;
+  /** Mismo filtro, mes anterior. `null` en el primer mes del calendario. */
+  previous: PortfolioSummary | null;
+  /** Mismo filtro, cada mes del calendario hasta el seleccionado, en orden. */
+  history: PortfolioSummary[];
   rows: PortfolioRow[];
   /** Filas antes de aplicar filtros, para distinguir "cartera vacía" de "filtro vacío". */
   totalUnfiltered: number;

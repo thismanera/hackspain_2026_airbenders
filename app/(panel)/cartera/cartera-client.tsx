@@ -2,14 +2,20 @@
 
 import { SearchX } from "lucide-react";
 
+import { AccionBreakdown, EstadoEvolution } from "@/components/grifo/portfolio-charts";
 import { PortfolioFilters } from "@/components/grifo/portfolio-filters";
-import { PortfolioSummaryStrip } from "@/components/grifo/portfolio-summary";
+import { PortfolioKpis } from "@/components/grifo/portfolio-summary";
 import { PortfolioTable } from "@/components/grifo/portfolio-table";
 import { Button } from "@/components/ui/button";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { usePortfolio, usePortfolioFilters } from "@/lib/features/portfolio/hooks";
 import { formatMonthLong } from "@/lib/features/portfolio/format";
-import type { Estado } from "@/lib/features/portfolio/types";
 
 const CLEARED = {
   q: "",
@@ -24,26 +30,47 @@ export function CarteraClient() {
   const { data } = usePortfolio(filters);
 
   const noneAtAll = data.totalUnfiltered === 0;
+  const onChange = (update: Partial<typeof filters>) => void setFilters(update);
 
   return (
     <div className="flex flex-col gap-4">
-      <PortfolioSummaryStrip
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h1 className="text-xl font-semibold tracking-[-0.02em]">Cartera</h1>
+          <p className="text-muted-foreground text-sm">
+            {data.summary.total === data.totalUnfiltered
+              ? `${data.summary.total} ${data.summary.total === 1 ? "empresa valorada" : "empresas valoradas"}`
+              : `${data.summary.total} de ${data.totalUnfiltered} empresas valoradas`}{" "}
+            a cierre de {formatMonthLong(data.month)}.
+          </p>
+        </div>
+      </div>
+
+      <PortfolioKpis
         summary={data.summary}
-        month={data.month}
-        activeEstado={filters.estado}
-        onSelectEstado={(estado: Estado | "todos") => void setFilters({ estado })}
+        previous={data.previous}
+        history={data.history}
+        filters={filters}
+        onChange={onChange}
       />
+
+      {!noneAtAll && data.summary.total > 0 ? (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <EstadoEvolution history={data.history} filters={filters} onChange={onChange} />
+          <AccionBreakdown summary={data.summary} filters={filters} onChange={onChange} />
+        </div>
+      ) : null}
 
       <PortfolioFilters
         filters={filters}
-        onChange={(update) => void setFilters(update)}
+        onChange={onChange}
         onClear={() => void setFilters(CLEARED)}
         shown={data.rows.length}
         total={data.totalUnfiltered}
       />
 
       {data.rows.length === 0 ? (
-        <Empty className="bg-card rounded-lg border">
+        <Empty className="bg-card rounded-xl border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <SearchX aria-hidden />
@@ -57,11 +84,11 @@ export function CarteraClient() {
                 : `Ninguna de las ${data.totalUnfiltered} empresas de la cartera cumple a la vez todos los filtros activos.`}
             </EmptyDescription>
           </EmptyHeader>
-          {noneAtAll ? null : (
+          {!noneAtAll ? (
             <Button variant="outline" size="sm" onClick={() => void setFilters(CLEARED)}>
               Quitar filtros
             </Button>
-          )}
+          ) : null}
         </Empty>
       ) : (
         <PortfolioTable rows={data.rows} month={data.month} />
