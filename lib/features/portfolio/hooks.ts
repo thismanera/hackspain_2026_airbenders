@@ -171,7 +171,7 @@ export function useBenchmark(companyId: string, month: string) {
 
 /**
  * Lectura declarada. No usa Suspense: la plantilla ya está en el cliente y
- * Helmcode, si responde, solo la sustituye.
+ * la lectura materializada (analista o plantilla), cuando llega, solo la sustituye.
  */
 export function useReading(companyId: string, month: string, kind: ReadingKind) {
   return useQuery({

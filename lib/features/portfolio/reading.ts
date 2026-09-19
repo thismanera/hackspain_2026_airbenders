@@ -1,9 +1,16 @@
 /**
  * Lecturas en llano de la ficha. El motor ya decidió; esto solo redacta.
- * Helmcode puede reescribir el texto, nunca inventar un número ni una cita.
+ *
+ * Toda lectura se materializa en `scoring:import` junto al resto del panel:
+ * la plantilla determinista para cada empresa-mes y, donde un analista ha
+ * escrito la suya mirando la ficha (`readings.curated.ts`), ese texto. Nada
+ * se redacta en la petición y ninguna lectura puede citar un número o una
+ * variable que no esté en la ficha: `sanitizeReading` lo tumba.
  */
 import { z } from "zod";
 
+import { formatIndicatorValue } from "./format";
+import { indicator } from "./indicators";
 import {
   decisionNarrative,
   holdingNarrative,
@@ -12,6 +19,7 @@ import {
   type Citation,
   type Narrative,
 } from "./narrative";
+import { curatedReading } from "./readings.curated";
 import type { CompanyFileResponse } from "./types";
 
 export const READING_KINDS = ["decision", "score", "improvement", "grupo"] as const;
@@ -19,7 +27,8 @@ export type ReadingKind = (typeof READING_KINDS)[number];
 
 export const readingKindSchema = z.enum(READING_KINDS);
 
-export type ReadingSource = "plantilla" | "helmcode";
+export const READING_SOURCES = ["plantilla", "analista"] as const;
+export type ReadingSource = (typeof READING_SOURCES)[number];
 
 export type Reading = Narrative & {
   source: ReadingSource;
@@ -44,6 +53,19 @@ export const readingBodySchema = z.object({
 
 export type ReadingBody = z.infer<typeof readingBodySchema>;
 
+export const readingSchema = readingBodySchema.extend({
+  source: z.enum(READING_SOURCES),
+});
+
+export const readingSetSchema = z.object({
+  decision: readingSchema,
+  score: readingSchema,
+  improvement: readingSchema,
+  grupo: readingSchema,
+});
+
+export type ReadingSet = z.infer<typeof readingSetSchema>;
+
 const TEMPLATES: Record<ReadingKind, (file: CompanyFileResponse) => Narrative> = {
   decision: decisionNarrative,
   score: scoreNarrative,
@@ -53,6 +75,38 @@ const TEMPLATES: Record<ReadingKind, (file: CompanyFileResponse) => Narrative> =
 
 export function templateReading(kind: ReadingKind, file: CompanyFileResponse): Reading {
   return { ...TEMPLATES[kind](file), source: "plantilla" };
+}
+
+/**
+ * La lectura que se persiste para una ficha: la del analista si la hay y
+ * pasa el sanitizador, la plantilla si no. Una lectura curada que invente
+ * una cifra es un error de datos, no un fallback silencioso.
+ */
+export function readingFor(
+  kind: ReadingKind,
+  file: CompanyFileResponse,
+  parameterVersion: string,
+): Reading {
+  const fallback = templateReading(kind, file);
+  const curated = curatedReading(parameterVersion, file.company.id, file.month, kind);
+  if (!curated) return fallback;
+
+  const clean = sanitizeReading(curated, file, fallback);
+  if (!clean) {
+    throw new Error(
+      `lectura curada de ${file.company.id} ${file.month} ${kind} cita cifras que no están en la ficha`,
+    );
+  }
+  return { ...clean, source: "analista" };
+}
+
+export function readingsFor(file: CompanyFileResponse, parameterVersion: string): ReadingSet {
+  return {
+    decision: readingFor("decision", file, parameterVersion),
+    score: readingFor("score", file, parameterVersion),
+    improvement: readingFor("improvement", file, parameterVersion),
+    grupo: readingFor("grupo", file, parameterVersion),
+  };
 }
 
 /** Números y citas que el modelo puede mencionar. Cualquier otra cosa tumba la lectura. */
@@ -72,8 +126,10 @@ export function allowedFacts(
     numbers.add(normalizeNumber(String(Math.round(value))));
     numbers.add(normalizeNumber(String(Math.abs(value))));
     numbers.add(normalizeNumber(String(Math.abs(Math.round(value)))));
+    numbers.add(normalizeNumber(Math.abs(value).toFixed(1)));
     if (Math.abs(value) <= 1) {
       numbers.add(normalizeNumber(String(Math.round(value * 100))));
+      numbers.add(normalizeNumber(Math.abs(value * 100).toFixed(1)));
     }
   }
 
@@ -94,12 +150,29 @@ export function allowedFacts(
   addNumber(latest.group?.support);
   addNumber(latest.decision.limit);
   addNumber(latest.decision.previousLimit);
+  addNumber(latest.decision.limit - latest.decision.previousLimit);
   addNumber(latest.decision.apr);
   addNumber(latest.decision.baseApr);
   addNumber(latest.decision.maxTenorDays);
+  addNumber(latest.decision.capacityLimit);
+  for (const option of latest.decision.menu) {
+    addNumber(option.days);
+    addNumber(option.maxAmount);
+    addNumber(option.apr);
+  }
+  addNumber(latest.scoreSolo);
+  addNumber(latest.scoreGrupo);
+  addNumber(latest.forecast?.scoreSoloPred3m);
+  addNumber(latest.forecast?.scoreSoloPred6m);
+  addNumber(latest.forecast?.scoreGrupoPred3m);
+  addNumber(latest.forecast?.scoreGrupoPred6m);
+  addNumber(latest.forecast?.p10Solo3m);
+  addNumber(latest.forecast?.p90Solo3m);
   addNumber(previous?.score);
+  addNumber(latest.score - (previous?.score ?? latest.score));
   addNumber(previous?.decision.limit);
   addNumber(previous?.decision.apr);
+  for (const point of file.history) addNumber(point.score);
   addNumber(Number(latest.month.slice(0, 4)));
   addNumber(Number(latest.month.slice(5, 7)));
   if (previous) {
@@ -115,7 +188,13 @@ export function allowedFacts(
     addNumber(contribution.subscore);
     addNumber(contribution.delta);
     refs.add(contribution.indicator);
+    const meta = indicator(contribution.indicator);
+    if (meta && contribution.raw !== null) {
+      addTokens(formatIndicatorValue(contribution.raw, meta.format));
+    }
   }
+  for (const gate of latest.decision.gates) addTokens(gate.detail);
+  addTokens(latest.decision.reason);
   for (const gate of latest.decision.gates) {
     refs.add(`puerta:${gate.id}`);
     refs.add(gate.id);
@@ -165,96 +244,6 @@ export function sanitizeReading(
   if (citations.some((citation) => !refs.has(citation.ref))) return null;
 
   return body;
-}
-
-export function buildReadingPrompt(
-  kind: ReadingKind,
-  file: CompanyFileResponse,
-  fallback: Narrative,
-): { system: string; user: string } {
-  const facts = {
-    empresa: file.company.id,
-    mes: file.month,
-    score: Math.round(file.latest.score),
-    confianza: Math.round(file.latest.confidence * 100),
-    estado: file.latest.estado,
-    direccion: file.latest.direction,
-    naturaleza: file.latest.nature,
-    tendencia3m: file.latest.trend3m,
-    bloques: file.latest.blocks,
-    ajusteGrupo: file.latest.group?.adjustment ?? 0,
-    decision: {
-      accion: file.latest.decision.action,
-      elegible: file.latest.decision.eligible,
-      limite: file.latest.decision.limit,
-      limiteAnterior: file.latest.decision.previousLimit,
-      tae: file.latest.decision.apr,
-      plazo: file.latest.decision.maxTenorDays,
-      banda: file.latest.decision.band,
-      motivo: file.latest.decision.reason,
-      puertas: file.latest.decision.gates.map((gate) => ({
-        id: gate.id,
-        pasa: gate.passed,
-        detalle: gate.detail,
-      })),
-    },
-    alertas: file.latest.alerts.map((alert) => ({
-      tipo: alert.type,
-      etiqueta: alert.label,
-      desde: alert.onsetMonth,
-      confirmada: alert.confirmedMonth,
-    })),
-    cascada: file.latest.contributions
-      .filter((entry) => entry.raw !== null)
-      .map((entry) => ({
-        id: entry.indicator,
-        bruto: entry.raw,
-        nota: Math.round(entry.subscore),
-        delta: entry.delta,
-      })),
-    plantilla: fallback,
-  };
-
-  const job =
-    kind === "decision"
-      ? "Qué tiene que saber el analista de la decisión de este mes."
-      : kind === "score"
-        ? "Qué sostiene y qué lastra el score, sin decidir nada."
-        : kind === "grupo"
-          ? "Si el resto del grupo tira o arrastra la nota de esta empresa, y por cuánto."
-          : "Qué tendría que mejorar la empresa, en orden, para abrir o ampliar línea.";
-
-  return {
-    system:
-      "Redactas para un analista de riesgo. El código ya ha decidido; tú solo explicas. " +
-      "Devuelve JSON { headline, sentences: [] }. " +
-      "UNA sola frase en headline: acción, importe y el motivo. Nada más. " +
-      "sentences vacío. Solo números que aparezcan en el JSON. " +
-      "No inventes importes, plazos, TAE ni umbrales. No uses la palabra score si puedes decir nota. " +
-      "No digas partner, opt-in ni Grifo.",
-    user: `${job}\n\n${JSON.stringify(facts)}`,
-  };
-}
-
-export async function resolveReading(
-  kind: ReadingKind,
-  file: CompanyFileResponse,
-  generate?: (system: string, user: string) => Promise<unknown>,
-): Promise<Reading> {
-  const fallback = templateReading(kind, file);
-  if (!generate) return fallback;
-
-  try {
-    const prompt = buildReadingPrompt(kind, file, fallback);
-    const raw = await generate(prompt.system, prompt.user);
-    const parsed = readingBodySchema.safeParse(raw);
-    if (!parsed.success) return fallback;
-    const clean = sanitizeReading(parsed.data, file, fallback);
-    if (!clean) return fallback;
-    return { ...clean, source: "helmcode" };
-  } catch {
-    return fallback;
-  }
 }
 
 function tokenizeNumbers(text: string): string[] {

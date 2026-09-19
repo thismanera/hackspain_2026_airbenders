@@ -1,9 +1,8 @@
 import { z } from "zod";
 
-import { ask, isHelmcodeConfigured } from "@/lib/integrations/helmcode";
 import { scoringResponse } from "@/lib/features/portfolio/http";
-import { readingKindSchema, resolveReading } from "@/lib/features/portfolio/reading";
-import { getCompanyFile } from "@/lib/features/portfolio/source";
+import { readingKindSchema } from "@/lib/features/portfolio/reading";
+import { getReading } from "@/lib/features/portfolio/source";
 
 const querySchema = z.object({
   month: z
@@ -23,23 +22,8 @@ export async function GET(
     return Response.json({ error: z.treeifyError(parsed.error) }, { status: 400 });
   }
 
-  return scoringResponse(async () => {
-    const file = await getCompanyFile(companyId, parsed.data.month);
-    if (!file) return null;
-    return resolveReading(
-      parsed.data.kind,
-      file,
-      isHelmcodeConfigured()
-        ? async (system, user) => {
-            const result = await ask(user, system, {
-              json: true,
-              maxTokens: 400,
-              temperature: 0.2,
-              signal: AbortSignal.timeout(4000),
-            });
-            return JSON.parse(result.content) as unknown;
-          }
-        : undefined,
-    );
-  }, "Empresa no encontrada");
+  return scoringResponse(
+    () => getReading(companyId, parsed.data.kind, parsed.data.month),
+    "Empresa no encontrada",
+  );
 }
