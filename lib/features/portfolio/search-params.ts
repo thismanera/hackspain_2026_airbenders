@@ -102,7 +102,7 @@ export const loadCompareSearchParams = createLoader(compareSearchParams);
 /** La vista pyme mira una sola empresa; la primera de la cartera si no se dice cuál. */
 export const pymeSearchParams = {
   mes: parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH),
-  empresa: parseAsString.withDefault(""),
+  empresa: parseAsString.withDefault("COMP_0357"),
 };
 
 export const loadPymeSearchParams = createLoader(pymeSearchParams);
