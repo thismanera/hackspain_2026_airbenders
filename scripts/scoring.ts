@@ -127,6 +127,8 @@ async function doFit() {
 async function doScore() {
   const m = await meta().catch(() => ingest(dataset, dir, categoriesCsv));
   const params = JSON.parse(await readFile(parameterPath(), "utf8")) as Parameters;
+  if (params.inputFingerprint !== m.fingerprint)
+    throw new Error("parameters were fitted on a different dataset; run scoring:fit");
   await mkdir(runDir(params, m.fingerprint), { recursive: true });
   const output = createWriteStream(path.join(runDir(params, m.fingerprint), "scores.jsonl"));
   let count = 0;
@@ -204,6 +206,9 @@ async function doImport() {
   const m = await meta();
   const params = JSON.parse(await readFile(parameterPath(), "utf8")) as Parameters;
   const run = runDir(params, m.fingerprint);
+  // Antes de borrar nada: sin las dos salidas la importación dejaría la ejecución a medias.
+  if (!existsSync(path.join(run, "scores.jsonl")) || !existsSync(path.join(run, "decisions.jsonl")))
+    throw new Error("run scoring:score and scoring:decide first");
   const manifest = JSON.parse(await readFile(path.join(run, "manifest.json"), "utf8")) as {
     runId: string;
     rows: number;
@@ -280,6 +285,8 @@ async function doImport() {
     if (decisions.length >= 500) await flushDecisions();
   }
   await flushDecisions();
+  if (importedDecisions !== manifest.rows)
+    throw new Error(`imported ${importedDecisions} decisions, expected ${manifest.rows}`);
   await prisma.scoreRun.update({
     where: { id: manifest.runId },
     data: { status: "complete", completedAt: new Date(), metrics },

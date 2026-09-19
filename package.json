@@ -21,7 +21,7 @@
     "lint": "cross-env NODE_OPTIONS=\"--import tsx\" oxlint --ignore-pattern \".claude/**\" --format unix",
     "lint:fix": "cross-env NODE_OPTIONS=\"--import tsx\" oxlint --ignore-pattern \".claude/**\" --fix --format unix",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
     "typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json",
     "prisma:seed": "tsx prisma/seed.ts",
     "auth:generate": "auth generate --config lib/core/auth.ts --output ./prisma/schema/auth.prisma --yes",

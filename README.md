@@ -76,6 +76,9 @@ particiones ya escritas. Variables de entorno útiles: `SCORING_DATASET`,
 Los scripts se ejecutan con **Node 22**. Si usas [fnm](https://github.com/Schniz/fnm),
 `fnm use 22` antes de lanzarlos (o `fnm exec --using=22 pnpm scoring:fit`).
 
+`pnpm db:setup` aplica el esquema con `prisma db push --accept-data-loss`:
+recrea las tablas de score y elimina las columnas antiguas.
+
 Normalmente basta con `pnpm db:setup`. Salida en `/api/scoring/companies`
 (`rows[].score` y `rows[].decision`), `/api/scoring/companies/[companyId]`,
 `/api/scoring/runs/[runId]` y `/api/scoring/export`. Lógica y decisiones en

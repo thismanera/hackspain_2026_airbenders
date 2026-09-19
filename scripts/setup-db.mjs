@@ -14,7 +14,6 @@ const requiredDatasetFiles = [
   "debt_products.csv",
   "transactions.csv",
   "invoices.csv",
-  "debt_schedule_config.csv",
 ];
 
 function log(message) {
@@ -112,7 +111,8 @@ async function main() {
 
   log("Generating Prisma Client and applying the schema.");
   run(pnpm, ["exec", "prisma", "generate"]);
-  run(pnpm, ["exec", "prisma", "db", "push"]);
+  // DB de desarrollo del hackathon: se reconstruye desde los CSV, así que aceptamos perder datos.
+  run(pnpm, ["exec", "prisma", "db", "push", "--accept-data-loss"]);
 
   if (!force && completedRunExists()) {
     log("A completed scoring run already exists. PostgreSQL is ready.");
