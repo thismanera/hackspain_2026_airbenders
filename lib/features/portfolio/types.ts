@@ -1,6 +1,12 @@
 import type { BlockId } from "./indicators";
 
 export type Estado = "sana" | "vigilar" | "riesgo" | "sin_datos";
+
+/** Quién mira: Embat (todo) o el partner (solo quien ha pedido). PRODUCT §7 regla 1. */
+export type Scope = "embat" | "partner";
+
+/** Punto del cubo de pares, cada coordenada en [-1, 1]. */
+export type Vec3 = readonly [number, number, number];
 export type Direccion = "mejora" | "estable" | "deterioro";
 export type Naturaleza = "temporal" | "estructural" | "sin_cambio";
 export type Banda = "A" | "B" | "C" | "D";
@@ -403,4 +409,51 @@ export type BenchmarkResponse = {
   cohort: number;
   scorePercentile: number;
   rows: BenchmarkRow[];
+};
+
+/* ------------------------------------------------------------------ *
+ * Espacio de pares (PCA de los 14 subscores, tres ejes)
+ * ------------------------------------------------------------------ */
+
+export type PeerAxis = {
+  /** Fracción de la varianza que explica este eje. */
+  explained: number;
+  /** Los tres indicadores que más pesan en el eje, con su carga (signo incluido). */
+  top: { indicator: string; loading: number }[];
+};
+
+export type PeerCluster = {
+  id: number;
+  /** "Cobran tarde · pocos clientes": los dos rasgos que más lo separan del resto. */
+  label: string;
+  size: number;
+  medianScore: number | null;
+  centroid: Vec3;
+};
+
+export type PeerPoint = {
+  /** `null` = silueta anónima: quien mira no tiene derecho a saber quién es. */
+  company: string | null;
+  /** Clave estable para React aunque el punto sea anónimo. */
+  key: string;
+  /** Posición a cierre del mes pedido; `null` = sin datos ese mes, no se dibuja. */
+  pos: Vec3 | null;
+  estado: Estado;
+  score: number | null;
+  /** Cambio de score desde el primer mes de la estela. `null` si no hay ambos. */
+  deltaTrail: number | null;
+  cluster: number | null;
+  /** Alineada a `months` (≤ 12, la última = `month`); `null` en los meses sin datos. */
+  trail: (Vec3 | null)[];
+};
+
+export type PeerMapResponse = {
+  month: string;
+  /** Meses de la estela, del más antiguo al pedido. */
+  months: string[];
+  axes: [PeerAxis, PeerAxis, PeerAxis];
+  clusters: PeerCluster[];
+  points: PeerPoint[];
+  /** Empresa que consulta (scope empresa), o `null`. */
+  focus: string | null;
 };

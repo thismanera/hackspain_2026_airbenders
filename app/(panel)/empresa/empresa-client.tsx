@@ -16,6 +16,8 @@ import { OutlookPanel } from "@/components/grifo/company/outlook-panel";
 import { PymeKpis } from "@/components/grifo/company/pyme-kpis";
 import { ScoreTrend } from "@/components/grifo/company/score-trend";
 import { CompanyPicker } from "@/components/grifo/company-picker";
+import { Figure, Panel } from "@/components/grifo/panel";
+import { PeerSpace } from "@/components/grifo/peers/peer-space";
 import { PageIntro } from "@/components/grifo/stat-card";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +27,25 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { useBenchmark, useCompanyFile, usePymeState } from "@/lib/features/portfolio/hooks";
+import { cn } from "@/lib/core/utils";
+import { nextBand } from "@/lib/features/portfolio/band-ladder";
+import {
+  formatApr,
+  formatDays,
+  formatEuros,
+  formatIndicatorValue,
+  formatMonthLong,
+  formatPercent,
+  formatDecimal,
+  formatScore,
+} from "@/lib/features/portfolio/format";
+import {
+  useBenchmark,
+  useCompanyFile,
+  usePeers,
+  usePymeState,
+} from "@/lib/features/portfolio/hooks";
+import { indicator } from "@/lib/features/portfolio/indicators";
 import { useOptIn } from "@/lib/features/portfolio/opt-in";
 
 /**
@@ -44,8 +64,13 @@ function CompanyView({
 }) {
   const { data: file } = useCompanyFile(companyId, month);
   const { data: benchmark } = useBenchmark(companyId, month);
-  const { requestedMonth } = useOptIn(companyId);
+  const { data: peers } = usePeers(month, "embat", companyId);
   const { latest } = file;
+  const own = peers?.points.find((point) => point.company === companyId);
+  const ownCluster =
+    peers && own && own.cluster !== null
+      ? peers.clusters.find((cluster) => cluster.id === own.cluster)
+      : undefined;
 
   return (
     <div className="flex flex-col gap-5">
@@ -101,8 +126,32 @@ function CompanyView({
         </div>
       </div>
 
-      {/* 6. Auditoría y Cascada Completa de las 14 Variables */}
-      <Cascade month={latest} />
+      {peers ? (
+        <PeerSpace
+          data={peers}
+          scope="embat"
+          focus={companyId}
+          title="Empresas como la tuya"
+          description="Tu punto lleva nombre; el resto son siluetas. La estela es tu último año."
+          className="lg:col-span-5"
+          caption={
+            ownCluster ? (
+              <>
+                Estás en el grupo «{ownCluster.label}» con otras{" "}
+                {Math.max(0, ownCluster.size - 1)} empresas
+                {ownCluster.medianScore !== null
+                  ? ` (score mediano ${formatScore(ownCluster.medianScore)})`
+                  : ""}
+                .
+              </>
+            ) : undefined
+          }
+        />
+      ) : null}
+
+      <div className="lg:col-span-5">
+        <Cascade month={latest} />
+      </div>
     </div>
   );
 }
