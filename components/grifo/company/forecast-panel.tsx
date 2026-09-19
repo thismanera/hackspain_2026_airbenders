@@ -169,10 +169,14 @@ export function ForecastPanel({
         {formatScore(forecast.p90Solo6m)}).
       </p>
 
-      <div className="mt-4 border-t pt-4">
-        <ForecastImpactFigures impact={forecast.impact} />
-      </div>
-      <ForecastImpactLine forecast={forecast} showAction className="mt-4 border-t pt-4" />
+      {forecast.impact ? (
+        <>
+          <div className="mt-4 border-t pt-4">
+            <ForecastImpactFigures impact={forecast.impact} />
+          </div>
+          <ForecastImpactLine forecast={forecast} showAction className="mt-4 border-t pt-4" />
+        </>
+      ) : null}
     </>
   );
 

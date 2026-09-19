@@ -100,3 +100,11 @@ test("sin línea hoy y banda B prevista: el ahorro es frente al precio de mercad
   assert.equal(impact.aprPred, 7);
   assert.equal(impact.annualDelta, Math.round((84_000 * (MARKET_APR - 7)) / 100));
 });
+
+test("la TAE del motor en tanto por uno se traduce a puntos, igual que la del panel", () => {
+  const fromFraction = forecastImpact(decision({ apr: 0.075 }), 55);
+  const fromPoints = forecastImpact(decision({ apr: 7.5 }), 55);
+  assert.deepEqual(fromFraction, fromPoints);
+  assert.equal(fromFraction.aprNow, 7.5);
+  assert.equal(fromFraction.aprPred, 10.5);
+});

@@ -28,7 +28,12 @@ function Row({ contribution }: { contribution: Contribution }) {
       <div className="min-w-0 sm:col-span-1">
         <p className={cn("flex items-center gap-1", missing && "text-muted-foreground")}>
           <span className="truncate text-sm">{meta.label}</span>
-          <IndicatorInfo indicator={meta} missing={missing} />
+          <IndicatorInfo
+            indicator={meta}
+            raw={contribution.raw}
+            subscore={contribution.subscore}
+            missing={missing}
+          />
         </p>
         {missing ? (
           <p className="text-muted-foreground text-xs">sin cobertura</p>
@@ -100,9 +105,11 @@ export function Cascade({
    * cambia ninguna decisión. Queda la tabla, ordenada por lo que se ha movido.
    */
   bare = false,
+  inset = false,
 }: {
   month: MonthScore;
   bare?: boolean;
+  inset?: boolean;
 }) {
   const [mode, setMode] = useState<Mode>("movimiento");
 
@@ -181,6 +188,10 @@ export function Cascade({
       </div>
     </>
   );
+
+  if (inset) {
+    return <div className="-mx-4 -my-3">{body}</div>;
+  }
 
   if (bare) {
     return (

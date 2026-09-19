@@ -31,7 +31,7 @@ export function ForecastImpactLine({
   showAction?: boolean;
   className?: string;
 }) {
-  if (!forecast) return null;
+  if (!forecast?.impact) return null;
   const { impact } = forecast;
   const action = showAction ? anticipation(impact) : null;
   return (

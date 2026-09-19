@@ -125,7 +125,7 @@ test("decisión 44: cada puerta tiene el texto de su alerta y el de su umbral de
   );
   assert.equal(
     motivoPuerta("fiabilidad", decisionInputFixture({ subscores: { A: 80, B: 42, C: 80 } }), null),
-    "Fiabilidad 42,0 por debajo de 60",
+    "Pago de obligaciones 42,0 por debajo de 60",
   );
   assert.equal(
     motivoPuerta("caja", decisionInputFixture({ alertas: ["deficit_persistente"] }), null),
@@ -133,7 +133,7 @@ test("decisión 44: cada puerta tiene el texto de su alerta y el de su umbral de
   );
   assert.equal(
     motivoPuerta("caja", decisionInputFixture({ subscores: { A: 31.5, B: 80, C: 80 } }), null),
-    "Capacidad de deuda 31,5 por debajo de 50",
+    "Estado de caja 31,5 por debajo de 50",
   );
   assert.equal(
     motivoPuerta("clientes", decisionInputFixture({ alertas: ["vencido_alto"] }), null),

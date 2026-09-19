@@ -30,6 +30,30 @@ const TONE = {
   estable: "var(--status-none)",
 } satisfies Record<PortfolioListRow["direction"], string>;
 
+/** Cuatro zonas: salud hoy (eje X) × trayectoria a 3 meses (eje Y). */
+const QUADRANT = {
+  weakImprove: {
+    fill: "var(--status-watch-surface)",
+    label: "var(--status-watch-fg)",
+    title: "Débiles que mejoran",
+  },
+  healthyImprove: {
+    fill: "var(--status-healthy-surface)",
+    label: "var(--status-healthy-fg)",
+    title: "Sanas que mejoran",
+  },
+  weakFall: {
+    fill: "var(--status-risk-surface)",
+    label: "var(--status-risk-fg)",
+    title: "Débiles que caen",
+  },
+  healthyFall: {
+    fill: "var(--status-none-surface)",
+    label: "var(--status-none-fg)",
+    title: "Sanas que caen",
+  },
+} as const;
+
 /** Dos hot casi encima se separan un poco en horizontal para que se lean los dos números. */
 function spread(points: { id: string; x: number; y: number }[]): Map<string, number> {
   const gap = HOT_R * 2 + 2;
@@ -112,15 +136,46 @@ export function TrajectoryMap({
     >
       <div className="relative" onMouseLeave={() => setHovered(null)}>
         <svg viewBox={`0 0 ${W} ${H}`} aria-hidden className="h-auto w-full overflow-visible">
-          {/* Franja estable en el centro y la línea de "sana" a la derecha. */}
+          {/* Cuatro cuadrantes coloreados: salud hoy × trayectoria a 3 meses. */}
+          <rect
+            x={PAD.left}
+            y={PAD.top}
+            width={x(HEALTHY_CUT) - PAD.left}
+            height={y(0) - PAD.top}
+            fill={QUADRANT.weakImprove.fill}
+          />
+          <rect
+            x={x(HEALTHY_CUT)}
+            y={PAD.top}
+            width={PAD.left + PLOT_W - x(HEALTHY_CUT)}
+            height={y(0) - PAD.top}
+            fill={QUADRANT.healthyImprove.fill}
+          />
+          <rect
+            x={PAD.left}
+            y={y(0)}
+            width={x(HEALTHY_CUT) - PAD.left}
+            height={PAD.top + PLOT_H - y(0)}
+            fill={QUADRANT.weakFall.fill}
+          />
+          <rect
+            x={x(HEALTHY_CUT)}
+            y={y(0)}
+            width={PAD.left + PLOT_W - x(HEALTHY_CUT)}
+            height={PAD.top + PLOT_H - y(0)}
+            fill={QUADRANT.healthyFall.fill}
+          />
+
+          {/* Franja estable: empresas con poco movimiento estructural. */}
           <rect
             x={PAD.left}
             y={y(TREND_CUT)}
             width={PLOT_W}
             height={y(-TREND_CUT) - y(TREND_CUT)}
-            fill="var(--muted)"
-            opacity={0.6}
+            fill="var(--card)"
+            opacity={0.72}
           />
+
           <line x1={PAD.left} x2={PAD.left + PLOT_W} y1={y(0)} y2={y(0)} stroke="var(--border)" />
           <line
             x1={x(HEALTHY_CUT)}
@@ -131,29 +186,67 @@ export function TrajectoryMap({
             strokeDasharray="4 4"
           />
 
-          {/* Las cuatro esquinas dicen qué significa estar ahí. */}
-          <g fill="var(--muted-foreground)" fontSize={11}>
-            <text x={PAD.left} y={PAD.top - 10}>
-              Débiles que mejoran
+          {/* Etiqueta dentro de cada cuadrante para leer la zona sin mirar la leyenda. */}
+          <g fontSize={11} fontWeight={500}>
+            <text
+              x={PAD.left + (x(HEALTHY_CUT) - PAD.left) / 2}
+              y={PAD.top + (y(0) - PAD.top) / 2 + 4}
+              textAnchor="middle"
+              fill={QUADRANT.weakImprove.label}
+            >
+              {QUADRANT.weakImprove.title}
             </text>
-            <text x={PAD.left + PLOT_W} y={PAD.top - 10} textAnchor="end">
-              Sanas que mejoran
+            <text
+              x={x(HEALTHY_CUT) + (PAD.left + PLOT_W - x(HEALTHY_CUT)) / 2}
+              y={PAD.top + (y(0) - PAD.top) / 2 + 4}
+              textAnchor="middle"
+              fill={QUADRANT.healthyImprove.label}
+            >
+              {QUADRANT.healthyImprove.title}
             </text>
-            <text x={PAD.left} y={H - 8}>
-              Débiles que caen
+            <text
+              x={PAD.left + (x(HEALTHY_CUT) - PAD.left) / 2}
+              y={y(0) + (PAD.top + PLOT_H - y(0)) / 2 + 4}
+              textAnchor="middle"
+              fill={QUADRANT.weakFall.label}
+            >
+              {QUADRANT.weakFall.title}
             </text>
-            <text x={PAD.left + PLOT_W} y={H - 8} textAnchor="end">
-              Sanas que caen
+            <text
+              x={x(HEALTHY_CUT) + (PAD.left + PLOT_W - x(HEALTHY_CUT)) / 2}
+              y={y(0) + (PAD.top + PLOT_H - y(0)) / 2 + 4}
+              textAnchor="middle"
+              fill={QUADRANT.healthyFall.label}
+            >
+              {QUADRANT.healthyFall.title}
             </text>
-            <text x={PAD.left + PLOT_W} y={y(0) - 4} textAnchor="end" fontSize={10}>
+            <text x={PAD.left + PLOT_W} y={y(0) - 4} textAnchor="end" fontSize={10} fill="var(--muted-foreground)">
               estables
             </text>
-            <text x={x(HEALTHY_CUT) + 4} y={PAD.top + 10} fontSize={10}>
+            <text x={x(HEALTHY_CUT) + 4} y={PAD.top + 10} fontSize={10} fill="var(--muted-foreground)">
               score {HEALTHY_CUT}
             </text>
           </g>
 
-          {/* La estela solo de la empresa señalada: seis meses, del más viejo al de hoy. */}
+          {/* El resto de la cartera, en gris: contexto, no protagonista. */}
+          {plotted
+            .filter((row) => row.hot === null && row.company.id !== hovered)
+            .map((row) => (
+              <circle
+                key={row.company.id}
+                cx={x(row.score)}
+                cy={y(row.trend3m!)}
+                r={3.5}
+                fill="var(--status-none)"
+                stroke="var(--card)"
+                strokeWidth={1.5}
+                opacity={0.55}
+                className="transition-[cx,cy] duration-500 ease-out"
+              />
+            ))}
+
+          {/* La estela solo de la empresa señalada: seis meses, del más viejo al de hoy.
+              Va después de la nube gris para que no quede tapada por los demás puntos. */}
           {active && active.trail.length > 1 ? (
             <g stroke={active.hot ? TONE[active.direction] : "var(--foreground)"}>
               <polyline
@@ -179,21 +272,18 @@ export function TrajectoryMap({
             </g>
           ) : null}
 
-          {/* El resto de la cartera, en gris: contexto, no protagonista. */}
-          {plotted
-            .filter((row) => row.hot === null)
-            .map((row) => (
-              <circle
-                key={row.company.id}
-                cx={x(row.score)}
-                cy={y(row.trend3m!)}
-                r={hovered === row.company.id ? 5 : 3.5}
-                fill={hovered === row.company.id ? "var(--foreground)" : "var(--status-none)"}
-                stroke="var(--card)"
-                strokeWidth={1.5}
-                className="transition-[cx,cy] duration-500 ease-out"
-              />
-            ))}
+          {/* El punto señalado va el último de su grupo para quedar siempre arriba. */}
+          {active && active.hot === null ? (
+            <circle
+              cx={x(active.score)}
+              cy={y(active.trend3m!)}
+              r={5}
+              fill="var(--foreground)"
+              stroke="var(--card)"
+              strokeWidth={1.5}
+              className="transition-[cx,cy] duration-500 ease-out"
+            />
+          ) : null}
 
           {/* Las hot: color de su trayectoria y el número que tienen en la lista de al lado. */}
           {hot.map((row) => (
@@ -204,7 +294,12 @@ export function TrajectoryMap({
               }}
               className="transition-transform duration-500 ease-out"
             >
-              <circle r={HOT_R} fill={TONE[row.direction]} stroke="var(--card)" strokeWidth={1.5} />
+              <circle
+                r={HOT_R}
+                fill={TONE[row.direction]}
+                stroke="var(--card)"
+                strokeWidth={2}
+              />
               <text
                 y={3.5}
                 textAnchor="middle"
@@ -270,17 +365,17 @@ export function TrajectoryMap({
           <span
             aria-hidden
             className="inline-block size-2.5 rounded-full"
-            style={{ background: TONE.deterioro }}
+            style={{ background: TONE.mejora }}
           />
-          Hot que cae
+          Hot que mejora
         </li>
         <li className="flex items-center gap-1.5">
           <span
             aria-hidden
             className="inline-block size-2.5 rounded-full"
-            style={{ background: TONE.mejora }}
+            style={{ background: TONE.deterioro }}
           />
-          Hot que mejora
+          Hot que cae
         </li>
         <li className="flex items-center gap-1.5">
           <span
@@ -290,7 +385,7 @@ export function TrajectoryMap({
           />
           Resto de la cartera
         </li>
-        <li className="ml-auto">
+        <li className="ml-auto hidden sm:list-item">
           El número es su puesto en la lista; pasa por encima para ver seis meses.
         </li>
       </ul>

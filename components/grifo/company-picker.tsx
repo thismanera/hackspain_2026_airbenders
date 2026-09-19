@@ -1,14 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Check } from "lucide-react";
+import { useState } from "react";
 
 import { CompanyAvatar } from "@/components/grifo/company-avatar";
-import { StatusBadge } from "@/components/grifo/status-badge";
 import {
   CommandDialog,
   CommandEmpty,
-  CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
@@ -18,9 +16,21 @@ import { formatScore } from "@/lib/features/portfolio/format";
 import { fetchPortfolio, portfolioKeys } from "@/lib/features/portfolio/queries";
 import type { PortfolioSearchState } from "@/lib/features/portfolio/search-params";
 
+/** Misma cota que la búsqueda global: filtrar en memoria y pintar pocas filas. */
+const MAX_RESULTS = 40;
+
+export const PORTFOLIO_PICKER_FILTERS: Omit<PortfolioSearchState, "mes"> = {
+  q: "",
+  estado: "todos",
+  accion: "todas",
+  direccion: "todas",
+  banda: "todas",
+  prevision: "todas",
+};
+
 /**
- * Elegir una empresa de la cartera por id o por grupo. Las ya elegidas se
- * marcan y no se pueden repetir; el título dice para qué se está eligiendo.
+ * Buscar una empresa en la cartera y añadirla. La lista completa (~1.300) se
+ * pide una vez y se cachea; aquí solo filtramos y pintamos las primeras 40.
  */
 export function CompanyPicker({
   open,
@@ -37,15 +47,9 @@ export function CompanyPicker({
   chosen: string[];
   onPick: (companyId: string) => void;
 }) {
-  const filters: PortfolioSearchState = {
-    mes: month,
-    q: "",
-    estado: "todos",
-    accion: "todas",
-    direccion: "todas",
-    banda: "todas",
-    prevision: "todas",
-  };
+  const [term, setTerm] = useState("");
+  const filters: PortfolioSearchState = { ...PORTFOLIO_PICKER_FILTERS, mes: month };
+
   const { data } = useQuery({
     queryKey: portfolioKeys.list(filters),
     queryFn: () => fetchPortfolio(filters),
@@ -53,50 +57,67 @@ export function CompanyPicker({
     staleTime: 60 * 60 * 1000,
   });
 
+  const needle = term.trim().toUpperCase();
+  const rows = data
+    ? data.rows
+        .filter(
+          (row) =>
+            !chosen.includes(row.company.id) &&
+            (needle === "" ||
+              row.company.id.includes(needle) ||
+              row.company.groupId.includes(needle)),
+        )
+        .slice(0, MAX_RESULTS)
+    : [];
+
   return (
     <CommandDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => {
+        if (!next) setTerm("");
+        onOpenChange(next);
+      }}
       title={title}
-      description="Busca por empresa o por grupo"
     >
-      <CommandInput placeholder="Empresa o grupo…" />
+      <CommandInput
+        placeholder="Empresa o grupo…"
+        value={term}
+        onValueChange={setTerm}
+      />
       <CommandList>
         <CommandEmpty>
-          {data ? "Nada con ese nombre en la cartera." : "Cargando la cartera…"}
+          {data ? "Nada con ese nombre." : "Cargando…"}
         </CommandEmpty>
-        {data ? (
-          <CommandGroup heading={title}>
-            {data.rows.map((row) => {
-              const taken = chosen.includes(row.company.id);
-              return (
-                <CommandItem
-                  key={row.company.id}
-                  value={`${row.company.id} ${row.company.groupId}`}
-                  disabled={taken}
-                  onSelect={() => {
-                    onPick(row.company.id);
-                    onOpenChange(false);
-                  }}
-                >
-                  <CompanyAvatar companyId={row.company.id} size="sm" className="shrink-0" />
-                  <span className={cn("font-mono", taken && "text-muted-foreground")}>
-                    {row.company.id}
-                  </span>
-                  {taken ? <Check aria-hidden className="size-4" /> : null}
-                  <span className="text-muted-foreground text-xs">
-                    {row.company.groupId}
-                    {row.company.groupSize > 1 ? ` · ${row.company.groupSize} empresas` : ""}
-                  </span>
-                  <span className="ml-auto flex items-center gap-2">
-                    <span className="text-xs tabular-nums">{formatScore(row.score)}</span>
-                    <StatusBadge estado={row.estado} />
-                  </span>
-                </CommandItem>
-              );
-            })}
-          </CommandGroup>
-        ) : null}
+        {rows.map((row) => (
+          <CommandItem
+            key={row.company.id}
+            value={`${row.company.id} ${row.company.groupId}`}
+            className="gap-3 py-2.5 [&>svg:last-child]:hidden"
+            onSelect={() => {
+              onPick(row.company.id);
+              setTerm("");
+              onOpenChange(false);
+            }}
+          >
+            <CompanyAvatar companyId={row.company.id} size="sm" className="shrink-0" />
+            <span className="min-w-0 flex-1">
+              <span className="block font-mono text-sm leading-tight">{row.company.id}</span>
+              <span className="text-muted-foreground block truncate text-xs leading-tight">
+                {row.company.groupId}
+                {row.company.groupSize > 1 ? ` · ${row.company.groupSize} empresas` : ""}
+              </span>
+            </span>
+            <span
+              className={cn(
+                "shrink-0 text-sm font-medium tabular-nums",
+                row.score >= 70 && "text-status-healthy-fg",
+                row.score < 50 && "text-status-risk-fg",
+              )}
+            >
+              {formatScore(row.score)}
+            </span>
+          </CommandItem>
+        ))}
       </CommandList>
     </CommandDialog>
   );

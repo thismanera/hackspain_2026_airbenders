@@ -13,6 +13,13 @@ import { GatesPanel } from "@/components/grifo/company/gates";
 import { GroupPanel } from "@/components/grifo/company/group-panel";
 import { OfferMenu } from "@/components/grifo/company/offer-menu";
 import {
+  RcaFindingsCard,
+  RcaHoldingNote,
+  RcaLead,
+  RcaPlaybookList,
+  RcaScenarios,
+} from "@/components/grifo/company/rca-panel";
+import {
   ConditionsTable,
   FeaturedAlert,
   ScoreBlocks,
@@ -29,6 +36,7 @@ import {
   formatMonthShort,
   formatPercent,
   formatScore,
+  formatSigned,
 } from "@/lib/features/portfolio/format";
 import {
   decisionNarrative,
@@ -201,6 +209,78 @@ export function CompanyScoreTab({ file }: { file: CompanyFileResponse }) {
         <DetailRow title="Cobertura del dato" aside={formatPercent(latest.confidence, 0)}>
           <CoveragePanel inset coverage={latest.coverage} confidence={latest.confidence} />
         </DetailRow>
+      </DetailStack>
+    </>
+  );
+}
+
+export function CompanyPredictionTab({ file }: { file: CompanyFileResponse }) {
+  return <ForecastPanel file={file} />;
+}
+
+/**
+ * La reacción observada desde la última inflexión autónoma (docs/engines/
+ * treasury-playbook.md): qué mejoró, qué presiona, y con qué instrumento se
+ * relaciona cada hallazgo. Solo existe la pestaña si hay una inflexión con
+ * reacción medible que explicar (`CompanyClient`/`CompanySheet` la ocultan si no).
+ */
+export function CompanyRcaTab({ file }: { file: CompanyFileResponse }) {
+  const { rca } = file;
+  if (!rca) return null;
+
+  return (
+    <>
+      <section className="bg-card rounded-xl border px-4 py-3">
+        <RcaLead rca={rca} />
+      </section>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <RcaFindingsCard
+          title="Mejoras observadas"
+          items={rca.aciertos}
+          empty="Sin mejoras seleccionadas en el periodo."
+        />
+        <RcaFindingsCard
+          title="Presiones a revisar"
+          items={rca.errores}
+          empty="Sin presiones seleccionadas en el periodo."
+        />
+      </div>
+
+      {rca.errores.length > 0 ? (
+        <section className="bg-card rounded-xl border px-4 py-3">
+          <h3 className="mb-3 text-sm font-medium">Si se revierten las presiones seleccionadas</h3>
+          <RcaScenarios rca={rca} />
+        </section>
+      ) : null}
+
+      <DetailStack label="Revisión">
+        {rca.playbook.mantener.length > 0 ? (
+          <DetailRow title="Qué mantener" aside={`${rca.playbook.mantener.length}`}>
+            <RcaPlaybookList items={rca.playbook.mantener} />
+          </DetailRow>
+        ) : null}
+        {rca.playbook.evitar.length > 0 ? (
+          <DetailRow title="Qué evitar" aside={`${rca.playbook.evitar.length}`}>
+            <RcaPlaybookList items={rca.playbook.evitar} />
+          </DetailRow>
+        ) : null}
+        {rca.playbook.accionesInmediatas.length > 0 ? (
+          <DetailRow
+            title="Acciones inmediatas"
+            aside={`${rca.playbook.accionesInmediatas.length}`}
+          >
+            <RcaPlaybookList items={rca.playbook.accionesInmediatas} />
+          </DetailRow>
+        ) : null}
+        {rca.contextoHolding.observacion ? (
+          <DetailRow
+            title="Contexto de holding"
+            aside={formatSigned(rca.contextoHolding.deltaPuntos)}
+          >
+            <RcaHoldingNote rca={rca} />
+          </DetailRow>
+        ) : null}
       </DetailStack>
     </>
   );
