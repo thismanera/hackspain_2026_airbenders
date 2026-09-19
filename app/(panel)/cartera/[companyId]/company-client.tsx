@@ -1,102 +1,89 @@
 "use client";
 
-import { Info } from "lucide-react";
-
-import { AlertsTimeline } from "@/components/grifo/company/alerts-timeline";
-import { Cascade } from "@/components/grifo/company/cascade";
+import {
+  CompanyDecisionTab,
+  CompanyGroupTab,
+  CompanyScoreTab,
+} from "@/components/grifo/company/company-file-tabs";
+import { CompanyFacts } from "@/components/grifo/company/company-facts";
 import { CompanyAvatar } from "@/components/grifo/company-avatar";
-import { CoveragePanel } from "@/components/grifo/company/coverage-panel";
-import { DecisionPanel } from "@/components/grifo/company/decision-panel";
-import { GatesPanel } from "@/components/grifo/company/gates";
-import { GroupPanel } from "@/components/grifo/company/group-panel";
-import { ForecastPanel } from "@/components/grifo/company/forecast-panel";
-import { OfferMenu } from "@/components/grifo/company/offer-menu";
-import { ScoreTrend } from "@/components/grifo/company/score-trend";
-import { StatusBadge } from "@/components/grifo/status-badge";
-import { TrendDelta } from "@/components/grifo/trend";
+import { StatusDot, statusTextClass } from "@/components/grifo/status-badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/core/utils";
-import { formatMonthLong, formatPercent, formatScore } from "@/lib/features/portfolio/format";
-import { useCompanyFile } from "@/lib/features/portfolio/hooks";
+import { useCompanyFile, useCompanyPageState } from "@/lib/features/portfolio/hooks";
+import type { SheetTab } from "@/lib/features/portfolio/search-params";
 import { ESTADO } from "@/lib/features/portfolio/vocabulary";
 
 export function CompanyClient({ companyId, month }: { companyId: string; month: string }) {
   const { data } = useCompanyFile(companyId, month);
-  const { company, latest, history, peers } = data;
+  const [{ pestana }, setPage] = useCompanyPageState();
+  const { company, latest, peers } = data;
 
   const unknown = latest.estado === "sin_datos";
-  const chips = [company.country, company.currency, company.erp].filter(Boolean);
+  const hasGroup = latest.group !== null && peers.length > 0;
+  const tab = hasGroup || pestana !== "grupo" ? pestana : "decision";
 
   return (
-    <div className="flex flex-col gap-4">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <CompanyAvatar companyId={company.id} size="lg" />
-            <h1 className="font-mono text-2xl font-semibold tracking-tight">{company.id}</h1>
-            <StatusBadge estado={latest.estado} size="lg" />
-          </div>
-          <p className="text-muted-foreground mt-1.5 text-sm">
-            <span className="font-mono">{company.groupId}</span>
-            {company.groupSize > 1
-              ? ` · ${company.groupSize} empresas en el grupo`
-              : " · única empresa del grupo"}
-            {chips.length > 0 ? ` · ${chips.join(" · ")}` : ""}
-          </p>
+    <Tabs
+      value={tab}
+      onValueChange={(value) => void setPage({ pestana: value as SheetTab }, { history: "replace" })}
+      className="max-w-3xl gap-0"
+    >
+      <header className="flex flex-col gap-2 border-b pb-0">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <CompanyAvatar companyId={company.id} />
+          <h1 className="font-mono text-lg font-semibold tracking-[-0.01em]">{company.id}</h1>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 text-xs font-medium",
+              statusTextClass(latest.estado),
+            )}
+          >
+            <StatusDot estado={latest.estado} />
+            {ESTADO[latest.estado].label}
+          </span>
+          <CompanyFacts
+            className="sm:ml-auto"
+            score={latest.score}
+            trend3m={latest.trend3m}
+            confidence={latest.confidence}
+            unknown={unknown}
+          />
         </div>
 
-        <dl className="flex shrink-0 gap-6 sm:gap-8">
-          <div>
-            <dt className="text-muted-foreground text-xs">Score en {formatMonthLong(month)}</dt>
-            <dd
-              className={cn(
-                "mt-0.5 flex items-baseline gap-2 text-3xl font-semibold tabular-nums",
-                unknown && "text-muted-foreground",
-              )}
-            >
-              {formatScore(latest.score)}
-              <TrendDelta trend3m={latest.trend3m} direction={latest.direction} showWindow />
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground text-xs">Confianza</dt>
-            <dd className="mt-0.5 text-3xl font-semibold tabular-nums">
-              {formatPercent(latest.confidence, 0)}
-            </dd>
-          </div>
-        </dl>
+        {unknown ? (
+          <p className="text-muted-foreground text-xs text-pretty">
+            No opinamos todavía: {latest.coverage.observedMonths} de 6 meses observados. El score no
+            es una recomendación.
+          </p>
+        ) : null}
+
+        <TabsList variant="line" className="h-9 gap-4 p-0">
+          <TabsTrigger value="decision" className="px-0 text-sm after:!bottom-[-1px]">
+            Decisión
+          </TabsTrigger>
+          <TabsTrigger value="score" className="px-0 text-sm after:!bottom-[-1px]">
+            Score
+          </TabsTrigger>
+          {hasGroup ? (
+            <TabsTrigger value="grupo" className="px-0 text-sm after:!bottom-[-1px]">
+              Grupo
+            </TabsTrigger>
+          ) : null}
+        </TabsList>
       </header>
 
-      {unknown ? (
-        <p className="bg-status-none-surface flex items-start gap-2.5 rounded-lg border p-4 text-sm text-pretty">
-          <Info aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
-          <span>
-            <span className="font-medium">No opinamos sobre esta empresa todavía.</span>{" "}
-            {ESTADO.sin_datos.description} Con {latest.coverage.observedMonths} de 6 meses
-            observados, el score de abajo se calcula igual pero no es defendible: trátalo como una
-            estimación provisional, no como una recomendación.
-          </span>
-        </p>
+      <TabsContent value="decision" className="flex flex-col gap-4 pt-4">
+        <CompanyDecisionTab file={data} />
+      </TabsContent>
+      <TabsContent value="score" className="flex flex-col gap-4 pt-4">
+        <CompanyScoreTab file={data} />
+      </TabsContent>
+      {hasGroup ? (
+        <TabsContent value="grupo" className="flex flex-col gap-4 pt-4">
+          <CompanyGroupTab file={data} />
+        </TabsContent>
       ) : null}
-
-      <DecisionPanel decision={latest.decision} changed={latest.decision.action !== "mantener"} />
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="flex flex-col gap-4 lg:col-span-2">
-          <ScoreTrend history={history} />
-          <ForecastPanel companyId={companyId} month={month} />
-          <Cascade month={latest} />
-        </div>
-
-        <div className="flex flex-col gap-4">
-          {latest.decision.eligible ? <OfferMenu options={latest.decision.menu} /> : null}
-          <GatesPanel gates={latest.decision.gates} />
-          <AlertsTimeline alerts={latest.alerts} />
-          {latest.group && peers.length > 0 ? (
-            <GroupPanel group={latest.group} peers={peers} month={month} />
-          ) : null}
-          <CoveragePanel coverage={latest.coverage} confidence={latest.confidence} />
-        </div>
-      </div>
-    </div>
+    </Tabs>
   );
 }

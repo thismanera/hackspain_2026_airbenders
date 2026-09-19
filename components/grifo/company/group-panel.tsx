@@ -12,10 +12,8 @@ import { ESTADO } from "@/lib/features/portfolio/vocabulary";
  * Bloque D de SOURCE §1.7. La asimetría (decisión #16) es lo que hay que dejar
  * claro: el grupo solo avala si tiene con qué, pero arrastra siempre.
  *
- * En la hoja las cuatro cifras van cada una en su card y las hermanas en otra:
- * es la misma jerarquía que Decisión y Score, no un párrafo suelto sobre el
- * suelo. En la página completa, donde el bloque convive con otros, sigue
- * siendo una sola tarjeta.
+ * Las cuatro cifras van en una sola fila; las hermanas, en su card. El
+ * titular TellMe ya dice si el grupo tira o arrastra: aquí solo el número.
  */
 const SISTER_GRID = "grid w-full grid-cols-[minmax(0,1fr)_3.5rem_3rem_1.5rem] items-center text-sm";
 
@@ -35,11 +33,6 @@ export function GroupPanel({
 }) {
   const helps = group.adjustment > 0;
   const neutral = Math.abs(group.adjustment) < 0.5;
-  const verdict = neutral
-    ? "El grupo no mueve el score de forma apreciable este mes."
-    : helps
-      ? "El resto del grupo tiene capacidad y tira del score hacia arriba."
-      : "El resto del grupo está peor y arrastra el score hacia abajo.";
 
   const figures = [
     {
@@ -51,15 +44,10 @@ export function GroupPanel({
           {formatSigned(group.adjustment)}
         </span>
       ),
-      hint: neutral ? "Sin movimiento" : helps ? "Tira del score" : "Arrastra el score",
     },
     { label: "Peso del grupo", value: formatPercent(group.weight, 0) },
     { label: "Su peso", value: formatPercent(group.share, 0) },
-    {
-      label: "Interdependencia",
-      value: formatPercent(group.interdependence, 0),
-      hint: `Aval ${group.support.toLocaleString("es-ES", { maximumFractionDigits: 1 })}× · media ${formatScore(group.peerScore)}`,
-    },
+    { label: "Interdependencia", value: formatPercent(group.interdependence, 0) },
   ];
 
   const sisters = (
@@ -104,22 +92,20 @@ export function GroupPanel({
     </div>
   );
 
+  const row = (
+    <section aria-label="Cifras del grupo" className="bg-card rounded-xl border px-4 py-3">
+      <dl className="grid grid-cols-4 gap-x-3">
+        {figures.map((figure) => (
+          <Figure key={figure.label} label={figure.label} value={figure.value} />
+        ))}
+      </dl>
+    </section>
+  );
+
   if (cards) {
     return (
       <>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {figures.map((figure) => (
-            <section
-              key={figure.label}
-              className="bg-card rounded-xl border px-4 py-3"
-              aria-label={figure.label}
-            >
-              <dl>
-                <Figure label={figure.label} value={figure.value} hint={figure.hint} />
-              </dl>
-            </section>
-          ))}
-        </div>
+        {row}
         <Panel
           title={peers.length === 1 ? "Su hermana" : "Sus hermanas"}
           bodyClassName="px-4 pt-0 pb-1"
@@ -131,13 +117,14 @@ export function GroupPanel({
   }
 
   return (
-    <Panel title="Efecto del grupo" description={verdict} bodyClassName="flex flex-col gap-3">
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-        {figures.map((figure) => (
-          <Figure key={figure.label} label={figure.label} value={figure.value} hint={figure.hint} />
-        ))}
-      </dl>
-      <div className="-mx-4 -mb-4 border-t px-4">{sisters}</div>
-    </Panel>
+    <>
+      {row}
+      <Panel
+        title={peers.length === 1 ? "Su hermana" : "Sus hermanas"}
+        bodyClassName="px-4 pt-0 pb-1"
+      >
+        {sisters}
+      </Panel>
+    </>
   );
 }
