@@ -9,12 +9,12 @@ import {
   Gauge,
   HandCoins,
   Landmark,
-  Lock,
-  LockOpen,
   Network,
   Receipt,
+  TrendingDown,
   Truck,
   X,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -344,75 +344,41 @@ function ScoreIdea() {
   );
 }
 
-/* Animación del candado: solo el icono cerrándose, sin card ni efectos artificiales */
-function HeroLock() {
-  return (
-    <div className="intro-rise mb-3 flex items-center justify-center">
-      <span aria-hidden="true" className="relative flex size-12 items-center justify-center sm:size-14">
-        <LockOpen className="lock-open-out text-muted-foreground/60 absolute size-10 sm:size-12" strokeWidth={1.75} />
-        <Lock className="lock-closed-in text-[#0F1331] absolute size-10 sm:size-12" strokeWidth={1.75} />
-      </span>
-    </div>
-  );
-}
-
-/* 6 · Primero la empresa: la nota es suya y 100% privada. */
+/* 6 · Para la empresa: beneficios claros, sin cards ni ruido. */
 function Ownership() {
+  const benefits = [
+    {
+      icon: Gauge,
+      title: "Score privado",
+      desc: "Conoce su salud cada mes, sin que ningún banco la vea.",
+    },
+    {
+      icon: TrendingDown,
+      title: "Pagar menos",
+      desc: "Sabe qué mejorar para abaratar su coste de crédito.",
+    },
+    {
+      icon: Zap,
+      title: "Sin esperar a fin de año",
+      desc: "Pide financiación en cualquier momento, a golpe de click.",
+    },
+  ];
+
   return (
-    <div className="intro-rise mx-auto mt-8 grid w-full max-w-2xl gap-4 text-left sm:grid-cols-3 [animation-delay:180ms]">
-      {/* 1. Score privado */}
-      <div className="bg-card flex flex-col justify-between gap-4 rounded-[14px] border p-5 shadow-xs">
-        <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold tracking-tight text-foreground">82</span>
-            <span className="text-muted-foreground text-xs font-normal">/100</span>
+    <div className="intro-rise mx-auto mt-12 grid w-full max-w-2xl grid-cols-1 gap-8 text-center sm:grid-cols-3 sm:gap-6 [animation-delay:180ms]">
+      {benefits.map((item) => (
+        <div key={item.title} className="flex flex-col items-center gap-3">
+          <span className="bg-muted text-foreground flex size-12 items-center justify-center rounded-full">
+            <item.icon className="size-5.5" strokeWidth={1.75} />
+          </span>
+          <div>
+            <p className="text-base font-semibold tracking-[-0.01em]">{item.title}</p>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed text-balance">
+              {item.desc}
+            </p>
           </div>
-          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-            +4 este mes
-          </span>
         </div>
-        <div>
-          <p className="text-base font-semibold tracking-[-0.01em]">Score privado</p>
-          <p className="text-muted-foreground mt-1 text-xs sm:text-sm leading-relaxed">
-            Salud calculada cada mes con tus movimientos, sin que ningún banco la vea.
-          </p>
-        </div>
-      </div>
-
-      {/* 2. Pagar menos intereses */}
-      <div className="bg-card flex flex-col justify-between gap-4 rounded-[14px] border p-5 shadow-xs">
-        <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-muted-foreground text-xs font-medium line-through">5,4%</span>
-            <span className="text-2xl font-bold tracking-tight text-foreground">3,8%</span>
-          </div>
-          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-            -1,6% TAE
-          </span>
-        </div>
-        <div>
-          <p className="text-base font-semibold tracking-[-0.01em]">Pagar menos intereses</p>
-          <p className="text-muted-foreground mt-1 text-xs sm:text-sm leading-relaxed">
-            Palancas en cobros y pagos para mejorar tu nota y conseguir mejor precio.
-          </p>
-        </div>
-      </div>
-
-      {/* 3. Financiación disponible */}
-      <div className="bg-card flex flex-col justify-between gap-4 rounded-[14px] border p-5 shadow-xs">
-        <div className="flex items-center justify-between">
-          <span className="text-2xl font-bold tracking-tight text-foreground">180k €</span>
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-            Preaprobado
-          </span>
-        </div>
-        <div>
-          <p className="text-base font-semibold tracking-[-0.01em]">Línea disponible</p>
-          <p className="text-muted-foreground mt-1 text-xs sm:text-sm leading-relaxed">
-            Listo para pedir a golpe de click cuando quieras, sin esperar a final de año.
-          </p>
-        </div>
-      </div>
+      ))}
     </div>
   );
 }
@@ -632,11 +598,10 @@ export const SCENES: Scene[] = [
     body: <ScoreIdea />,
   },
   {
-    kicker: "Primero, la empresa",
-    heroVisual: <HeroLock />,
+    kicker: "Para la empresa",
     title: (
       <>
-        Su score es privado. <Accent>La empresa decide cuándo compartirlo.</Accent>
+        Financiación más barata <Accent>y sin esperar a fin de año.</Accent>
       </>
     ),
     body: <Ownership />,
