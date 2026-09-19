@@ -10,6 +10,7 @@
 /build
 *.tsbuildinfo
 next-env.d.ts
+/analysis/transaction_categories.csv
 
 # testing
 /coverage
