@@ -10,24 +10,47 @@ export const FX_FALLBACK: Record<string, number> = {
   GBP: 1.16,
   CHF: 1.06,
   DKK: 0.134,
-  NOK: 0.088,
+  NOK: 0.0909,
   SEK: 0.09,
   AUD: 0.58,
   CAD: 0.63,
   NZD: 0.53,
   MXN: 0.048,
   BRL: 0.16,
-  COP: 0.00022,
+  COP: 0.0002,
   CLP: 0.00095,
-  ARS: 0.0008,
+  ARS: 0.0006,
   BAM: 0.51,
   PLN: 0.235,
   CZK: 0.04,
   HUF: 0.0025,
   RON: 0.2,
   TRY: 0.024,
+  AED: 0.24,
+  JPY: 0.0063,
+  NAD: 0.048,
+  PEN: 0.24,
+  MYR: 0.216,
+  INR: 0.01,
+  AOA: 0.00093,
+  XOF: 0.001524,
+  GHS: 0.06,
+  VND: 0.000037,
+  SGD: 0.68,
+  MZN: 0.0145,
+  MAD: 0.093,
 };
 
+/** Mínimo de observaciones para fiarse de una mediana mensual, y desvío máximo frente al respaldo. */
+const MIN_MUESTRAS = 3;
+const FACTOR_MAX = 5;
+
+/**
+ * Mediana mensual de `exchange_rate` por moneda (§3.2). Una mediana solo entra en la tabla si tiene
+ * al menos 3 observaciones y, cuando hay respaldo para esa moneda, no se desvía más de un factor 5:
+ * un puñado de facturas con la tasa invertida o en otra moneda produciría si no una tasa absurda
+ * para todo un mes.
+ */
 export function buildFxTable(rows: FxObservation[]): FxTable {
   const samples: Record<string, Record<string, number[]>> = {};
   for (const r of rows) {
@@ -44,14 +67,21 @@ export function buildFxTable(rows: FxObservation[]): FxTable {
   }
   const table: FxTable = {};
   for (const [currency, byMonth] of Object.entries(samples))
-    for (const [month, xs] of Object.entries(byMonth))
-      (table[currency] ??= {})[month] = median(xs)!;
+    for (const [month, xs] of Object.entries(byMonth)) {
+      if (xs.length < MIN_MUESTRAS) continue;
+      const m = median(xs)!;
+      const respaldo = Object.hasOwn(FX_FALLBACK, currency) ? FX_FALLBACK[currency] : null;
+      if (respaldo !== null && (m > respaldo * FACTOR_MAX || m < respaldo / FACTOR_MAX)) continue;
+      (table[currency] ??= {})[month] = m;
+    }
   return table;
 }
 
 export function eurRate(fx: FxTable, currency: string, month: string): number | null {
   if (currency === "EUR") return 1;
-  return fx[currency]?.[month] ?? FX_FALLBACK[currency] ?? null;
+  const byMonth = Object.hasOwn(fx, currency) ? fx[currency] : undefined;
+  if (byMonth && Object.hasOwn(byMonth, month)) return byMonth[month];
+  return Object.hasOwn(FX_FALLBACK, currency) ? FX_FALLBACK[currency] : null;
 }
 
 /**

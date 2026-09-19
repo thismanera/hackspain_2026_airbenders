@@ -1,5 +1,12 @@
 import { PARAMS } from "@/lib/features/scoring/params";
-import type { Alert, Contribution, Direccion, Naturaleza, Senales } from "@/lib/features/scoring/types";
+import type {
+  Alert,
+  AlertTipo,
+  Contribution,
+  Direccion,
+  Naturaleza,
+  Senales,
+} from "@/lib/features/scoring/types";
 
 export function direccion(score: number, score3: number | null): Direccion {
   if (score3 === null) return "estable";
@@ -11,27 +18,44 @@ export function direccion(score: number, score3: number | null): Direccion {
 
 const NIVEL = new Set(["A1", "A2", "A3"]);
 
+/**
+ * `dirPrev`: direcciones de los meses anteriores en orden cronológico (la más reciente al final).
+ * Para que un movimiento sea estructural la dirección debe repetirse `PARAMS.persistenciaEstructural`
+ * meses seguidos contando el actual, es decir los últimos `persistenciaEstructural − 1` elementos de
+ * `dirPrev` deben coincidir con `dir` (con el valor 2 actual: el mes anterior).
+ */
 export function naturaleza(
   dir: Direccion,
-  dirPrev: Direccion,
+  dirPrev: Direccion[],
   contributions: Contribution[],
   contributions3: Contribution[] | null,
 ): Naturaleza {
   if (dir === "estable") return "sin_cambio";
-  if (dirPrev !== dir || !contributions3) return "temporal";
+  const necesarios = PARAMS.persistenciaEstructural - 1;
+  const recientes = necesarios > 0 ? dirPrev.slice(-necesarios) : [];
+  if (recientes.length < necesarios || !recientes.every((d) => d === dir) || !contributions3)
+    return "temporal";
   const sign = dir === "mejora" ? 1 : -1;
   const moved = contributions.filter((c) => {
     const before = contributions3.find((x) => x.id === c.id);
     return before && sign * (c.aportacion - before.aportacion) >= PARAMS.deltaAportacionMin;
   });
-  return moved.length >= PARAMS.minVariablesEstructural && moved.some((c) => NIVEL.has(c.id)) ? "estructural" : "temporal";
+  return moved.length >= PARAMS.minVariablesEstructural && moved.some((c) => NIVEL.has(c.id))
+    ? "estructural"
+    : "temporal";
 }
 
-export function deltas(now: Contribution[], prev: Contribution[] | null): { id: Contribution["id"]; delta: number }[] {
-  return now.map((c) => ({ id: c.id, delta: c.aportacion - (prev?.find((p) => p.id === c.id)?.aportacion ?? c.aportacion) }));
+export function deltas(
+  now: Contribution[],
+  prev: Contribution[] | null,
+): { id: Contribution["id"]; delta: number }[] {
+  return now.map((c) => ({
+    id: c.id,
+    delta: c.aportacion - (prev?.find((p) => p.id === c.id)?.aportacion ?? c.aportacion),
+  }));
 }
 
-const RULES: { tipo: string; flag: keyof Senales; meses: number }[] = [
+const RULES: { tipo: AlertTipo; flag: keyof Senales; meses: number }[] = [
   { tipo: "deterioro", flag: "deterioro", meses: 2 },
   { tipo: "deterioro_estructural", flag: "estructural", meses: 1 },
   { tipo: "recuperacion", flag: "mejora", meses: 2 },
@@ -42,7 +66,12 @@ const RULES: { tipo: string; flag: keyof Senales; meses: number }[] = [
   { tipo: "datos_insuficientes", flag: "datosInsuficientes", meses: 1 },
 ];
 
-/** prev: señales de los meses anteriores en orden cronológico; months: meses de prev seguidos del actual. */
+/**
+ * `prev`: señales de los meses anteriores en orden cronológico; `months`: los meses de `prev`
+ * seguidos del actual. Debe haber exactamente una entrada de `Senales` por mes de calendario
+ * consecutivo (sin huecos): la racha cuenta posiciones, así que un mes ausente se leería como
+ * continuidad y `desdeMes` saldría desplazado.
+ */
 export function computeAlerts(now: Senales, prev: Senales[], months: string[]): Alert[] {
   const all = [...prev, now];
   const out: Alert[] = [];
@@ -50,7 +79,7 @@ export function computeAlerts(now: Senales, prev: Senales[], months: string[]): 
     if (!now[r.flag]) continue;
     let run = 0;
     for (let i = all.length - 1; i >= 0 && all[i][r.flag]; i--) run++;
-    if (run >= r.meses) out.push({ tipo: r.tipo, desdeMes: months[all.length - run] });
+    if (run >= r.meses) out.push({ tipo: r.tipo, desdeMes: months[months.length - run] });
   }
   return out;
 }

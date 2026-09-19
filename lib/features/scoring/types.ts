@@ -107,7 +107,16 @@ export type Contribution = {
   sano: boolean | null;
 };
 
-export type Alert = { tipo: string; desdeMes: string };
+export type AlertTipo =
+  | "deterioro"
+  | "deterioro_estructural"
+  | "recuperacion"
+  | "deficit_persistente"
+  | "impago_obligaciones"
+  | "vencido_alto"
+  | "contagio_grupo"
+  | "datos_insuficientes";
+export type Alert = { tipo: AlertTipo; desdeMes: string };
 export type Direccion = "mejora" | "estable" | "deterioro";
 export type Naturaleza = "temporal" | "estructural" | "sin_cambio";
 export type Estado = "sana" | "vigilar" | "riesgo" | "sin_datos";
