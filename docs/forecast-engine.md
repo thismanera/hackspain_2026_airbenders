@@ -1,5 +1,9 @@
 # Motor de previsión dual — especificación para desarrollo v1.0
 
+> Estado implementado: parámetros de forecast revisión 2, vinculados a
+> `scoreSolo-holding-v6`. El ajuste de conexión se recalibra después de cada cambio de
+> contrato y no reutiliza artefactos de versiones anteriores.
+
 > Implementa §2 de [`SOURCE.md`](./SOURCE.md) (decisiones 34-38, validadas
 > 19-09-2026). Se sitúa entre [`scoring-engine.md`](./scoring-engine.md) y
 > [`decision-engine.md`](./decision-engine.md). Determinista en v1, sin
@@ -14,8 +18,9 @@ company_month_score ─▶ FORECAST ─▶ company_month_forecast ─▶ decisio
 La implementación actual conserva dos objetivos independientes: `scoreSolo` (capacidad
 autónoma) y `scoreGrupo` (capacidad dentro del holding). Ambos se calculan y persisten en
 cada ejecución. Cada objetivo se conecta a decisión únicamente si mejora fuera de muestra al
-baseline de persistencia tanto en MAE como en acierto de banda; si no, aparece como **modo
-sombra** y no modifica la oferta.
+baseline de persistencia en MAE y al menos igual en acierto de banda; si no, aparece como
+**modo sombra** y no modifica la oferta. La conexión se decide por separado para Solo y Grupo:
+`MAE < MAE_baseline` y `acierto_banda ≥ acierto_banda_baseline`.
 
 El forecast no es una probabilidad de impago. `probDeterioro*` describe estrés operativo
 observado y debe leerse junto con confianza, estado, puertas y la condición de aval.
@@ -63,6 +68,7 @@ para proyectar `caja_op` y la racha de déficit.
 
 | Parámetro                              | Valor                                                         | Decisión |
 | -------------------------------------- | ------------------------------------------------------------- | -------- |
+| `revision`                             | 2                                                             | contrato |
 | `horizontes` (meses)                   | 3, 6                                                          | 34       |
 | `ventana_tendencia` (meses)            | 6                                                             | 35       |
 | `min_meses_tendencia`                  | 4                                                             | 35       |
@@ -159,7 +165,7 @@ la ficha.
 
 Condición para conectar cada objetivo: en validación, su MAE a 3 meses debe ser
 estrictamente menor que el baseline de persistencia **y** su acierto de banda
-estrictamente mayor. Si no, se persiste y se muestra como modo sombra.
+igual o mayor. Si no, se persiste y se muestra como modo sombra.
 
 Receta (de `analysis/FINDINGS.md` §7, Alex): features en `t` (valores
 brutos, subnotas, tendencias, rango percentil por mes de calendario,

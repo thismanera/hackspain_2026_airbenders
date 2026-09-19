@@ -629,6 +629,40 @@ test("a strong holding can support a weak autonomous score only with the matrix 
   assert.match(rows[2].motivoAccion, /Requiere Aval Solidario de Matriz/);
 });
 
+test("positive holding support can use the guarantee below the usual +15 threshold", () => {
+  const rows = decideGroup(
+    serie("a", (i) =>
+      i === 2
+        ? {
+            scoreSolo: 42,
+            scoreGrupo: 52,
+            ajusteHolding: 10,
+            requiereAvalMatriz: false,
+            estadoSolo: "riesgo",
+            estadoGrupo: "vigilar",
+          }
+        : {},
+    ),
+    params,
+  );
+  assert.equal(rows[2].condicionAvalMatriz, true);
+  assert.equal(rows[2].elegible, true);
+  assert.match(rows[2].motivoAccion, /Requiere Aval Solidario de Matriz/);
+});
+
+test("Stage 2 review limits a new opening to 60 days", () => {
+  const rows = decideGroup(
+    serie("a", (i) =>
+      i === 0
+        ? { evaluacionEwi: { ...scoreRowFixture().evaluacionEwi, revisionStage2Candidata: true } }
+        : {},
+    ),
+    params,
+  );
+  assert.equal(rows[0].accion, "abrir");
+  assert.ok(rows[0].TMax <= 60);
+});
+
 test("decideGroup refuses rows from another group or outside the calendar", () => {
   const rows = serie("a", () => ({}));
   assert.throws(

@@ -1,5 +1,9 @@
 # Motor de scoring — especificación para desarrollo v1.0
 
+> Estado implementado: contrato `scoreSolo-holding-v6`. `scoreSolo` es la única nota
+> autónoma; `scoreGrupo` añade el contexto de holding mediante `ajusteHolding`. Los
+> parámetros y artefactos de versiones anteriores no deben interpretarse con este contrato.
+
 > Implementa §1 de [`SOURCE.md`](./SOURCE.md) (decisiones 1-10, 14-16, 24,
 > validadas 18/19-09-2026). Si algo aquí contradice a
 > `SOURCE.md`, manda `SOURCE.md` y se corrige esto. Determinista, sin LLM.
@@ -22,6 +26,13 @@ Por cada empresa y cierre de mes:
 
 Responde a las seis preguntas del reto: sanas, mejoran, empeoran,
 temporal/estructural, por qué, con cuánta antelación (§13).
+
+La detección de inflexión conserva el origen autónomo y el de grupo mientras el régimen
+continúe: exige continuidad mensual, permite meses planos y oscilaciones internas de hasta un
+punto, y actualiza `antelacionMeses` sin desplazar el origen por un nuevo extremo de la misma
+dirección. Un giro contrario confirmado sustituye el origen; una ausencia mensual o la ruptura
+del extremo invalida la memoria. `diagnosticoMejora` puede estar liderado por A1, A2, B1, B2 o
+C4 y siempre exige la tendencia y continuidad documentadas.
 
 ## 1. Entradas
 
@@ -446,8 +457,10 @@ explicabilidad y producto.
 ▶ D1, D2, D3, D4, D5, conf_D, tiene_prestamo_intragrupo
 ▶ cobros_op_grupo_media6m, pagos_op_grupo_media6m, servicio_deuda_grupo_media6m, scoreGrupo
   alertas[]                      {tipo, desde_mes}
+  evaluacion_ewi                 {ewis[4], revision_stage2_candidata}
+  gap_ciclo_dias, recomendacion_embat, requiere_aval_matriz, alerta_pignoracion_caja
   cobertura                      {meses_obs_6m, meses_obs_12m, pct_clasificado_6m, n_facturas_cli_6m, n_facturas_prov_6m,
-                                  tiene_linea_credito, tiene_cuotas, n_hermanas_con_datos, C4_estimado, importes_excluidos_eur}
+                                  tiene_linea_credito, tiene_cuotas, n_hermanas_con_datos, hardcore_revolving, C4_estimado, importes_excluidos_eur}
 ```
 
 Regla de oro: la fila `t` solo usa eventos con fecha ≤ `fin(t)`. Añadir
@@ -477,16 +490,16 @@ Percentiles de fixture: A1 [−0,10; 0,30] · A2 [0; 0,67] · A3 [0,5; 4,0] ·
 A4 [0; 0,50] · A5 [0; 0,60] · B1 [0,5; 1,0] · B3 [−10; 60] · C1 [0,2; 0,9] ·
 C2 [0,2; 0,9] · C3 [−5; 60] · C4 [0; 0,6] · C5 [0,05; 0,8] · C6 [0; 0,10].
 
-| Fixture                 | Flujos (6 meses iguales, €)                                                                                                                   | Esperado en `t = mes 6`                                                                                                                                                                                                  |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sana`                  | cobros 100 k, pagos 85 k, servicio 5 k, sin línea, tax/SS/nómina presentes y constantes, 10 clientes iguales, facturas cliente pagadas a +5 d | A1 = 0,15 → 62,5 · A2 = 0 → 100 · A3 = 3,0 → 71,4 · A4 = 0,05 → 90 · A5 NA → 50 (conf 0,3) · B1 = 1 → 100 · B2 = 0 → 100 · C1 = 0,3 → 85,7 · subscore_A ≈ 74 (con conf 1 salvo A5) · estado `sana` · direccion `estable` |
-| `salto_un_mes`          | como `sana`, pero mes 4 sin `tax` y mes 5 con `tax` doble                                                                                     | mes 4: B2 = 1 (70), B1 = 200 k/210 k = 0,952 (Σ de las cuatro categorías) · mes 5: B1 = 1, B2 = 0 con decaimiento → 80 · mes 6: 90 · nunca `riesgo`                                                                      |
-| `impago`                | como `sana`, meses 5 y 6 sin `social_security`                                                                                                | mes 6: B2 = 2 → 0 · estado `riesgo` · alerta `impago_obligaciones`                                                                                                                                                       |
-| `deterioro_estructural` | cobros bajan 100 k → 70 k linealmente desde mes 4, pagos fijos 85 k                                                                           | mes 6: A1 < 0, A2 ≥ 0,5, racha_deficit ≥ 2 · `tend_score_3m ≤ −6` · con mes 7 igual: `naturaleza = estructural` (A1, A2 mueven, persistencia 2)                                                                          |
-| `bache`                 | como `sana`, mes 5 cobros 40 k, mes 6 vuelve a 100 k                                                                                          | mes 5 direccion puede ser `deterioro`; mes 6 `naturaleza = temporal` (no persiste) · nunca `estructural`                                                                                                                 |
-| `historial_corto`       | solo 2 meses de datos                                                                                                                         | conf_A ≈ 0,33 · `confianza < 0,5` · estado `sin_datos` si < 0,3                                                                                                                                                          |
-| `filial_subvencionada`  | filial con Ci < 0, D4 > 0,30, B2 observado = 0 y D2 ≥ 60                                                                                      | perfil descriptivo; puede permitir `estadoGrupo = vigilar` con ajuste positivo, sin alterar `scoreSolo`                                                                                                                  |
-| `drenaje_tesoreria`     | empresa con Ci > 0 y D4 < −0,40                                                                                                               | perfil descriptivo; el ajuste ya recoge el reparto monetario del holding                                                                                                                                                 |
+| Fixture                 | Flujos (6 meses iguales, €)                                                                                                                   | Esperado en `t = mes 6`                                                                                                                                                                                             |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sana`                  | cobros 100 k, pagos 85 k, servicio 5 k, sin línea, tax/SS/nómina presentes y constantes, 10 clientes iguales, facturas cliente pagadas a +5 d | A1 = 0,15 → 62,5 · A2 = 0 → 100 · A3/A4/A5 no aplicables (peso 0, subnota null) · B1 = 1 → 100 · B2 = 0 → 100 · C1 = 0,3 → 85,7 · subscore_A ≈ 79 (confianza A = media A1/A2) · estado `sana` · direccion `estable` |
+| `salto_un_mes`          | como `sana`, pero mes 4 sin `tax` y mes 5 con `tax` doble                                                                                     | mes 4: B2 = 1 (70), B1 = 200 k/210 k = 0,952 (Σ de las cuatro categorías) · mes 5: B1 = 1, B2 = 0 con decaimiento → 80 · mes 6: 90 · nunca `riesgo`                                                                 |
+| `impago`                | como `sana`, meses 5 y 6 sin `social_security`                                                                                                | mes 6: B2 = 2 → 0 · estado `riesgo` · alerta `impago_obligaciones`                                                                                                                                                  |
+| `deterioro_estructural` | cobros bajan 100 k → 70 k linealmente desde mes 4, pagos fijos 85 k                                                                           | mes 6: A1 < 0, A2 ≥ 0,5, racha_deficit ≥ 2 · `tend_score_3m ≤ −6` · con mes 7 igual: `naturaleza = estructural` (A1, A2 mueven, persistencia 2)                                                                     |
+| `bache`                 | como `sana`, mes 5 cobros 40 k, mes 6 vuelve a 100 k                                                                                          | mes 5 direccion puede ser `deterioro`; mes 6 `naturaleza = temporal` (no persiste) · nunca `estructural`                                                                                                            |
+| `historial_corto`       | solo 2 meses de datos                                                                                                                         | conf_A ≈ 0,33 · `confianza < 0,5` · estado `sin_datos` si < 0,3                                                                                                                                                     |
+| `filial_subvencionada`  | filial con Ci < 0, D4 > 0,30, B2 observado = 0 y D2 ≥ 60                                                                                      | perfil descriptivo; puede permitir `estadoGrupo = vigilar` con ajuste positivo, sin alterar `scoreSolo`                                                                                                             |
+| `drenaje_tesoreria`     | empresa con Ci > 0 y D4 < −0,40                                                                                                               | perfil descriptivo; el ajuste ya recoge el reparto monetario del holding                                                                                                                                            |
 
 Tests de propiedades (sobre todas las filas del dataset real):
 

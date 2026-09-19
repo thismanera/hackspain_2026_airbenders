@@ -1,11 +1,24 @@
 # Motor de decisión — especificación para desarrollo v1.0
 
+> Estado implementado: consume scoring `scoreSolo-holding-v6`. El apoyo positivo del holding
+> puede abrir una ruta condicionada a aval cuando `scoreSolo < 45`, `scoreGrupo ≥ 45` y el
+> `ajusteHolding` es positivo, aunque no alcance el umbral habitual de `requiereAvalMatriz`.
+
 La entrada autónoma se llama `scoreSolo`; no existe un campo numérico `score`
 en la fila TypeScript de scoring. `proyectar` mapea `scoreSolo` → `DecisionInput.score`,
 `estadoSolo` → `estado` y `ajusteHolding`. `scoreGrupo` y
 `estadoGrupo` describen el holding; la decisión conserva la peor banda actual
 entre Solo y Grupo. El apoyo positivo de `scoreGrupo` solo entra por la ruta
 condicionada a aval solidario.
+
+La ruta de aval conserva las puertas duras: impagos, morosidad grave, déficit persistente,
+cross-default y falta de evidencia no pueden ser superados por el holding. Cuando la ruta se
+activa, la fila publica `condicionAvalMatriz` y añade `[Requiere Aval Solidario de Matriz]` al
+motivo de acción.
+
+`revisionStage2Candidata` es una señal interna de revisión. Impide ampliar y limita a 60 días
+el plazo tanto de líneas vivas como de nuevas aperturas; no se presenta como clasificación
+regulatoria formal.
 
 > Implementa §3 de [`SOURCE.md`](./SOURCE.md) (decisiones 11, 12, 17-23, 37 y
 > el contrato mínimo 43-47, validadas 19-09-2026). Sustituye a §8 de
@@ -28,7 +41,7 @@ Un solo límite `L` sirve para anticipar cobros o aplazar pagos; el uso solo
 fija el plazo natural (§6).
 
 **Por qué solo el score** (decisión 43). Scoring ya hizo el trabajo de
-interpretar los datos: tres bloques, 25 variables, una confianza por variable,
+interpretar los datos: tres bloques, 14 variables, una confianza por variable,
 dirección a 3 meses y alertas con su mes de inicio. Cuando el motor de decisión
 volvía además a leer los flujos a 6 meses, `racha_B2`, `racha_deficit`, `C4`,
 `C3_dias`, `capacidad_cuota_adv` y los flujos consolidados del grupo, estaba
@@ -70,11 +83,13 @@ Lo que **no** entra, y por qué: `cobros_op_media6m`, `pagos_op_media6m`,
 grupo (el techo se mide sobre `Σ tamano`, §9); `senales`, `cobertura`,
 `variables`, `delta_contrib` y `estadoGrupo` (el holding ya está en
 `ajusteHolding`; `scoreGrupo` se usa para conservar una banda peor del holding
-o en la ruta condicionada a aval).
+o en la ruta condicionada a aval). El acierto de banda del forecast puede empatar con el
+baseline para conectar el objetivo, siempre que su MAE sea estrictamente menor.
 
 De `company_month_forecast` (forecast-engine §8), mismo mes. El pipeline
 calcula siempre la previsión, pero cada objetivo se conecta solo si su ajuste
-fuera de muestra mejora estrictamente al baseline en MAE y acierto de banda.
+fuera de muestra mejora estrictamente al baseline en MAE y alcanza al menos el mismo acierto de
+banda.
 Cuando llega con `metodo = "desconectado"`, queda en modo sombra: opera con
 `banda_pred_3m = banda` y deja `banda_pred_3m_usada = null` en la salida.
 

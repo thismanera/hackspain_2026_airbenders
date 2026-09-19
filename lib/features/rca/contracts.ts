@@ -9,6 +9,7 @@ const month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 export const decisionPostInflexionSchema = z
   .object({
     variable: z.string().min(1),
+    canal: z.enum(["operativo", "financiero", "comercial", "holding"]),
     tipo: z.enum(["acierto_mitigante", "error_agravante"]),
     deltaPuntos: finite,
     descripcion: z.string().min(1),
@@ -48,6 +49,7 @@ export const analisisPostInflexionSchema = z
     scoreEnInflexion: score,
     scoreActual: score,
     deltaScoreTotal: finite,
+    scoreRecuperableEstimado: score,
     tipoInflexion: z.enum(["pico_bajista", "suelo_alcista"]),
     detonanteOriginal: z.object({
       id: z.string().min(1),

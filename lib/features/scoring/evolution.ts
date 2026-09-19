@@ -1,4 +1,4 @@
-import { PARAMS } from "@/lib/features/scoring/params";
+import { PARAMS, VARIABLES } from "@/lib/features/scoring/params";
 import type {
   Alert,
   AlertTipo,
@@ -91,14 +91,16 @@ export function diagnosticoMejora(
   )
     return { confirmada: false, motor: null };
   const candidates = current.variables
-    .filter((c) => c.id === "A1" || c.id === "A2")
+    .filter(
+      (c) => c.id === "A1" || c.id === "A2" || c.id === "B1" || c.id === "B2" || c.id === "C4",
+    )
     .map((c) => ({
       id: c.id,
       delta:
         c.aportacion - (three.variables.find((x) => x.id === c.id)?.aportacion ?? c.aportacion),
     }))
     .filter((x) => x.delta > 0)
-    .sort((a, b) => b.delta - a.delta || a.id.localeCompare(b.id));
+    .sort((a, b) => b.delta - a.delta || VARIABLES.indexOf(a.id) - VARIABLES.indexOf(b.id));
   return candidates.length
     ? { confirmada: true, motor: candidates[0].id }
     : { confirmada: false, motor: null };
@@ -130,23 +132,32 @@ function contributionValue(row: InflexionRow, id: string, includeHolding: boolea
   return row.variables.find((c) => c.id === id)?.aportacion ?? null;
 }
 
-/** Detecta un giro confirmado en los seis meses anteriores al mes actual. */
-export function detectarInflexion(rows: InflexionRow[], includeHolding: boolean): InflexionResult {
-  if (rows.length < 3)
-    return {
-      hayInflexion: false,
-      tipo: "sin_inflexion",
-      mesInflexion: null,
-      antelacionMeses: 0,
-      scoreInflexion: null,
-      canalDesencadenante: "ninguno",
-      variableDetonante: null,
-      explicacion: "Sin historial suficiente para confirmar una inflexión",
-    };
+function sinInflexion(explanation: string): InflexionResult {
+  return {
+    hayInflexion: false,
+    tipo: "sin_inflexion",
+    mesInflexion: null,
+    antelacionMeses: 0,
+    scoreInflexion: null,
+    canalDesencadenante: "ninguno",
+    variableDetonante: null,
+    explicacion: explanation,
+  };
+}
+
+/** Detecta un giro confirmado y conserva su origen mientras el régimen siga vigente. */
+export function detectarInflexion(
+  rows: InflexionRow[],
+  includeHolding: boolean,
+  previous?: InflexionResult,
+): InflexionResult {
+  if (rows.length < 3) return sinInflexion("Sin historial suficiente para confirmar una inflexión");
   const current = rows[rows.length - 1];
   const scoreOf = (row: InflexionRow): number => (includeHolding ? row.scoreGrupo : row.scoreSolo);
-  const candidates = rows.slice(Math.max(0, rows.length - 7), -1);
-  const check = (up: boolean): InflexionResult | null => {
+  const check = (
+    up: boolean,
+    candidates = rows.slice(Math.max(0, rows.length - 7), -1),
+  ): InflexionResult | null => {
     const scored = candidates
       .map((row, offset) => ({ row, index: Math.max(0, rows.length - 7) + offset }))
       .filter(({ row }) => typeof scoreOf(row) === "number")
@@ -200,18 +211,45 @@ export function detectarInflexion(rows: InflexionRow[], includeHolding: boolean)
       explicacion: `Giro ${up ? "alcista" : "bajista"} confirmado; primer detonante observado: ${trigger.id}`,
     };
   };
+
+  const stored = previous?.hayInflexion && previous.mesInflexion ? previous : null;
+  if (stored) {
+    const storedMonth = stored.mesInflexion;
+    if (storedMonth === null) return sinInflexion("La inflexión guardada no tiene mes de origen");
+    const startIndex = rows.findIndex((row) => row.month === storedMonth);
+    const start = startIndex >= 0 ? rows[startIndex] : null;
+    const up = stored.tipo === "suelo_alcista";
+    const contiguous = start
+      ? rows
+          .slice(startIndex)
+          .every(
+            (row, index, period) =>
+              index === 0 || monthNumber(row.month) === monthNumber(period[index - 1].month) + 1,
+          )
+      : false;
+    const after = start ? rows.slice(startIndex + 1) : [];
+    const extreme = start ? scoreOf(start) : null;
+    const regime =
+      extreme !== null &&
+      after.length >= 2 &&
+      after.every((row) => (up ? scoreOf(row) >= extreme - 1 : scoreOf(row) <= extreme + 1));
+    const distance =
+      extreme !== null ? (up ? scoreOf(current) - extreme : extreme - scoreOf(current)) : -Infinity;
+    if (contiguous && regime && distance >= 6) {
+      const opposite = check(!up);
+      if (!opposite)
+        return {
+          ...stored,
+          scoreInflexion: extreme,
+          antelacionMeses: monthNumber(current.month) - monthNumber(storedMonth),
+        };
+      return opposite;
+    }
+  }
   return (
     check(false) ??
-    check(true) ?? {
-      hayInflexion: false,
-      tipo: "sin_inflexion",
-      mesInflexion: null,
-      antelacionMeses: 0,
-      scoreInflexion: null,
-      canalDesencadenante: "ninguno",
-      variableDetonante: null,
-      explicacion: "No hay giro confirmado con régimen sostenido y distancia suficiente",
-    }
+    check(true) ??
+    sinInflexion("No hay giro confirmado con régimen sostenido y distancia suficiente")
   );
 }
 

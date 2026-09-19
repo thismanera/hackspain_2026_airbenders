@@ -1,6 +1,7 @@
 import { analisisPostInflexionSchema } from "@/lib/features/rca/contracts";
 import type {
   AnalisisPostInflexion,
+  CanalRca,
   DecisionPostInflexion,
   DiagnosticoRespuesta,
 } from "@/lib/features/rca/types";
@@ -11,7 +12,7 @@ const UMBRAL_VARIABLE = 1.5;
 const UMBRAL_HOLDING = 2;
 const EPSILON = 1e-9;
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
-const RCA_VARIABLES = ["A1", "A5", "B2", "B3", "C4", "C6"] as const;
+const RCA_VARIABLES = ["A1", "A2", "A3", "A4", "A5", "B1", "B2", "B3", "C3", "C4", "C6"] as const;
 type RcaVariable = (typeof RCA_VARIABLES)[number];
 
 type DecisionMetadata = {
@@ -21,6 +22,7 @@ type DecisionMetadata = {
   leccionError: string;
   accionAcierto: string;
   accionError: string;
+  canal: CanalRca;
 };
 
 const DICCIONARIO_DECISIONES = {
@@ -31,6 +33,37 @@ const DICCIONARIO_DECISIONES = {
     leccionError: "La pérdida de margen reduce el colchón disponible ante pagos imprevistos",
     accionAcierto: "Mantener la revisión semanal de cobros, pagos y gastos no esenciales",
     accionError: "Revisar las partidas de gasto operativo y renegociar costes de estructura",
+    canal: "operativo",
+  },
+  A2: {
+    acierto: "Reducción observada de los meses en déficit de caja",
+    error: "Aumento observado de los meses en déficit de caja",
+    leccionAcierto: "Una racha de caja positiva aporta margen para atender obligaciones próximas",
+    leccionError: "Los meses en déficit consumen el colchón operativo disponible",
+    accionAcierto: "Mantener una previsión semanal de caja con cobros y pagos comprometidos",
+    accionError:
+      "Revisar gastos, cobros pendientes y calendario de pagos para cortar la racha de déficit",
+    canal: "operativo",
+  },
+  A3: {
+    acierto: "Mejora observada de la cobertura del servicio de deuda",
+    error: "Deterioro observado de la cobertura del servicio de deuda",
+    leccionAcierto: "Una cobertura mayor reduce la presión de las obligaciones financieras",
+    leccionError: "Una cobertura insuficiente deja menos margen para atender la deuda",
+    accionAcierto: "Mantener el seguimiento de la cobertura y de los vencimientos de deuda",
+    accionError:
+      "Revisar vencimientos y valorar una reestructuración antes de agotar la caja operativa",
+    canal: "financiero",
+  },
+  A4: {
+    acierto: "Reducción observada de la carga de cuotas sobre la caja",
+    error: "Aumento observado de la carga de cuotas sobre la caja",
+    leccionAcierto: "Una carga menor conserva capacidad para financiar el ciclo operativo",
+    leccionError: "Una carga elevada limita la capacidad de absorber desfases de cobro",
+    accionAcierto: "Conservar el calendario de amortización compatible con la caja disponible",
+    accionError:
+      "Solicitar revisión de cuotas o carencia antes de retrasar obligaciones operativas",
+    canal: "financiero",
   },
   A5: {
     acierto: "Mejora observada en el uso de la línea de crédito",
@@ -39,6 +72,17 @@ const DICCIONARIO_DECISIONES = {
     leccionError: "Una disposición elevada y sostenida reduce el margen financiero de emergencia",
     accionAcierto: "Conservar la holgura disponible y revisar mensualmente el saldo utilizado",
     accionError: "Preparar un calendario realista de reducción del saldo dispuesto",
+    canal: "financiero",
+  },
+  B1: {
+    acierto: "Mejora observada del cumplimiento de nóminas, tributos y deuda",
+    error: "Deterioro observado del cumplimiento de nóminas, tributos y deuda",
+    leccionAcierto: "La regularidad de las obligaciones críticas protege la continuidad operativa",
+    leccionError: "Los retrasos en obligaciones críticas elevan la presión financiera",
+    accionAcierto: "Mantener una reserva específica para nóminas, tributos y deuda",
+    accionError:
+      "Regularizar las obligaciones pendientes y acordar un calendario verificable de pago",
+    canal: "financiero",
   },
   B2: {
     acierto: "Mejora observada en el cumplimiento de obligaciones recurrentes",
@@ -49,6 +93,7 @@ const DICCIONARIO_DECISIONES = {
     accionAcierto: "Mantener la priorización de nóminas, Seguridad Social y tributos",
     accionError:
       "Revisar y regularizar de inmediato las obligaciones laborales o tributarias pendientes",
+    canal: "financiero",
   },
   B3: {
     acierto: "Mejora observada en la puntualidad de pago a proveedores",
@@ -60,6 +105,7 @@ const DICCIONARIO_DECISIONES = {
     accionAcierto: "Usar la puntualidad observada para revisar condiciones con proveedores clave",
     accionError:
       "Utilizar confirming o acuerdos de aplazamiento antes de demorar pagos unilateralmente",
+    canal: "financiero",
   },
   C4: {
     acierto: "Reducción observada del peso de facturas vencidas sin cobrar",
@@ -68,6 +114,16 @@ const DICCIONARIO_DECISIONES = {
     leccionError: "La acumulación de vencidos prolonga el desfase de tesorería",
     accionAcierto: "Mantener el seguimiento temprano de vencimientos y reclamaciones",
     accionError: "Revisar límites de cliente y valorar anticipo de las facturas elegibles",
+    canal: "comercial",
+  },
+  C3: {
+    acierto: "Reducción observada del retraso mediano en el cobro de clientes",
+    error: "Aumento observado del retraso mediano en el cobro de clientes",
+    leccionAcierto: "Cobrar antes reduce el desfase entre pagos y cobros",
+    leccionError: "Cobrar más tarde prolonga la necesidad de financiar el circulante",
+    accionAcierto: "Mantener el seguimiento de vencimientos y condiciones de cobro",
+    accionError: "Revisar condiciones comerciales y priorizar la reclamación de saldos vencidos",
+    canal: "comercial",
   },
   C6: {
     acierto: "Reducción observada de recibos devueltos por clientes",
@@ -77,6 +133,7 @@ const DICCIONARIO_DECISIONES = {
     accionAcierto: "Mantener la revisión de clientes con antecedentes de devolución",
     accionError:
       "Contactar con los clientes afectados y revisar el medio y las condiciones de pago",
+    canal: "comercial",
   },
   holding: {
     acierto: "Aumento observado del apoyo neto aportado por el holding",
@@ -86,6 +143,7 @@ const DICCIONARIO_DECISIONES = {
       "La menor cobertura del grupo o el drenaje de caja aumenta la exposición de la filial",
     accionAcierto: "Documentar el apoyo intragrupo y su calendario de devolución",
     accionError: "Revisar los barridos de caja y definir un saldo operativo mínimo para la filial",
+    canal: "holding",
   },
 } as const satisfies Readonly<Record<RcaVariable | "holding", DecisionMetadata>>;
 
@@ -139,6 +197,7 @@ function finding(id: RcaVariable, delta: number): Finding | null {
       order,
       decision: {
         variable: id,
+        canal: meta.canal,
         tipo: "acierto_mitigante",
         deltaPuntos: rounded(delta),
         descripcion: meta.acierto,
@@ -152,6 +211,7 @@ function finding(id: RcaVariable, delta: number): Finding | null {
       order,
       decision: {
         variable: id,
+        canal: meta.canal,
         tipo: "error_agravante",
         deltaPuntos: rounded(delta),
         descripcion: meta.error,
@@ -170,6 +230,7 @@ function holdingContext(delta: number): AnalisisPostInflexion["contextoHolding"]
       deltaPuntos,
       observacion: {
         variable: "holding",
+        canal: "holding",
         tipo: "acierto_mitigante",
         deltaPuntos,
         descripcion: meta.acierto,
@@ -182,6 +243,7 @@ function holdingContext(delta: number): AnalisisPostInflexion["contextoHolding"]
       deltaPuntos,
       observacion: {
         variable: "holding",
+        canal: "holding",
         tipo: "error_agravante",
         deltaPuntos,
         descripcion: meta.error,
@@ -283,6 +345,12 @@ export function analizarReaccionPostInflexion(
     scoreEnInflexion: start.scoreSolo,
     scoreActual: current.scoreSolo,
     deltaScoreTotal: rounded(current.scoreSolo - start.scoreSolo),
+    scoreRecuperableEstimado: Math.min(
+      100,
+      rounded(
+        current.scoreSolo + errores.reduce((total, item) => total + Math.abs(item.rawDelta), 0),
+      ),
+    ),
     tipoInflexion: inflexion.tipo,
     detonanteOriginal: {
       id: inflexion.variableDetonante ?? "desconocido",

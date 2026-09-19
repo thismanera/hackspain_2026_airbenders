@@ -491,7 +491,7 @@ export function scoreGroup(input: GroupInput, params: Parameters): ScoreRow[] {
       row.gapCicloDias = row.C3dias !== null && b3 !== null ? Math.round(row.C3dias - b3) : null;
       row.recomendacionEmbat =
         row.gapCicloDias !== null && row.gapCicloDias > PARAMS.gapCicloDiasEmbat
-          ? `Gap comercial de +${row.gapCicloDias} días: cobras más tarde de lo que pagas. Activa anticipo de facturas en Embat.`
+          ? `Gap comercial de +${row.gapCicloDias} días: la empresa cobra más tarde de lo que paga. Revisar cobros y valorar anticipo selectivo de facturas.`
           : null;
       row.patronTrayectoria = trajectory(
         row,
@@ -528,8 +528,8 @@ export function scoreGroup(input: GroupInput, params: Parameters): ScoreRow[] {
         ...prevRows.slice(-2),
         row,
       ]);
-      row.inflexion = detectarInflexion([...prevRows, row], false);
-      row.inflexionGrupo = detectarInflexion([...prevRows, row], true);
+      row.inflexion = detectarInflexion([...prevRows, row], false, prev?.inflexion);
+      row.inflexionGrupo = detectarInflexion([...prevRows, row], true, prev?.inflexionGrupo);
       prevRows.push(row);
     }
   }

@@ -1,7 +1,9 @@
 export type TipoDecision = "acierto_mitigante" | "error_agravante";
+export type CanalRca = "operativo" | "financiero" | "comercial" | "holding";
 
 export type DecisionPostInflexion = {
   variable: string;
+  canal: CanalRca;
   tipo: TipoDecision;
   /** Cambio de aportación entre el origen de la inflexión y el mes analizado. */
   deltaPuntos: number;
@@ -34,6 +36,8 @@ export type AnalisisPostInflexion = {
   scoreEnInflexion: number;
   scoreActual: number;
   deltaScoreTotal: number;
+  /** Escenario contable si las pérdidas autónomas seleccionadas vuelven al origen. */
+  scoreRecuperableEstimado: number;
   tipoInflexion: "pico_bajista" | "suelo_alcista";
   detonanteOriginal: {
     id: string;

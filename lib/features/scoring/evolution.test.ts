@@ -206,6 +206,23 @@ test("bidirectional inflection tolerates flat months and names the initial trigg
   assert.equal(tied.mesInflexion, "2025-03");
 });
 
+test("preserves the original inflection while the same regime remains active", () => {
+  const months = Array.from({ length: 24 }, (_, index) => {
+    const year = 2025 + Math.floor(index / 12);
+    const month = String((index % 12) + 1).padStart(2, "0");
+    return `${year}-${month}`;
+  });
+  const rows = months.map((month, index) =>
+    evolutionRow(month, index === 11 ? 80 : index === 12 || index === 13 ? 74 : 70 + (index % 3)),
+  );
+  const origin = detectarInflexion(rows.slice(0, 14), false);
+  assert.equal(origin.mesInflexion, "2025-12");
+  const current = detectarInflexion(rows, false, origin);
+  assert.equal(current.mesInflexion, "2025-12");
+  assert.equal(current.antelacionMeses, 12);
+  assert.equal(current.scoreInflexion, 80);
+});
+
 test("confirmed improvement requires monotonic monthly score and A1/A2 contribution growth", () => {
   const current = { scoreSolo: 72, tendScore3m: 8, variables: [c("A1", 12), c("A2", 10)] };
   const previous = { scoreSolo: 70, variables: [c("A1", 11), c("A2", 9)] };
@@ -218,4 +235,16 @@ test("confirmed improvement requires monotonic monthly score and A1/A2 contribut
     },
   );
   assert.equal(diagnosticoMejora(current, { ...previous, scoreSolo: 73 }, three).confirmada, false);
+});
+
+test("confirmed improvement can be led by B1 or C4", () => {
+  const variables = [c("A1", 5), c("B1", 12), c("C4", 14)];
+  const three = { variables: [c("A1", 5), c("B1", 9), c("C4", 10)] };
+  const result = diagnosticoMejora(
+    { scoreSolo: 72, tendScore3m: 8, variables },
+    { scoreSolo: 70, variables: [c("A1", 5), c("B1", 10), c("C4", 13)] },
+    three,
+    [{ scoreSolo: 68 }, { scoreSolo: 70 }, { scoreSolo: 72 }],
+  );
+  assert.deepEqual(result, { confirmada: true, motor: "C4" });
 });
