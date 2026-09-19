@@ -59,7 +59,7 @@ sustituye los resultados por datos ficticios.
 | Script                    | Qué hace                                                                                                                                 |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm dev`                | Servidor de desarrollo (Turbopack)                                                                                                       |
-| `pnpm build`              | Build de producción (standalone)                                                                                                         |
+| `pnpm build`              | Build de producción (standalone en Docker; salida nativa en Vercel)                                                                      |
 | `pnpm start`              | Sirve el build de producción                                                                                                             |
 | `pnpm test`               | Tests (`node --test`, sin framework extra)                                                                                               |
 | `pnpm db:setup`           | Aplica Prisma e importa el scoring con los parámetros congelados de `artifacts/inference` (el mismo run que la submission) si hace falta |
@@ -73,7 +73,6 @@ sustituye los resultados por datos ficticios.
 | `pnpm run knip`           | Detecta código y dependencias muertas                                                                                                    |
 | `pnpm export:submission`  | Exporta `submission.csv` y `submission.jsonl` desde un run compatible                                                                    |
 | `pnpm pipeline:eval`      | Ejecuta inferencia congelada completa y genera la submission                                                                             |
-| `pnpm prisma:seed`        | Seed de la base de datos (`prisma/seed.ts`)                                                                                              |
 | `pnpm run auth:generate`  | Regenera `prisma/schema/auth.prisma` tras tocar `lib/core/auth.ts`                                                                       |
 | `pnpm run rename-project` | Sustituye el nombre placeholder por el nombre real                                                                                       |
 
@@ -85,7 +84,9 @@ compilar Next.js, porque el cliente se genera en `generated/prisma` y esa
 carpeta no se versiona. Configura como mínimo `DATABASE_URL`,
 `BETTER_AUTH_SECRET` y `BETTER_AUTH_URL` en las variables de entorno de Vercel.
 No sustituyas el build por `next build` directamente: en un checkout limpio
-no existiría el cliente Prisma personalizado.
+no existiría el cliente Prisma personalizado. En Vercel se desactiva
+`output: "standalone"` para que el adaptador gestione su propia salida; Docker
+sí conserva el servidor standalone.
 
 ## Recalibración y backtests: trabajo opcional
 
