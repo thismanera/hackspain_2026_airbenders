@@ -65,6 +65,7 @@ function CompanyView({
   const { data: file } = useCompanyFile(companyId, month);
   const { data: benchmark } = useBenchmark(companyId, month);
   const { data: peers } = usePeers(month, "embat", companyId);
+  const { requestedMonth } = useOptIn(companyId);
   const { latest } = file;
   const own = peers?.points.find((point) => point.company === companyId);
   const ownCluster =
