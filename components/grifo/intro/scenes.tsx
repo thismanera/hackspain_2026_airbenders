@@ -14,7 +14,6 @@ import {
   TrendingDown,
   Truck,
   X,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -358,9 +357,9 @@ function Ownership() {
       desc: "Sabe qué mejorar para abaratar su coste de crédito.",
     },
     {
-      icon: Zap,
-      title: "Sin esperar a fin de año",
-      desc: "Pide financiación en cualquier momento, a golpe de click.",
+      icon: HandCoins,
+      title: "Oferta preaprobada",
+      desc: "Sabe de antemano cuánto puede tener, sin preparar dossiers.",
     },
   ];
 
@@ -601,7 +600,7 @@ export const SCENES: Scene[] = [
     kicker: "Para la empresa",
     title: (
       <>
-        Financiación más barata <Accent>y sin esperar a fin de año.</Accent>
+        La empresa consigue mejor financiación <Accent>sin esperar a fin de año.</Accent>
       </>
     ),
     body: <Ownership />,
