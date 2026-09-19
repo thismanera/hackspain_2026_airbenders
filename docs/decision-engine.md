@@ -48,11 +48,11 @@ motor de decisión, nada más:
 
 De `company_month_forecast` (forecast-engine §8), mismo mes:
 
-| Campo | Uso |
-| --- | --- |
-| `banda_pred_3m` | plazo (§5), interés (§6), acción (§8) |
-| `score_pred_3m`, `direccion_pred`, `prob_deterioro_6m` | solo `motivo` y ficha |
-| `metodo` | si `desconectado`, se ignora la previsión (`banda_pred_3m = banda`) |
+| Campo                                                  | Uso                                                                 |
+| ------------------------------------------------------ | ------------------------------------------------------------------- |
+| `banda_pred_3m`                                        | plazo (§5), interés (§6), acción (§8)                               |
+| `score_pred_3m`, `direccion_pred`, `prob_deterioro_6m` | solo `motivo` y ficha                                               |
+| `metodo`                                               | si `desconectado`, se ignora la previsión (`banda_pred_3m = banda`) |
 
 Y del propio motor, mes anterior (§8 estado): `L_prev`, `accion_prev`,
 `meses_elegible_seguidos`, `meses_reduccion_seguidos`,
@@ -63,37 +63,37 @@ Y del propio motor, mes anterior (§8 estado): `L_prev`, `accion_prev`,
 Todos los números del algoritmo viven en una tabla de parámetros con
 `version_parametros`. Ningún número suelto en código.
 
-| Grupo | Parámetro | Valor | Decisión |
-| --- | --- | --- | --- |
-| Elegibilidad | `conf_min` | 0,5 | 18 |
-| | `score_min` | 45 | 5, 18 |
-| | `racha_B2_max` | 1 | 7, 18 |
-| | `racha_deficit_max` | 2 | 12, 18 |
-| | `C4_max` | 0,40 | 12, 18 |
-| Capacidad | `estres_cobros` | 0,80 | 11 |
-| | `estres_pagos` | 1,10 | 11 |
-| | `cobertura_min` | 1,3 | 11 |
-| | `meses_limite_cap` | 12 | 11 |
-| | `anticipo_pct` | 0,80 | 11 |
-| | `anticipo_meses` | 3 | 11 |
-| | `conf_ref` | 0,6 | 12 |
-| Bandas | `banda_A_min` / `banda_B_min` / `banda_C_min` | 75 / 60 / 45 | 12 |
-| | `factor_banda` | A 1,0 · B 0,7 · C 0,4 · D 0 | 12 |
-| | `base_TAE` | A 0,05 · B 0,07 · C 0,10 | 12, 21 |
-| Plazo | `T_max` (d) | ver §5 | 20 |
-| | `plazos_menu` (d) | 30, 60, 90, 120, 180 | 19 |
-| Interés | `prima_plazo_pp_30d` | 0,005 | 21 |
-| | `prima_confianza_pp` | 0,01 si `confianza < 0,7` | 21 |
-| | `ajuste_mejora_pp` / `ajuste_deterioro_pp` | −0,005 / +0,01 | 21 |
-| | `base_dias` | 360 | 21 |
-| Revisión | `ampliar_ratio` / `reducir_ratio` | 1,15 / 0,85 | 12 |
-| | `reducir_meses` | 2 | 12 |
-| | `histeresis_pct` | 0,25 | 12 |
-| | `reapertura_meses` | 2 | 23 |
-| Previsión | `prima_prevision_pp` | 0,005 si `banda_pred_3m < banda` | 37 |
-| | `reducir_prev_meses` | 2 | 37 |
-| | `redondeo_L` | 1.000 € | 12 |
-| Grupo | `D1_cross_default` | 0,30 | 17 |
+| Grupo        | Parámetro                                     | Valor                            | Decisión |
+| ------------ | --------------------------------------------- | -------------------------------- | -------- |
+| Elegibilidad | `conf_min`                                    | 0,5                              | 18       |
+|              | `score_min`                                   | 45                               | 5, 18    |
+|              | `racha_B2_max`                                | 1                                | 7, 18    |
+|              | `racha_deficit_max`                           | 2                                | 12, 18   |
+|              | `C4_max`                                      | 0,40                             | 12, 18   |
+| Capacidad    | `estres_cobros`                               | 0,80                             | 11       |
+|              | `estres_pagos`                                | 1,10                             | 11       |
+|              | `cobertura_min`                               | 1,3                              | 11       |
+|              | `meses_limite_cap`                            | 12                               | 11       |
+|              | `anticipo_pct`                                | 0,80                             | 11       |
+|              | `anticipo_meses`                              | 3                                | 11       |
+|              | `conf_ref`                                    | 0,6                              | 12       |
+| Bandas       | `banda_A_min` / `banda_B_min` / `banda_C_min` | 75 / 60 / 45                     | 12       |
+|              | `factor_banda`                                | A 1,0 · B 0,7 · C 0,4 · D 0      | 12       |
+|              | `base_TAE`                                    | A 0,05 · B 0,07 · C 0,10         | 12, 21   |
+| Plazo        | `T_max` (d)                                   | ver §5                           | 20       |
+|              | `plazos_menu` (d)                             | 30, 60, 90, 120, 180             | 19       |
+| Interés      | `prima_plazo_pp_30d`                          | 0,005                            | 21       |
+|              | `prima_confianza_pp`                          | 0,01 si `confianza < 0,7`        | 21       |
+|              | `ajuste_mejora_pp` / `ajuste_deterioro_pp`    | −0,005 / +0,01                   | 21       |
+|              | `base_dias`                                   | 360                              | 21       |
+| Revisión     | `ampliar_ratio` / `reducir_ratio`             | 1,15 / 0,85                      | 12       |
+|              | `reducir_meses`                               | 2                                | 12       |
+|              | `histeresis_pct`                              | 0,25                             | 12       |
+|              | `reapertura_meses`                            | 2                                | 23       |
+| Previsión    | `prima_prevision_pp`                          | 0,005 si `banda_pred_3m < banda` | 37       |
+|              | `reducir_prev_meses`                          | 2                                | 37       |
+|              | `redondeo_L`                                  | 1.000 €                          | 12       |
+| Grupo        | `D1_cross_default`                            | 0,30                             | 17       |
 
 ## 3. Paso 0 — Elegibilidad
 
@@ -104,7 +104,7 @@ igualmente para `puertas_fallidas[]` (la ficha las enseña todas).
 function elegibilidad(fila, estado_prev, P):
     puertas = [
       ("historia",   fila.confianza >= P.conf_min),
-      ("estado",     fila.score >= P.score_min),
+      ("estado",     fila.scoreSolo >= P.score_min and fila.estadoSolo not in {"riesgo", "sin_datos"}),
       ("fiabilidad", fila.racha_B2 <= P.racha_B2_max),
       ("caja",       fila.racha_deficit <= P.racha_deficit_max and capacidad_cuota_adv(fila, P) > 0),
       ("clientes",   fila.C4 is null or fila.C4 <= P.C4_max),
@@ -158,8 +158,12 @@ function limite(fila, P):
     return redondear_abajo(L_bruto, P.redondeo_L), b, cap, lim_cap, lim_op
 ```
 
-Si no elegible → `L = 0`, pero se calculan y guardan `cap`, `lim_cap`,
+Si no elegible → `L = 0`, pero se calculan y guardan `limite_teorico`, `cap`, `lim_cap`,
 `lim_op` igualmente (la ficha enseña "si fueras elegible tendrías X").
+
+La implementación persiste ese valor como `limiteTeorico`, separado de
+`limiteRecomendado`; el segundo solo puede ser positivo si todas las puertas
+han pasado.
 
 **Techo de grupo** (§7) se aplica después, sobre el conjunto del grupo.
 
@@ -359,13 +363,13 @@ vigente 100 k (subida limitada al 25 %)".
 
 ## 11. Plantillas de `motivo_accion`
 
-| Acción | Texto |
-| --- | --- |
-| abrir | "Elegible: score {score} (banda {b}), límite {L} € hasta {T_max} d" |
-| ampliar | "Límite sube de {Lp} a {L_vigente} €: {top1 delta_contrib}" |
-| reducir | "Límite baja de {Lp} a {L_vigente} €: {motivo = estructural \| 2 meses por debajo \| previsión: banda {banda_pred_3m} en 3 meses}, {top1 delta_contrib o driver_1}" |
-| cerrar | "{motivo de §3}" |
-| mantener | "Sin cambios: score {score}, límite {Lp} €" / "Reapertura en {n} meses" / "Pendiente confirmar bajada" |
+| Acción   | Texto                                                                                                                                                               |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| abrir    | "Elegible: score {score} (banda {b}), límite {L} € hasta {T_max} d"                                                                                                 |
+| ampliar  | "Límite sube de {Lp} a {L_vigente} €: {top1 delta_contrib}"                                                                                                         |
+| reducir  | "Límite baja de {Lp} a {L_vigente} €: {motivo = estructural \| 2 meses por debajo \| previsión: banda {banda_pred_3m} en 3 meses}, {top1 delta_contrib o driver_1}" |
+| cerrar   | "{motivo de §3}"                                                                                                                                                    |
+| mantener | "Sin cambios: score {score}, límite {Lp} €" / "Reapertura en {n} meses" / "Pendiente confirmar bajada"                                                              |
 
 `top1 delta_contrib` viene de la fila del score (variable con mayor
 `|delta_aportacion|`).
@@ -388,15 +392,15 @@ Mes 1 (`2024-09` o primer mes con score): `L_prev = 0`, sin cierre previo →
 Cinco empresas sintéticas con filas de score a mano, 6 meses cada una.
 Resultado esperado por mes escrito en el fixture, no calculado.
 
-| Fixture | Perfil | Debe dar |
-| --- | --- | --- |
-| `sana` | score 82, conf 0,9, estable, cap 10 k/mes, cobros 100 k/mes | A · L = min(120 k, 240 k) = 120 k · T_max 180 · menú 30 d → 10 k, 60 d → 20 k … 180 d → 60 k · TAE 5 % → 7,5 % |
-| `mejora` | score 62→74 en 3 m, dirección mejora | B · `ampliar` cuando L > 1,15·Lp · TAE con −0,5 pp |
-| `deterioro_estructural` | score 70→58, estructural desde mes 4 | mes 4: banda C efectiva, `reducir` inmediato, T_max 30 · mes 5: si sigue, C estructural → T_max 0 → cerrar |
-| `bache_temporal` | un mes con score −8 y vuelve | `mantener` (histéresis y 2 meses de confirmación), nunca `reducir` |
-| `historial_corto` | conf 0,3 | no elegible, motivo "historia", L = 0 pero `limite_cap` calculado |
-| `prevision_peor` | score 72 estable (A), `banda_pred_3m = C` desde mes 2 | mes 2: `mantener`, `meses_pred_peor_seguidos = 1`, T_max 60 (peor banda), TAE +0,5 pp · mes 3: `reducir` preventivo a L con factor 0,4 acotado por histéresis · nunca `ampliar` mientras `banda_pred_3m < A` |
-| `grupo_caida` | 3 empresas, una con D1 0,5 cierra en mes 3 | mes 3: hermanas bajan una banda · mes 4: puerta grupo falla → cerrar · techo aplicado si Σ L > L_grupo |
+| Fixture                 | Perfil                                                      | Debe dar                                                                                                                                                                                                     |
+| ----------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sana`                  | score 82, conf 0,9, estable, cap 10 k/mes, cobros 100 k/mes | A · L = min(120 k, 240 k) = 120 k · T_max 180 · menú 30 d → 10 k, 60 d → 20 k … 180 d → 60 k · TAE 5 % → 7,5 %                                                                                               |
+| `mejora`                | score 62→74 en 3 m, dirección mejora                        | B · `ampliar` cuando L > 1,15·Lp · TAE con −0,5 pp                                                                                                                                                           |
+| `deterioro_estructural` | score 70→58, estructural desde mes 4                        | mes 4: banda C efectiva, `reducir` inmediato, T_max 30 · mes 5: si sigue, C estructural → T_max 0 → cerrar                                                                                                   |
+| `bache_temporal`        | un mes con score −8 y vuelve                                | `mantener` (histéresis y 2 meses de confirmación), nunca `reducir`                                                                                                                                           |
+| `historial_corto`       | conf 0,3                                                    | no elegible, motivo "historia", L = 0 pero `limite_cap` calculado                                                                                                                                            |
+| `prevision_peor`        | score 72 estable (A), `banda_pred_3m = C` desde mes 2       | mes 2: `mantener`, `meses_pred_peor_seguidos = 1`, T_max 60 (peor banda), TAE +0,5 pp · mes 3: `reducir` preventivo a L con factor 0,4 acotado por histéresis · nunca `ampliar` mientras `banda_pred_3m < A` |
+| `grupo_caida`           | 3 empresas, una con D1 0,5 cierra en mes 3                  | mes 3: hermanas bajan una banda · mes 4: puerta grupo falla → cerrar · techo aplicado si Σ L > L_grupo                                                                                                       |
 
 Tests de propiedades (sobre todas las filas del dataset):
 
@@ -410,13 +414,13 @@ Tests de propiedades (sobre todas las filas del dataset):
 
 ## 14. Métricas para el jurado (backtest, sobre validación)
 
-| Métrica | Definición |
-| --- | --- |
-| Exposición evitada | Σ `L_vigente(t−k)` de empresas que entran en `evento_deterioro` en `t`, con `k` = meses de antelación con que el motor cerró o redujo. Comparar contra un motor sin anticipación (solo banda por score sin dirección). |
-| Ingresos simulados | Σ `coste` asumiendo uso del 60 % del `L_vigente` al plazo natural. Supuesto explícito. |
-| Oscilación | % de empresa-mes con acción ≠ `mantener`. Objetivo < 20 %. |
-| Cierres falsos | cierres sin `evento_deterioro` en 6 meses / cierres. |
-| Lead time de cierre | mediana de meses entre primer `reducir` y `evento_deterioro`, **con y sin previsión** (decisión 38). |
+| Métrica             | Definición                                                                                                                                                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Exposición evitada  | Σ `L_vigente(t−k)` de empresas que entran en `evento_deterioro` en `t`, con `k` = meses de antelación con que el motor cerró o redujo. Comparar contra un motor sin anticipación (solo banda por score sin dirección). |
+| Ingresos simulados  | Σ `coste` asumiendo uso del 60 % del `L_vigente` al plazo natural. Supuesto explícito.                                                                                                                                 |
+| Oscilación          | % de empresa-mes con acción ≠ `mantener`. Objetivo < 20 %.                                                                                                                                                             |
+| Cierres falsos      | cierres sin `evento_deterioro` en 6 meses / cierres.                                                                                                                                                                   |
+| Lead time de cierre | mediana de meses entre primer `reducir` y `evento_deterioro`, **con y sin previsión** (decisión 38).                                                                                                                   |
 
 ## 15. Fuera de alcance v1
 

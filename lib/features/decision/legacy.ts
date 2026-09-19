@@ -59,15 +59,25 @@ export function decideLegacy(rows: ScoreRow[]): DecisionRow[] {
     );
     const limiteCap = capacidadAdv * 12;
     const limiteOp = LEGACY.advanceRate * r.cobrosOpMedia3m * 3;
-    const limiteRecomendado =
-      Math.round(
-        (Math.min(limiteCap, limiteOp) *
-          LEGACY.bandFactors[b] *
-          Math.min(1, r.confianza / LEGACY.confidenceTarget)) /
-          1000,
-      ) * 1000;
+    const limiteTeorico =
+      Math.min(limiteCap, limiteOp) *
+      LEGACY.bandFactors[b] *
+      Math.min(1, r.confianza / LEGACY.confidenceTarget);
+    const puertasFallidas: string[] = [];
+    if (r.confianza < LEGACY.openingConfidence) puertasFallidas.push("historia");
+    if (r.scoreSolo < LEGACY.bandThresholds[2]) puertasFallidas.push("score");
+    if (r.estadoSolo === "sin_datos" || r.estadoSolo === "riesgo") puertasFallidas.push("estado");
+    if (r.rachaB2 > 1) puertasFallidas.push("fiabilidad");
+    if (r.rachaDeficit > 2 || capacidadAdv <= 0) puertasFallidas.push("caja");
+    if (r.C4 !== null && r.C4 > 0.4) puertasFallidas.push("clientes");
+    const elegible = puertasFallidas.length === 0;
+    const limiteRecomendado = elegible ? Math.round(limiteTeorico / 1000) * 1000 : 0;
     const previousLimit = prev?.limiteVigente ?? 0;
-    const hardClose = b === "D" || r.rachaDeficit >= 3 || (r.C4 !== null && r.C4 > 0.4);
+    const hardClose =
+      b === "D" ||
+      r.rachaDeficit >= 3 ||
+      (r.C4 !== null && r.C4 > 0.4) ||
+      (previousLimit > 0 && !elegible);
     const declining2 =
       prev !== undefined &&
       limiteRecomendado < 0.85 * previousLimit &&
@@ -109,10 +119,15 @@ export function decideLegacy(rows: ScoreRow[]): DecisionRow[] {
       capacidadAdv,
       limiteCap,
       limiteOp,
+      limiteTeorico,
       limiteRecomendado,
       limiteVigente,
+      elegible,
+      puertasFallidas,
       accion,
-      motivo: `${accion}: ${top.map((x) => `${x.id} ${x.delta >= 0 ? "+" : ""}${x.delta.toFixed(1)}`).join(", ")}`,
+      motivo: `${accion}: ${top.map((x) => `${x.id} ${x.delta >= 0 ? "+" : ""}${x.delta.toFixed(1)}`).join(", ")}${
+        puertasFallidas.length ? `; puertas: ${puertasFallidas.join(", ")}` : ""
+      }`,
     });
   }
   return out;

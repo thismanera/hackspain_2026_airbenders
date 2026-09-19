@@ -19,8 +19,17 @@ export const VARIABLES = [
 export type VariableId = (typeof VARIABLES)[number];
 export type Bloque = "A" | "B" | "C";
 
+/**
+ * Escalas con anclajes económicos. Los ratios de caja y de uso de crédito no
+ * tienen una distribución estable: un denominador pequeño puede producir
+ * valores enormes y hacer que un p5/p95 parezca saludable. Cada par es
+ * [valor bruto, subnota] y se interpola linealmente fuera de los extremos.
+ */
+type Anchor = readonly [raw: number, nota: number];
+type AnchoredScales = Partial<Record<VariableId, readonly Anchor[]>>;
+
 export const PARAMS = {
-  contratoVersion: "scoreSolo-holding-v3",
+  contratoVersion: "scoreSolo-holding-v4",
   mesInicio: "2024-09",
   mesFin: "2026-08",
   ventanaCorta: 6,
@@ -81,6 +90,52 @@ export const PARAMS = {
     A4: 0.25,
     A5: 0.2,
   } as Readonly<Partial<Record<VariableId, number>>>,
+  escalasAncladas: {
+    A1: [
+      [-0.2, 0],
+      [0, 50],
+      [0.1, 70],
+      [0.3, 90],
+      [0.5, 100],
+    ],
+    A3: [
+      [0, 0],
+      [1, 50],
+      [1.3, 70],
+      [2, 90],
+      [3, 100],
+    ],
+    A4: [
+      [0, 100],
+      [0.25, 70],
+      [0.5, 50],
+      [1, 0],
+    ],
+    A5: [
+      [0, 100],
+      [0.2, 70],
+      [0.5, 50],
+      [1, 0],
+    ],
+    B1: [
+      [0, 0],
+      [0.8, 50],
+      [0.95, 80],
+      [1, 100],
+    ],
+    C4: [
+      [0, 100],
+      [0.2, 70],
+      [0.4, 30],
+      [0.6, 0],
+    ],
+    C6: [
+      [0, 100],
+      [0.005, 70],
+      [0.01, 40],
+      [0.02, 0],
+    ],
+  } as AnchoredScales,
   nFacturasRef: 5,
   confSinDatos: 0.3,
   confSana: 0.5,

@@ -10,8 +10,25 @@ import { clamp } from "@/lib/features/scoring/windows";
 
 type Coverage = Extras["cobertura"];
 
+function anchoredSubnota(id: VariableId, raw: number): number | null {
+  const anchors = PARAMS.escalasAncladas[id];
+  if (!anchors || anchors.length < 2) return null;
+  if (raw <= anchors[0][0]) return anchors[0][1];
+  for (let i = 1; i < anchors.length; i++) {
+    const [rightRaw, rightNota] = anchors[i];
+    const [leftRaw, leftNota] = anchors[i - 1];
+    if (raw <= rightRaw) {
+      const fraction = (raw - leftRaw) / (rightRaw - leftRaw);
+      return leftNota + fraction * (rightNota - leftNota);
+    }
+  }
+  return anchors[anchors.length - 1][1];
+}
+
 export function subnota(id: VariableId, raw: number | null, percentiles: Percentiles): number {
   if (raw === null || !Number.isFinite(raw)) return 50;
+  const anchored = anchoredSubnota(id, raw);
+  if (anchored !== null) return anchored;
   const scale = percentiles[id];
   if (!scale || scale.p5 === null || scale.p95 === null || !(scale.p95 > scale.p5)) return 50;
   const u = clamp((raw - scale.p5) / (scale.p95 - scale.p5));

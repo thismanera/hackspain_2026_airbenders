@@ -219,6 +219,8 @@ export function trajectory(
  * hermanas del mismo mes) y por último evolución y alertas sobre la nota autónoma.
  */
 export function scoreGroup(input: GroupInput, params: Parameters): ScoreRow[] {
+  if (params.contratoVersion !== PARAMS.contratoVersion)
+    throw new Error("frozen parameters use an incompatible scoring contract");
   if (params.paramsHash !== hashParams(PARAMS))
     throw new Error("frozen parameters do not match PARAMS");
   const prepared = prepareGroup(input);
@@ -284,7 +286,9 @@ export function scoreGroup(input: GroupInput, params: Parameters): ScoreRow[] {
       const profile = perfilGrupo(
         me.capacidadNeta6m ?? 0,
         me.A1,
-        me.capacidadNeta6m,
+        me.cobrosOpMedia6m !== undefined && me.pagosOpMedia6m !== undefined
+          ? me.cobrosOpMedia6m - me.pagosOpMedia6m
+          : me.capacidadNeta6m,
         d.D2,
         d.D4,
         me.rachaB2,

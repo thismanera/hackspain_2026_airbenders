@@ -29,6 +29,7 @@ const contribution = z.object({
 const nContribuciones = VARIABLES.length;
 
 export const parametersSchema = z.object({
+  contratoVersion: z.literal(PARAMS.contratoVersion),
   version: z.string().min(1),
   paramsHash: z.string().length(64),
   percentiles,

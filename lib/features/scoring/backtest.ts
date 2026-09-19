@@ -14,38 +14,60 @@ type BacktestKind = {
   leadMedian: number | null;
   leadP25: number | null;
 };
+export type StressDecile = {
+  decile: number;
+  n: number;
+  scoreMin: number;
+  scoreMax: number;
+  stressRate: number;
+};
 export type BacktestReport = {
   targetScore: TargetScore;
   forwardMarginSpearman: number | null;
   forwardMarginPairs: number;
+  forwardStressAuc: number | null;
+  forwardStressAucCi95: readonly [number, number] | null;
+  forwardStressPrauc: number | null;
+  forwardStressPairs: number;
+  stressDeciles: StressDecile[];
+  stressDecilesMonotonic: boolean | null;
   censoredMonths: number;
   deterioro: BacktestKind;
   recuperacion: BacktestKind;
 };
 
 /** Ventana de meses (inclusive) sobre la que se miden eventos, alertas y pares. */
-export type BacktestOptions = { months?: [string, string]; targetScore?: TargetScore };
+export type BacktestOptions = {
+  months?: readonly [string, string];
+  targetScore?: TargetScore;
+};
 
 /** Meses del final de cada serie que no pueden contar como falsa alarma (censura por la derecha). */
 const CENSORED_MONTHS = 6;
 
 function eventAt(rows: ScoreRow[], index: number, kind: Kind): boolean {
-  const next = rows.slice(index, index + 3);
-  if (next.length < 3 || next.some((r) => r.deficitMes === null)) return false;
+  const current = monthIndex(rows[index].month);
+  if (current < 0) return false;
+  const at = (offset: number) =>
+    rows.find((row) => monthIndex(row.month) === current + offset) ?? null;
+  const next = [at(0), at(1), at(2)];
+  if (next.some((r) => r === null || r.deficitMes === null)) return false;
   if (kind === "deterioro")
     return (
-      index >= 6 &&
-      rows[index - 1].deficitMes === false &&
-      rows.slice(index - 6, index).every((r) => r.deficitMes !== null) &&
-      rows.slice(index - 6, index).filter((r) => r.deficitMes).length <= 1 &&
-      next.every((r) => r.deficitMes)
+      at(-1)?.deficitMes === false &&
+      Array.from({ length: 6 }, (_, i) => at(-i - 1)).every(
+        (r) => r !== null && r.deficitMes !== null,
+      ) &&
+      Array.from({ length: 6 }, (_, i) => at(-i - 1)).filter((r) => r?.deficitMes).length <= 1 &&
+      next.every((r) => r?.deficitMes)
     );
   return (
-    index >= 3 &&
-    rows[index - 1].deficitMes === true &&
-    rows.slice(index - 3, index).every((r) => r.deficitMes !== null) &&
-    rows.slice(index - 3, index).filter((r) => r.deficitMes).length >= 2 &&
-    next.every((r) => r.deficitMes === false)
+    at(-1)?.deficitMes === true &&
+    Array.from({ length: 3 }, (_, i) => at(-i - 1)).every(
+      (r) => r !== null && r.deficitMes !== null,
+    ) &&
+    Array.from({ length: 3 }, (_, i) => at(-i - 1)).filter((r) => r?.deficitMes).length >= 2 &&
+    next.every((r) => r?.deficitMes === false)
   );
 }
 function ranks(xs: number[]): number[] {
@@ -74,6 +96,88 @@ function spearman(pairs: [number, number][]): number | null {
     vy += (y[i] - my) ** 2;
   }
   return vx && vy ? cov / Math.sqrt(vx * vy) : null;
+}
+
+function aucLowerIsRisk(pairs: { score: number; stress: boolean }[]): number | null {
+  const positive = pairs.filter((pair) => pair.stress);
+  const negative = pairs.filter((pair) => !pair.stress);
+  if (!positive.length || !negative.length) return null;
+  const ordered = [...pairs].sort((a, b) => a.score - b.score);
+  let rankSum = 0;
+  let rank = 1;
+  for (let i = 0; i < ordered.length;) {
+    let j = i + 1;
+    while (j < ordered.length && ordered[j].score === ordered[i].score) j++;
+    const averageRank = (rank + rank + j - i - 1) / 2;
+    rankSum += averageRank * ordered.slice(i, j).filter((pair) => pair.stress).length;
+    rank += j - i;
+    i = j;
+  }
+  const highScoreWins =
+    (rankSum - (positive.length * (positive.length + 1)) / 2) / (positive.length * negative.length);
+  return 1 - highScoreWins;
+}
+
+function bootstrapAucCi95(
+  pairs: { score: number; stress: boolean }[],
+): readonly [number, number] | null {
+  if (pairs.length < 20 || !pairs.some((pair) => pair.stress) || pairs.every((pair) => pair.stress))
+    return null;
+  let seed = 0x9e3779b9;
+  const random = () => {
+    seed = (1664525 * seed + 1013904223) >>> 0;
+    return seed / 0x1_0000_0000;
+  };
+  const samples: number[] = [];
+  for (let iteration = 0; iteration < 200; iteration++) {
+    const sample = Array.from(
+      { length: pairs.length },
+      () => pairs[Math.floor(random() * pairs.length)],
+    );
+    const auc = aucLowerIsRisk(sample);
+    if (auc !== null) samples.push(auc);
+  }
+  if (!samples.length) return null;
+  samples.sort((a, b) => a - b);
+  return [samples[Math.floor(samples.length * 0.025)], samples[Math.floor(samples.length * 0.975)]];
+}
+
+/** Average precision con las notas bajas ordenadas primero (menor score = mayor riesgo). */
+function praucLowerIsRisk(pairs: { score: number; stress: boolean }[]): number | null {
+  const positives = pairs.filter((pair) => pair.stress).length;
+  if (!positives) return null;
+  const ordered = [...pairs].sort((a, b) => a.score - b.score);
+  let hits = 0;
+  let area = 0;
+  for (let i = 0; i < ordered.length; i++) {
+    if (!ordered[i].stress) continue;
+    hits++;
+    area += hits / (i + 1);
+  }
+  return area / positives;
+}
+
+function stressDeciles(pairs: { score: number; stress: boolean }[]): StressDecile[] {
+  const sorted = [...pairs].sort((a, b) => a.score - b.score);
+  return Array.from({ length: 10 }, (_, i) => {
+    const from = Math.floor((i * sorted.length) / 10);
+    const to = Math.floor(((i + 1) * sorted.length) / 10);
+    const slice = sorted.slice(from, to);
+    return {
+      decile: i + 1,
+      n: slice.length,
+      scoreMin: slice[0]?.score ?? 0,
+      scoreMax: slice.at(-1)?.score ?? 0,
+      stressRate: slice.length ? slice.filter((pair) => pair.stress).length / slice.length : 0,
+    };
+  }).filter((decile) => decile.n > 0);
+}
+
+function stressDecilesMonotonic(deciles: StressDecile[]): boolean | null {
+  if (deciles.length < 2) return null;
+  return deciles.every(
+    (decile, index) => index === 0 || decile.stressRate <= deciles[index - 1].stressRate,
+  );
 }
 
 function scoreAt(row: ScoreRow, targetScore: TargetScore): number {
@@ -162,7 +266,8 @@ export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): Backt
     companies.set(r.company, list);
   }
   const events: Event[] = [],
-    pairs: [number, number][] = [];
+    pairs: [number, number][] = [],
+    stressPairs: { score: number; stress: boolean }[] = [];
   for (const [company, list] of companies) {
     list.sort((a, b) => (a.month < b.month ? -1 : a.month > b.month ? 1 : 0));
     for (let i = 0; i < list.length; i++) {
@@ -171,8 +276,24 @@ export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): Backt
       for (const kind of ["deterioro", "recuperacion"] as const)
         if (eventAt(list, i, kind)) events.push({ company, month: list[i].month, index: i, kind });
       if (!enVentana(list[i].month)) continue;
-      if (i + 3 < list.length && list[i + 3].margenMes !== null)
-        pairs.push([scoreAt(list[i], targetScore), list[i + 3].margenMes!]);
+      const current = monthIndex(list[i].month);
+      const three = list.find((candidate) => monthIndex(candidate.month) === current + 3);
+      const one = list.find((candidate) => monthIndex(candidate.month) === current + 1);
+      const two = list.find((candidate) => monthIndex(candidate.month) === current + 2);
+      if (three?.margenMes !== null && three !== undefined)
+        pairs.push([scoreAt(list[i], targetScore), three.margenMes]);
+      if (
+        one &&
+        two &&
+        three &&
+        one.deficitMes !== null &&
+        two.deficitMes !== null &&
+        three.deficitMes !== null
+      )
+        stressPairs.push({
+          score: scoreAt(list[i], targetScore),
+          stress: one.deficitMes && two.deficitMes && three.deficitMes,
+        });
     }
   }
   const empty = (): BacktestKind => ({
@@ -184,10 +305,17 @@ export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): Backt
     leadMedian: null,
     leadP25: null,
   });
+  const deciles = stressDeciles(stressPairs);
   const report: BacktestReport = {
     targetScore,
     forwardMarginSpearman: spearman(pairs),
     forwardMarginPairs: pairs.length,
+    forwardStressAuc: aucLowerIsRisk(stressPairs),
+    forwardStressAucCi95: bootstrapAucCi95(stressPairs),
+    forwardStressPrauc: praucLowerIsRisk(stressPairs),
+    forwardStressPairs: stressPairs.length,
+    stressDeciles: deciles,
+    stressDecilesMonotonic: stressDecilesMonotonic(deciles),
     censoredMonths: CENSORED_MONTHS,
     deterioro: empty(),
     recuperacion: empty(),

@@ -11,18 +11,19 @@ import {
 import { PARAMS } from "@/lib/features/scoring/params";
 import type { Percentiles, VariableSet } from "@/lib/features/scoring/types";
 
-test("subnota scales between p5 and p95 and inverts for 'bajo'", () => {
-  assert.ok(Math.abs(subnota("A1", 0.15, FIXTURE_PERCENTILES) - 62.5) < 1e-9);
-  assert.ok(Math.abs(subnota("A3", 3, FIXTURE_PERCENTILES) - 71.428571) < 1e-5);
-  assert.ok(Math.abs(subnota("A4", 0.05, FIXTURE_PERCENTILES) - 90) < 1e-9);
+test("subnota uses economic anchors for unstable ratios", () => {
+  assert.equal(subnota("A1", 0.15, FIXTURE_PERCENTILES), 75);
+  assert.equal(subnota("A3", 3, FIXTURE_PERCENTILES), 100);
+  assert.equal(subnota("A4", 0.05, FIXTURE_PERCENTILES), 94);
   assert.equal(subnota("A1", 5, FIXTURE_PERCENTILES), 100);
   assert.equal(subnota("A1", null, FIXTURE_PERCENTILES), 50);
+  assert.equal(subnota("A3", -100_000, FIXTURE_PERCENTILES), 0);
 });
 
-test("subnota is neutral when the variable has no fitted percentiles", () => {
+test("anchored variables remain evaluable when percentiles are absent", () => {
   const sinAjuste: Percentiles = { ...FIXTURE_PERCENTILES, A1: { p5: null, p95: null } };
-  assert.equal(subnota("A1", 0.15, sinAjuste), 50);
-  assert.equal(subnota("A1", 0.15, { ...FIXTURE_PERCENTILES, A1: { p5: 0.1, p95: null } }), 50);
+  assert.equal(subnota("A1", 0.15, sinAjuste), 75);
+  assert.equal(subnota("A1", 0.15, { ...FIXTURE_PERCENTILES, A1: { p5: 0.1, p95: null } }), 75);
 });
 
 test("B2 rule with decay", () => {
@@ -57,8 +58,7 @@ test("aggregate: weighted blocks make up score_solo, NA pulls to 50", () => {
   const sumA = r.contributions
     .filter((c) => c.id.startsWith("A"))
     .reduce((a, c) => a + c.aportacion, 0);
-  const expectedA =
-    (0.1 * 62.5 + 0.1 * 100 + 0.1 * 71.42857142857143 + 0.08 * 90 + 0.07 * 50) / 0.45;
+  const expectedA = (0.1 * 75 + 0.1 * 100 + 0.1 * 100 + 0.08 * 94 + 0.07 * 50) / 0.45;
   assert.ok(Math.abs(r.subscores.A - expectedA) < 1e-4);
   assert.ok(Math.abs(sumA - 0.45 * r.subscores.A) < 1e-9);
   const esperado =

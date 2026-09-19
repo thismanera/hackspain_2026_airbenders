@@ -54,11 +54,30 @@ test("bands B and C scale the limit and set their price", () => {
 
 test("confidence below the target cuts the limit proportionally", () => {
   const d = decideLegacy([row(CALENDAR[0], { confianza: 0.3 })])[0];
-  assert.equal(d.limiteRecomendado, redondeado(LIMITE_CAP * (0.3 / 0.6)));
+  assert.equal(d.limiteTeorico, LIMITE_CAP * (0.3 / 0.6));
+  assert.equal(d.limiteRecomendado, 0);
+  assert.equal(d.elegible, false);
+  assert.deepEqual(d.puertasFallidas, ["historia"]);
   assert.equal(d.accion, "mantener"); // 0,3 < confianza de apertura
   assert.equal(d.limiteVigente, 0);
   const alta = decideLegacy([row(CALENDAR[0], { confianza: 0.95 })])[0];
   assert.equal(alta.limiteRecomendado, redondeado(LIMITE_CAP)); // el recorte se capa en 1
+});
+
+test("risk and insufficient-data rows cannot open or expand", () => {
+  const risk = decideLegacy([
+    row(CALENDAR[0], { estadoSolo: "riesgo" }),
+    row(CALENDAR[1], { estadoSolo: "riesgo" }),
+  ]);
+  assert.equal(risk[0].elegible, false);
+  assert.equal(risk[0].limiteRecomendado, 0);
+  assert.equal(risk[0].accion, "mantener");
+  assert.equal(risk[1].accion, "mantener");
+
+  const noData = decideLegacy([row(CALENDAR[0], { estadoSolo: "sin_datos", confianza: 0.2 })])[0];
+  assert.equal(noData.elegible, false);
+  assert.equal(noData.limiteRecomendado, 0);
+  assert.equal(noData.accion, "mantener");
 });
 
 test("structural deterioration lowers the band before pricing", () => {

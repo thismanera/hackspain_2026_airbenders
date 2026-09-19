@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { prisma } from "@/lib/core/db";
 import { decisionRowSchema, type DecisionRowDTO } from "@/lib/features/decision/contracts";
-import { scoreRowSchema, type ScoreRowDTO } from "@/lib/features/scoring/contracts";
+import {
+  parametersSchema,
+  scoreRowSchema,
+  type ScoreRowDTO,
+} from "@/lib/features/scoring/contracts";
 
 export const listQuery = z.object({
   month: z
@@ -19,25 +23,39 @@ export const listQuery = z.object({
 export function queryObject(request: Request): Record<string, string> {
   return Object.fromEntries(new URL(request.url).searchParams);
 }
+class IncompatibleScoreRunError extends Error {}
+
 export async function completedRun(run?: string) {
-  if (run) return prisma.scoreRun.findFirst({ where: { id: run, status: "complete" } });
-  const candidates = await prisma.scoreRun.findMany({
-    where: { status: "complete" },
-    orderBy: { completedAt: "desc" },
-    include: { scores: { take: 1 } },
-  });
+  const candidates = run
+    ? await prisma.scoreRun.findMany({
+        where: { id: run, status: "complete" },
+        include: { scores: { take: 1 }, parameters: true },
+      })
+    : await prisma.scoreRun.findMany({
+        where: { status: "complete" },
+        orderBy: { completedAt: "desc" },
+        include: { scores: { take: 1 }, parameters: true },
+      });
   for (const candidate of candidates) {
+    const parameters = parametersSchema.safeParse(candidate.parameters.data);
+    if (!parameters.success || parameters.data.version !== candidate.parameterVersion) {
+      if (run) throw new IncompatibleScoreRunError();
+      continue;
+    }
     const sample = candidate.scores[0];
-    if (!sample) continue;
+    if (!sample) {
+      if (run) throw new IncompatibleScoreRunError();
+      continue;
+    }
     const parsed = scoreRowSchema.safeParse(sample.data);
     if (parsed.success) return candidate;
+    if (run) throw new IncompatibleScoreRunError();
   }
   return null;
 }
 export function invalid(error: z.ZodError): Response {
   return Response.json({ error: z.treeifyError(error) }, { status: 400 });
 }
-class IncompatibleScoreRunError extends Error {}
 /** Una fila de la API es el scoreSolo del motor nuevo más la decisión legacy si se importó. */
 function merged(row: { data: unknown; decision: { data: unknown } | null }) {
   try {
@@ -63,7 +81,17 @@ export async function listCompanies(request: Request): Promise<Response> {
     page,
     pageSize,
   } = parsed.data;
-  const selected = await completedRun(run);
+  let selected;
+  try {
+    selected = await completedRun(run);
+  } catch (error) {
+    if (error instanceof IncompatibleScoreRunError)
+      return Response.json(
+        { error: "Run uses an incompatible scoring contract", code: "SCORING_VERSION_MISMATCH" },
+        { status: 409 },
+      );
+    throw error;
+  }
   if (!selected) return Response.json({ error: "Run not found" }, { status: 404 });
   const where = {
     runId: selected.id,
@@ -104,7 +132,17 @@ export async function listCompanies(request: Request): Promise<Response> {
 export async function companyHistory(request: Request, companyId: string): Promise<Response> {
   const parsed = z.object({ run: z.string().optional() }).safeParse(queryObject(request));
   if (!parsed.success) return invalid(parsed.error);
-  const run = await completedRun(parsed.data.run);
+  let run;
+  try {
+    run = await completedRun(parsed.data.run);
+  } catch (error) {
+    if (error instanceof IncompatibleScoreRunError)
+      return Response.json(
+        { error: "Run uses an incompatible scoring contract", code: "SCORING_VERSION_MISMATCH" },
+        { status: 409 },
+      );
+    throw error;
+  }
   if (!run) return Response.json({ error: "Run not found" }, { status: 404 });
   const rows = await prisma.companyMonthScore.findMany({
     where: { runId: run.id, companyId },
@@ -128,7 +166,17 @@ export async function companyHistory(request: Request, companyId: string): Promi
   }
 }
 export async function runDetail(runId: string): Promise<Response> {
-  const run = await completedRun(runId);
+  let run;
+  try {
+    run = await completedRun(runId);
+  } catch (error) {
+    if (error instanceof IncompatibleScoreRunError)
+      return Response.json(
+        { error: "Run uses an incompatible scoring contract", code: "SCORING_VERSION_MISMATCH" },
+        { status: 409 },
+      );
+    throw error;
+  }
   if (!run) return Response.json({ error: "Run not found" }, { status: 404 });
   const sample = await prisma.companyMonthScore.findFirst({ where: { runId: run.id } });
   if (!sample || !scoreRowSchema.safeParse(sample.data).success)
@@ -212,6 +260,9 @@ const SCORE_KEYS = [
 const DECISION_KEYS = [
   "banda",
   "accion",
+  "elegible",
+  "puertasFallidas",
+  "limiteTeorico",
   "limiteRecomendado",
   "limiteVigente",
   "precio",
@@ -228,7 +279,17 @@ export async function exportScores(request: Request): Promise<Response> {
     })
     .safeParse(queryObject(request));
   if (!parsed.success) return invalid(parsed.error);
-  const run = await completedRun(parsed.data.run);
+  let run;
+  try {
+    run = await completedRun(parsed.data.run);
+  } catch (error) {
+    if (error instanceof IncompatibleScoreRunError)
+      return Response.json(
+        { error: "Run uses an incompatible scoring contract", code: "SCORING_VERSION_MISMATCH" },
+        { status: 409 },
+      );
+    throw error;
+  }
   if (!run) return Response.json({ error: "Run not found" }, { status: 404 });
   const rows = await prisma.companyMonthScore.findMany({
     where: {

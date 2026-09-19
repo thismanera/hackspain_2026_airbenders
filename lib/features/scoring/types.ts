@@ -148,9 +148,10 @@ export type InflexionResult = {
 };
 export type DiagnosticoMejora = { confirmada: boolean; motor: string | null };
 
-/** p5/p95 congelados por variable; null cuando no hubo muestras fiables (subnota neutral 50). */
+/** p5/p95 congelados por variable; null cuando no hubo muestras fiables o usa una escala anclada. */
 export type Percentiles = Record<VariableId, { p5: number | null; p95: number | null }>;
 export type Parameters = {
+  contratoVersion: string;
   version: string;
   paramsHash: string;
   percentiles: Percentiles;

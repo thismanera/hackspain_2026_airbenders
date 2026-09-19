@@ -37,8 +37,15 @@ const categoriesCsv = (() => {
   );
   return existsSync(file) ? file : null;
 })();
-/** Ventana de validación del backtest (§13). */
-const BACKTEST_MONTHS: [string, string] = ["2025-09", "2026-08"];
+/** Ventanas temporales de validación; septiembre de 2026 queda fuera por estar truncado. */
+const BACKTEST_WINDOWS = {
+  trailing6: ["2026-03", "2026-08"],
+  trailing9: ["2025-12", "2026-08"],
+  trailing12: ["2025-09", "2026-08"],
+  startup6: ["2025-09", "2026-02"],
+  startup9: ["2025-09", "2026-05"],
+  startup12: ["2025-09", "2026-08"],
+} as const satisfies Record<string, readonly [string, string]>;
 /** Último mes de ajuste: los percentiles solo ven muestras ≤ 2026-02 (§11). */
 const FIT_CUTOFF = "2026-02";
 const command = process.argv[2];
@@ -192,10 +199,18 @@ async function doBacktest() {
   const rows: ScoreRow[] = [];
   for await (const row of lines<ScoreRow>(path.join(runDir(params, m.fingerprint), "scores.jsonl")))
     if (validation.has(row.groupId)) rows.push(row);
+  const report = (months: readonly [string, string]) => ({
+    scoreSolo: backtest(rows, { months, targetScore: "scoreSolo" }),
+    scoreGrupo: backtest(rows, { months, targetScore: "scoreGrupo" }),
+  });
+  const windows = Object.fromEntries(
+    Object.entries(BACKTEST_WINDOWS).map(([name, months]) => [name, report(months)]),
+  );
   const metrics = {
-    scoreSolo: backtest(rows, { months: BACKTEST_MONTHS, targetScore: "scoreSolo" }),
-    scoreGrupo: backtest(rows, { months: BACKTEST_MONTHS, targetScore: "scoreGrupo" }),
-    months: BACKTEST_MONTHS,
+    // Compatibilidad con consumidores que ya leen la ventana completa.
+    ...windows.trailing12,
+    windows,
+    months: BACKTEST_WINDOWS.trailing12,
     validationCompanies: new Set(rows.map((r) => r.company)).size,
     validationRows: rows.length,
   };

@@ -10,8 +10,12 @@ export type DecisionRow = {
   capacidadAdv: number;
   limiteCap: number;
   limiteOp: number;
+  /** Límite que tendría la empresa antes de aplicar las puertas de elegibilidad. */
+  limiteTeorico: number;
   limiteRecomendado: number;
   limiteVigente: number;
+  elegible: boolean;
+  puertasFallidas: string[];
   accion: Accion;
   motivo: string;
 };

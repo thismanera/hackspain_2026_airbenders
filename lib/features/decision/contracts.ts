@@ -11,8 +11,11 @@ export const decisionRowSchema = z.object({
   capacidadAdv: finite.min(0),
   limiteCap: finite.min(0),
   limiteOp: finite.min(0),
+  limiteTeorico: finite.min(0),
   limiteRecomendado: finite.min(0),
   limiteVigente: finite.min(0),
+  elegible: z.boolean(),
+  puertasFallidas: z.array(z.string()),
   accion: z.enum(["abrir", "ampliar", "mantener", "reducir", "cerrar"]),
   motivo: z.string(),
 });
