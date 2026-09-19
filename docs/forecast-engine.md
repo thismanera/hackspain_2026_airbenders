@@ -225,6 +225,32 @@ La puerta del MAE saltó (v1 pierde contra el baseline ingenuo en los tres
 conjuntos), así que las filas salen `metodo = "desconectado"` y decisión las
 ignora hasta afinar los parámetros de §3.
 
+**Sweep de amortiguación y ablación de §3.2 (19-09-2026).** Escalar
+`amortiguacion` por k ∈ {0,5 · 0,35 · 0,25 · 0,15 · 0,1} y ampliar
+`ventana_tendencia` a 9 o 12 meses estrecha el hueco pero no lo cierra: con
+la tendencia apagada del todo (k = 0) el ajuste sigue en 3,195 contra 3,137
+del baseline, y validación h=3 en 3,739 contra 3,625. El sesgo no está,
+entonces, en extrapolar la tendencia, sino en la recomposición a tendencia
+cero. Ablando una a una las cuatro reglas sin tendencia general sobre el
+hueco de k = 1 (+0,1218 en ajuste, +0,1829 en validación h=3):
+
+| Regla ablada | Δ hueco ajuste | Δ hueco validación h=3 |
+| --- | --- | --- |
+| B2 sube solo en el cruce de `B1` por 0,9 (en vez de siempre que `B1_pred < 0,9`) | −0,0543 (45 %) | −0,0886 (48 %) |
+| A2 y `racha_deficit` reales en vez de recalculados sobre la caja proyectada | −0,0171 (14 %) | −0,0198 (11 %) |
+| `D2_pred = D2` en vez de propagar el `score_solo` previsto de las hermanas | −0,0060 (5 %) | +0,0017 (neutro) |
+| `racha_b2_prev` con la racha real también en los meses proyectados | 0,0000 | 0,0000 |
+
+La racha de B2 es la fuente principal: sube un mes siempre que `B1`
+proyectado queda bajo 0,9, aunque ya estuviera bajo 0,9 en `t`, así que
+castiga a toda empresa con B1 crónicamente bajo sin que nada haya cambiado.
+Con k = 0,1 explica el 74 % del hueco de ajuste y el 75 % del de validación.
+Las cuatro alternativas a la vez con k = 0,1 dejan el hueco en +0,0026
+(ajuste) y +0,0042 (validación h=3), con acierto de banda 79,8 % contra
+79,9 % del baseline: casi empate, pero empate perdido. Ninguna combinación
+bate al baseline en ajuste **y** validación, que es la puerta de §9, así que
+no se tocan las reglas de §3.2 y v1 se queda desconectada.
+
 ## 10. Fixtures y tests
 
 Fixtures en `lib/features/forecast/__fixtures__/series.ts` (series de
