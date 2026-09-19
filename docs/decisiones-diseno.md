@@ -326,6 +326,71 @@ slide de anticipación se apoya en dos casos.
 
 ---
 
+## 3b. Refactor: la decisión solo mira el score (decisiones 43-47, 19-09)
+
+**Principio (Pablo).** El scoring ya condensa todos los datos de la empresa
+en un score, tres pilares y una tendencia. Volver a leer flujos, rachas y
+facturas en la decisión duplicaba lógica y hacía imposible explicar "por
+qué" en una frase. Ahora el motor de decisión lee exactamente diecisiete
+campos: score, confianza, pilares A/B/C, estado, dirección, naturaleza,
+tendencia (global y por pilar), alertas del scoring, grupo (peso D1,
+interdependencia D5, aval), previsión opcional y **un solo dato en
+euros**, los cobros medios de tres meses, porque un límite necesita una
+escala y el score no la tiene.
+
+**Evidencia que lo permitió.** Tres de las cuatro puertas "crudas" eran
+literalmente alertas que el scoring ya emite (impago 56/56, déficit
+persistente 280/280, vencido alto 242/242 en 2026-08, cero
+discrepancias). La cuarta, la capacidad de cuota en euros, no se
+reproduce con el pilar A y **se elimina como puerta dura**; queda como
+factor proporcional (`min(1, A/70)`) sobre el límite, y el anticipo del
+80 % de tres meses de cobros sigue siendo un tope absoluto.
+
+| Decisión | Qué | Sustituye a |
+| --- | --- | --- |
+| 43 | Contrato de entrada mínimo (`DecisionInput`, 17 campos) | 40 (estrés propio) |
+| 44 | Puertas por pilar y alerta: A ≥ 50, B ≥ 60, C ≥ 50, sin alertas duras | puertas sobre rachas, C4 y capacidad |
+| 45 | Límite = 80 % × 3 meses de cobros × banda × confianza × factor A | capacidad × 12 |
+| 46 | Menú en rampa: cantidad máxima = L × plazo / 180 | 19 (capacidad × meses) |
+| 47 | Techo de grupo sobre Σ tamaño y score ponderado | 41 (techo cero) |
+
+**Umbrales de pilar elegidos (44).** B ≥ 60 es el más exigente porque a
+quien presta le importa sobre todo que la empresa pague; A y C en 50, la
+mitad de la escala. Alternativas medidas en 2026-08: 40/50/40 → 375
+elegibles; 50/50/40 → 368; **50/60/50 → 297**; 60/60/50 → 259.
+
+**Coste asumido, dicho al jurado.** La comprobación "puede devolverlo con
+caja estresada" deja de ser una puerta dura. Si el scoring sobrevalora
+una empresa, la decisión no tiene segunda fuente. A cambio, cada paso de
+la decisión se explica con el score y la ficha no contradice nunca al
+scoring.
+
+**Efecto medido (run del motor):**
+
+| 2026-08 | Antes (39-42) | Después (43-47) |
+| --- | --- | --- |
+| Pasan las puertas | 147 | 269 |
+| Elegibles | 106 | 217 |
+| Con línea abierta | 116 | 220 |
+| Filas con techo de grupo | 361 | 59 |
+
+| 24 meses | Antes | Después |
+| --- | --- | --- |
+| Empresas que alguna vez tienen línea | 308 | 535 |
+| `abrir` / `ampliar` / `reducir` | 420 / 417 / 394 | 840 / 803 / 585 |
+| Oscilación | 8,6 % | 13,4 % (objetivo < 20 %) |
+| Exposición evitada (validación) | 656 k€ | 1,52 M€ |
+| Ingresos simulados (validación) | 1,89 M€ | 14,7 M€ (sin el tope de capacidad, L crece) |
+
+Propiedades §13: cero violaciones en 30.864 filas (menú monótono, rampa,
+Σ del grupo ≤ techo, rejilla de 1.000 €, elegible ⇔ menú no vacío).
+
+**Notas de calibración pendientes** (para la siguiente iteración sobre
+esta rama): `factorARef` 70 deja el factor A entre 0,71 y 1 en filas
+elegibles, es decir, matiza poco; el techo de grupo ahora solo muerde
+cuando la banda ponderada del grupo es peor que la del miembro con línea;
+`cierres falsos` sigue en ~99 % por la definición de evento en scoring.
+
 ## 4. Cómo se contará al jurado
 
 1. **Modelo sencillo, producto claro**: catorce variables explicables, un
