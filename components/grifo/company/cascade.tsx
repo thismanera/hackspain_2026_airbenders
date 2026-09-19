@@ -31,7 +31,7 @@ function Row({ contribution }: { contribution: Contribution }) {
   const moved = Math.abs(contribution.delta) >= 0.05;
 
   return (
-    <li className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-1 px-4 py-2.5 sm:grid-cols-[minmax(0,1fr)_5.5rem_6rem_4.5rem_4rem]">
+    <li className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-1 px-4 py-2 sm:grid-cols-[minmax(0,1fr)_5.5rem_6rem_4.5rem_4rem]">
       <div className="min-w-0 sm:col-span-1">
         <p className={cn("truncate text-sm", missing && "text-muted-foreground")}>{meta.label}</p>
         <p className="text-muted-foreground truncate text-xs">
@@ -99,28 +99,21 @@ function Row({ contribution }: { contribution: Contribution }) {
 }
 
 export function Cascade({ month }: { month: MonthScore }) {
-  const [mode, setMode] = useState<Mode>("bloque");
+  const [mode, setMode] = useState<Mode>("movimiento");
 
-  const byMovement = [...month.contributions].sort(
-    (a, b) => Math.abs(b.delta) - Math.abs(a.delta),
-  );
+  const byMovement = [...month.contributions]
+    .filter((entry) => entry.raw !== null)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  const missing = month.contributions.filter((entry) => entry.raw === null);
 
   return (
     <Panel
       title="De dónde sale el score"
-      description="Cada variable aporta puntos según su nota y su peso. La suma de la columna de puntos es el score en solitario."
+      description="Ordenado por lo que más se ha movido este mes. La suma de puntos es el score en solitario."
       bodyClassName="p-0"
       aside={
         <fieldset className="flex min-w-0 gap-1">
           <legend className="sr-only">Ordenar la cascada</legend>
-          <Button
-            variant={mode === "bloque" ? "secondary" : "ghost"}
-            size="sm"
-            aria-pressed={mode === "bloque"}
-            onClick={() => setMode("bloque")}
-          >
-            Por bloque
-          </Button>
           <Button
             variant={mode === "movimiento" ? "secondary" : "ghost"}
             size="sm"
@@ -128,6 +121,14 @@ export function Cascade({ month }: { month: MonthScore }) {
             onClick={() => setMode("movimiento")}
           >
             Qué se ha movido
+          </Button>
+          <Button
+            variant={mode === "bloque" ? "secondary" : "ghost"}
+            size="sm"
+            aria-pressed={mode === "bloque"}
+            onClick={() => setMode("bloque")}
+          >
+            Por bloque
           </Button>
         </fieldset>
       }
@@ -144,15 +145,16 @@ export function Cascade({ month }: { month: MonthScore }) {
         (Object.keys(BLOCKS) as BlockId[]).map((blockId) => {
           const block = BLOCKS[blockId];
           const rows = month.contributions.filter(
-            (entry) => indicator(entry.indicator)?.block === blockId,
+            (entry) => indicator(entry.indicator)?.block === blockId && entry.raw !== null,
           );
           return (
             <div key={blockId}>
               <div className="bg-muted/40 flex items-baseline justify-between gap-3 border-b px-4 py-1.5">
                 <h3 className="text-xs font-medium">
                   {block.label}
-                  <span className="text-muted-foreground ml-1.5 font-normal">
-                    peso {formatPercent(block.weight, 0)}
+                  <span className="text-muted-foreground font-normal">
+                    {" "}
+                    · peso {formatPercent(block.weight, 0)}
                   </span>
                 </h3>
                 <span className="text-xs tabular-nums">
@@ -177,6 +179,19 @@ export function Cascade({ month }: { month: MonthScore }) {
           ))}
         </ul>
       )}
+
+      {missing.length > 0 ? (
+        <details className="border-t">
+          <summary className="text-muted-foreground hover:text-foreground cursor-pointer px-4 py-2 text-sm transition-colors duration-150">
+            {missing.length} {missing.length === 1 ? "variable" : "variables"} sin cobertura
+          </summary>
+          <ul className="divide-y border-t">
+            {missing.map((entry) => (
+              <Row key={entry.indicator} contribution={entry} />
+            ))}
+          </ul>
+        </details>
+      ) : null}
 
       <div className="flex items-baseline justify-between gap-3 border-t px-4 py-2.5 text-sm">
         <span className="font-medium">Score en solitario</span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, MessageSquareText } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -19,25 +19,26 @@ function Citations({ narrative }: { narrative: Narrative }) {
   if (unique.length === 0) return null;
 
   return (
-    <ul className="flex flex-wrap gap-1.5" aria-label="Datos citados">
-      {unique.map((citation) => (
-        <li
-          key={citation.ref}
-          className="text-muted-foreground bg-background inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
-        >
-          <span className="font-mono">{citation.ref.replace("puerta:", "")}</span>
-          <span className="text-foreground/70">{citation.label}</span>
-        </li>
-      ))}
-    </ul>
+    <p className="text-muted-foreground text-xs text-pretty" aria-label="Datos citados">
+      Según{" "}
+      {unique.map((citation, index) => {
+        const label = citation.label.charAt(0).toLowerCase() + citation.label.slice(1);
+        return (
+          <span key={citation.ref}>
+            {index > 0 ? (index === unique.length - 1 ? " y " : ", ") : null}
+            {label}
+            {/^[A-Z]\d/.test(citation.ref) ? <span className="font-mono"> ({citation.ref})</span> : null}
+          </span>
+        );
+      })}
+      .
+    </p>
   );
 }
 
 /**
  * La lectura en llano de la ficha. Va antes que cualquier tabla porque es lo
- * que se dice en el comité; cada frase lleva debajo qué dato la sostiene, para
- * que el lector pueda ir a comprobarlo. Y la nota al pie lo deja escrito: el
- * texto explica lo calculado, no calcula nada.
+ * que se dice en el comité; cada frase lleva debajo qué dato la sostiene.
  */
 export function NarrativeCard({
   title,
@@ -45,7 +46,7 @@ export function NarrativeCard({
   question,
   className,
 }: {
-  title: string;
+  title?: string;
   narrative: Narrative;
   /** Pregunta contextual opcional, con su respuesta ya preparada. */
   question?: { label: string; answer: Narrative };
@@ -54,27 +55,19 @@ export function NarrativeCard({
   const [asked, setAsked] = useState(false);
 
   return (
-    <section
-      aria-label={title}
-      className={cn("bg-secondary/60 flex flex-col gap-3 rounded-xl border p-4", className)}
-    >
-      <div className="flex items-start gap-2.5">
-        <MessageSquareText aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <h3 className="text-muted-foreground text-xs font-medium">{title}</h3>
-          <p className="text-base leading-relaxed font-medium text-pretty">{narrative.headline}</p>
-          {narrative.sentences.length > 0 ? (
-            <p className="text-muted-foreground max-w-[70ch] text-sm leading-relaxed text-pretty">
-              {narrative.sentences.map((sentence) => sentence.text).join(" ")}
-            </p>
-          ) : null}
-        </div>
-      </div>
+    <section aria-label={title ?? "Lectura"} className={cn("flex flex-col gap-3", className)}>
+      {title ? <h3 className="text-sm font-medium">{title}</h3> : null}
+      <p className="text-base leading-relaxed font-medium text-pretty">{narrative.headline}</p>
+      {narrative.sentences.length > 0 ? (
+        <p className="text-muted-foreground max-w-[70ch] text-sm leading-relaxed text-pretty">
+          {narrative.sentences.map((sentence) => sentence.text).join(" ")}
+        </p>
+      ) : null}
 
       <Citations narrative={narrative} />
 
       {question ? (
-        <div className="flex flex-col gap-3 border-t pt-3">
+        <div className="flex flex-col gap-3">
           <Button
             type="button"
             variant="outline"
@@ -105,10 +98,6 @@ export function NarrativeCard({
           ) : null}
         </div>
       ) : null}
-
-      <p className="text-muted-foreground text-xs">
-        Lectura generada a partir de la decisión ya calculada. El texto explica; no calcula.
-      </p>
     </section>
   );
 }

@@ -5,11 +5,13 @@
  * sostiene. Si algún día un modelo de lenguaje redacta esto, tendrá que citar
  * exactamente lo mismo.
  */
+import { CALENDAR } from "./calendar";
 import {
   formatApr,
   formatDecimal,
   formatEuros,
   formatIndicatorValue,
+  formatMonthShort,
   formatSigned,
 } from "./format";
 import { indicator } from "./indicators";
@@ -50,6 +52,19 @@ function describe(contribution: Contribution): string {
   return `${meta.label.toLowerCase()} (${value})`;
 }
 
+function lever(contribution: Contribution): string {
+  const meta = indicator(contribution.indicator);
+  if (!meta) return "";
+  if (contribution.indicator === "B2") {
+    return `pagar las obligaciones esperadas este mes (lleva ${formatIndicatorValue(contribution.raw, meta.format)} seguidos sin hacerlo)`;
+  }
+  const threshold =
+    meta.healthy !== undefined
+      ? ` hasta ${meta.betterWhen === "alto" ? "al menos" : "como mucho"} ${formatIndicatorValue(meta.healthy, meta.format)}`
+      : "";
+  return `${meta.betterWhen === "alto" ? "subir" : "bajar"} ${meta.label.toLowerCase()}${threshold}`;
+}
+
 function joinEs(parts: string[]): string {
   if (parts.length <= 1) return parts[0] ?? "";
   return `${parts.slice(0, -1).join(", ")} y ${parts[parts.length - 1]}`;
@@ -70,9 +85,18 @@ function strongest(month: MonthScore, count: number): Contribution[] {
     .slice(0, count);
 }
 
-function movers(month: MonthScore, count: number): Contribution[] {
+function movers(
+  month: MonthScore,
+  count: number,
+  sense: "up" | "down" | "any" = "any",
+): Contribution[] {
   return month.contributions
-    .filter((entry) => entry.raw !== null && Math.abs(entry.delta) >= 0.05)
+    .filter((entry) => {
+      if (entry.raw === null || Math.abs(entry.delta) < 0.05) return false;
+      if (sense === "down") return entry.delta < 0;
+      if (sense === "up") return entry.delta > 0;
+      return true;
+    })
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
     .slice(0, count);
 }
@@ -86,15 +110,16 @@ export function decisionNarrative(file: CompanyFileResponse): Narrative {
   const actionLabel = ACCION[decision.action].label.toLowerCase();
   const limitDelta = decision.limit - decision.previousLimit;
 
+  const failed = decision.gates.find((gate) => !gate.passed);
+
   let headline: string;
   if (!decision.eligible) {
-    const failed = decision.gates.find((gate) => !gate.passed);
     headline =
       decision.previousLimit > 0
         ? `Se cierra la línea: se retiran ${formatEuros(decision.previousLimit)}.`
         : "Sin línea este mes.";
     sentences.push({
-      text: decision.reason,
+      text: failed?.detail ?? decision.reason,
       citations: failed ? [{ ref: `puerta:${failed.id}`, label: failed.label }] : [],
     });
   } else if (decision.action === "mantener") {
@@ -107,19 +132,21 @@ export function decisionNarrative(file: CompanyFileResponse): Narrative {
 
   if (decision.eligible) {
     sentences.push({
-      text: `Banda ${decision.band} con score ${Math.round(latest.score)}: hasta ${decision.maxTenorDays} días al ${formatApr(decision.apr)}. ${decision.reason}`,
+      text: `Banda ${decision.band} con score ${Math.round(latest.score)}: hasta ${decision.maxTenorDays} días al ${formatApr(decision.apr)}.`,
       citations: [{ ref: "banda", label: `Banda ${decision.band}` }],
     });
   }
 
-  const moved = movers(latest, 2);
-  if (previous && moved.length > 0) {
+  if (previous) {
     const scoreDelta = latest.score - previous.score;
-    const verb = scoreDelta >= 0 ? "sube" : "baja";
-    sentences.push({
-      text: `El score ${verb} ${formatDecimal(Math.abs(scoreDelta))} puntos desde el mes pasado, sobre todo por ${joinEs(moved.map(describe))}.`,
-      citations: moved.map(cite).filter((c): c is Citation => c !== null),
-    });
+    const moved = movers(latest, 2, scoreDelta >= 0 ? "up" : "down");
+    if (moved.length > 0) {
+      const verb = scoreDelta >= 0 ? "sube" : "baja";
+      sentences.push({
+        text: `El score ${verb} ${formatDecimal(Math.abs(scoreDelta))} puntos desde el mes pasado, sobre todo por ${joinEs(moved.map(describe))}.`,
+        citations: moved.map(cite).filter((c): c is Citation => c !== null),
+      });
+    }
   }
 
   if (latest.group && Math.abs(latest.group.adjustment) >= 0.5) {
@@ -135,8 +162,15 @@ export function decisionNarrative(file: CompanyFileResponse): Narrative {
   if (latest.alerts.length > 0) {
     const critical = latest.alerts.filter((alert) => alert.severity === "critica");
     const alert = critical[0] ?? latest.alerts[0];
+    const alreadyTold = sentences.some((sentence) =>
+      sentence.text.toLowerCase().includes(alert.label.toLowerCase()),
+    );
+    const lead =
+      CALENDAR.indexOf(alert.confirmedMonth) - CALENDAR.indexOf(alert.onsetMonth);
     sentences.push({
-      text: `${latest.alerts.length === 1 ? "Hay una alerta activa" : `Hay ${latest.alerts.length} alertas activas`}; la más grave: ${alert.label.toLowerCase()}.`,
+      text: alreadyTold
+        ? `La alerta se detectó en ${formatMonthShort(alert.onsetMonth)} y se confirmó en ${formatMonthShort(alert.confirmedMonth)}${lead > 0 ? ` (${lead} ${lead === 1 ? "mes" : "meses"} de aviso)` : ""}.`
+        : `${latest.alerts.length === 1 ? "Hay una alerta activa" : `Hay ${latest.alerts.length} alertas activas`}; la más grave: ${alert.label.toLowerCase()}.`,
       citations: [{ ref: alert.indicator, label: indicator(alert.indicator)?.label ?? "Score" }],
     });
   }
@@ -193,22 +227,14 @@ export function improvementNarrative(file: CompanyFileResponse): Narrative {
   const failedGates = decision.gates.filter((gate) => !gate.passed);
   if (failedGates.length > 0) {
     sentences.push({
-      text: `Antes que nada tiene que pasar ${failedGates.length === 1 ? "la puerta que falla" : `las ${failedGates.length} puertas que fallan`}: ${joinEs(failedGates.map((gate) => gate.label.toLowerCase()))}. Sin eso no hay límite, por bueno que sea el score.`,
+      text: `Antes que nada tiene que pasar ${failedGates.length === 1 ? "la puerta que falla" : `las ${failedGates.length} puertas que fallan`}: ${joinEs(failedGates.map((gate) => gate.detail.replace(/\.$/, "").toLowerCase()))}. Sin eso no hay límite, por bueno que sea el score.`,
       citations: failedGates.map((gate) => ({ ref: `puerta:${gate.id}`, label: gate.label })),
     });
   }
 
   const weak = weakest(latest, 3).filter((entry) => entry.subscore < 60);
   if (weak.length > 0) {
-    const targets = weak.map((entry) => {
-      const meta = indicator(entry.indicator);
-      if (!meta) return "";
-      const threshold =
-        meta.healthy !== undefined
-          ? ` hasta ${meta.betterWhen === "alto" ? "al menos" : "como mucho"} ${formatIndicatorValue(meta.healthy, meta.format)}`
-          : "";
-      return `${meta.betterWhen === "alto" ? "subir" : "bajar"} ${meta.label.toLowerCase()}${threshold}`;
-    });
+    const targets = weak.map((entry) => lever(entry)).filter(Boolean);
     sentences.push({
       text: `Las palancas con más recorrido: ${joinEs(targets)}. Son las variables que menos puntúan hoy.`,
       citations: weak.map(cite).filter((c): c is Citation => c !== null),
