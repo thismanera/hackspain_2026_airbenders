@@ -21,6 +21,7 @@
     "scoring:decide": "node --import tsx scripts/scoring.ts decide",
     "scoring:backtest": "node --import tsx scripts/scoring.ts backtest",
     "scoring:import": "node --conditions=react-server --import tsx scripts/scoring.ts import",
+    "helmcode:check": "node --conditions=react-server --import tsx scripts/helmcode-check.ts",
     "lint": "cross-env NODE_OPTIONS=\"--import tsx\" oxlint --ignore-pattern \".claude/**\" --format unix",
     "lint:fix": "cross-env NODE_OPTIONS=\"--import tsx\" oxlint --ignore-pattern \".claude/**\" --fix --format unix",
     "format": "prettier --write .",
