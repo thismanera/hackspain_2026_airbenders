@@ -10,14 +10,20 @@ import type { GroupAdjustment, GroupPeer } from "@/lib/features/portfolio/types"
  * Bloque D de SOURCE §1.7. La asimetría (decisión #16) es lo que hay que dejar
  * claro: el grupo solo avala si tiene con qué, pero arrastra siempre.
  */
+const PEER_ROW =
+  "hover:bg-muted/50 focus-visible:ring-ring flex w-full items-center justify-between gap-3 px-4 py-2 text-left transition-colors duration-150 focus-visible:ring-2 focus-visible:-outline-offset-2 focus-visible:outline-none";
+
 export function GroupPanel({
   group,
   peers,
   month,
+  onSelect,
 }: {
   group: GroupAdjustment;
   peers: GroupPeer[];
   month: string;
+  /** Dentro de la sheet las hermanas se abren en el sitio, sin cambiar de página. */
+  onSelect?: (companyId: string) => void;
 }) {
   const helps = group.adjustment > 0;
   const neutral = Math.abs(group.adjustment) < 0.5;
@@ -71,12 +77,9 @@ export function GroupPanel({
       </p>
 
       <ul className="divide-y border-t">
-        {peers.map((peer) => (
-          <li key={peer.id}>
-            <Link
-              href={`/cartera/${peer.id}?mes=${month}`}
-              className="hover:bg-muted/50 focus-visible:ring-ring flex items-center justify-between gap-3 px-4 py-2 transition-colors duration-150 focus-visible:ring-2 focus-visible:-outline-offset-2 focus-visible:outline-none"
-            >
+        {peers.map((peer) => {
+          const content = (
+            <>
               <span className="flex min-w-0 items-center gap-2">
                 <StatusDot estado={peer.estado} />
                 <span className="truncate font-mono text-sm">{peer.id}</span>
@@ -84,9 +87,22 @@ export function GroupPanel({
               <span className="text-muted-foreground shrink-0 text-sm tabular-nums">
                 {formatScore(peer.score)}
               </span>
-            </Link>
-          </li>
-        ))}
+            </>
+          );
+          return (
+            <li key={peer.id}>
+              {onSelect ? (
+                <button type="button" className={PEER_ROW} onClick={() => onSelect(peer.id)}>
+                  {content}
+                </button>
+              ) : (
+                <Link href={`/cartera/${peer.id}?mes=${month}`} className={PEER_ROW}>
+                  {content}
+                </Link>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </Panel>
   );

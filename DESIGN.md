@@ -417,8 +417,9 @@ itself — a low-confidence contribution must never look like a small one.
 - **Do** display confidence as its own visible figure. "Sin datos" is a valid
   state with its own status triplet, and it is always preferable to a confident
   number built on three months of history.
-- **Do** keep all transitions at 150–250ms on colour and opacity, with a
-  `prefers-reduced-motion` alternative on every one.
+- **Do** keep all transitions at 150–250ms on colour and opacity. Motion is
+  the same for everyone: do not gate it on `prefers-reduced-motion`; give a
+  visible pause control when an animation loops.
 - **Do** use skeletons shaped like the content that is loading; never a spinner
   in the middle of a panel.
 

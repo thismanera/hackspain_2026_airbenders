@@ -17,10 +17,13 @@ const DIRECTION_TONE = {
 export function TrendDelta({
   trend3m,
   direction,
+  showWindow = false,
   className,
 }: {
   trend3m: number | null;
   direction: Direccion;
+  /** En la ficha el −1,5 convive con el delta de un mes: hay que decir la ventana. */
+  showWindow?: boolean;
   className?: string;
 }) {
   if (trend3m === null) {
@@ -34,10 +37,14 @@ export function TrendDelta({
     <span className={cn("inline-flex items-center gap-1 text-xs font-medium", tone.text, className)}>
       <Icon aria-hidden className="size-3.5" />
       <span className="tabular-nums">{formatSigned(trend3m)}</span>
-      <span className="sr-only">
-        {direction === "mejora" ? "de mejora" : direction === "deterioro" ? "de deterioro" : "de cambio"} en
-        tres meses
-      </span>
+      {showWindow ? (
+        <span className="text-muted-foreground font-normal">en 3 m</span>
+      ) : (
+        <span className="sr-only">
+          {direction === "mejora" ? "de mejora" : direction === "deterioro" ? "de deterioro" : "de cambio"}{" "}
+          en tres meses
+        </span>
+      )}
     </span>
   );
 }
