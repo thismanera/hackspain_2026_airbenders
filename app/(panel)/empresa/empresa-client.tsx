@@ -268,8 +268,8 @@ export function EmpresaClient() {
         title="Mi score"
         description={
           state.empresa
-            ? `Oferta preaprobada a cierre de ${formatMonthLong(state.mes)}. Nadie fuera de Embat la ve hasta que pidas la línea.`
-            : "Tu score, por qué, y cuánto tienes preaprobado. Privado hasta que pidas la línea."
+            ? `Oferta calculada a cierre de ${formatMonthLong(state.mes)}. El partner solo la recibe si pides la línea (demo abierta, sin sesión).`
+            : "Tu score, por qué, y cuánto tienes disponible. El partner solo lo recibe si pides la línea."
         }
         aside={
           <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>

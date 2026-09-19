@@ -14,6 +14,7 @@
     "test": "node scripts/run-tests.mjs",
     "db:setup": "node scripts/setup-db.mjs",
     "db:setup:force": "node scripts/setup-db.mjs --force",
+    "db:setup:refit": "node scripts/setup-db.mjs --force --refit",
     "scoring:fit": "node --import tsx scripts/scoring.ts fit",
     "scoring:score": "node --import tsx scripts/scoring.ts score",
     "forecast:fit": "node --import tsx scripts/forecast.ts fit",
@@ -31,7 +32,6 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
     "typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json",
-    "prisma:seed": "tsx prisma/seed.ts",
     "auth:generate": "auth generate --config lib/core/auth.ts --output ./prisma/schema/auth.prisma --yes",
     "rename-project": "node scripts/rename-project.mjs",
     "knip": "knip"
