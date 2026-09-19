@@ -5,7 +5,7 @@ Copilot, Gemini...) o humano que vaya a escribir código aquí. Es la fuente de
 verdad tool-agnostic; `CLAUDE.md` solo apunta aquí para evitar duplicar reglas.
 
 > Antes de pedirle a un agente que "construya el proyecto", rellena
-> [`PRODUCT.md`](./PRODUCT.md) con el problema, los usuarios y el flujo core.
+> [`docs/PRODUCT.md`](./docs/PRODUCT.md) con el problema, los usuarios y el flujo core.
 > Este archivo (`AGENTS.md`) explica **cómo** construir; `PRODUCT.md` explica
 > **qué** construir.
 

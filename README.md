@@ -123,7 +123,7 @@ gh api repos/{owner}/{repo} -X PATCH -f is_template=true
      `gh repo create mi-proyecto --template <tu-usuario>/plantilla-nextjs --private --clone`.
    - **Sin GitHub:** copia la carpeta a mano y borra `.git` (`rm -rf .git && git init`).
 2. Renombra el placeholder: `pnpm run rename-project -- "Mi Proyecto"`.
-3. Rellena [PRODUCT.md](./PRODUCT.md) con el problema, los usuarios y el
+3. Rellena [docs/PRODUCT.md](./docs/PRODUCT.md) con el problema, los usuarios y el
    flujo core de este proyecto en concreto.
 4. `pnpm install`, copia `.env.example` → `.env` con tus credenciales reales,
    `pnpm prisma generate`.
