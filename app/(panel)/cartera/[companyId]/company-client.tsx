@@ -4,6 +4,7 @@ import { Info } from "lucide-react";
 
 import { AlertsTimeline } from "@/components/grifo/company/alerts-timeline";
 import { Cascade } from "@/components/grifo/company/cascade";
+import { CompanyAvatar } from "@/components/grifo/company-avatar";
 import { CoveragePanel } from "@/components/grifo/company/coverage-panel";
 import { DecisionPanel } from "@/components/grifo/company/decision-panel";
 import { GatesPanel } from "@/components/grifo/company/gates";
@@ -30,6 +31,7 @@ export function CompanyClient({ companyId, month }: { companyId: string; month: 
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
+            <CompanyAvatar companyId={company.id} size="lg" />
             <h1 className="font-mono text-2xl font-semibold tracking-tight">{company.id}</h1>
             <StatusBadge estado={latest.estado} size="lg" />
           </div>

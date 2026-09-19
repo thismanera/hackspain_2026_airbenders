@@ -53,7 +53,6 @@ test("decisión 43: lo que sale del contrato no llega al motor por ninguna vía"
     "variables",
     "deltaContrib",
     "scoreSolo",
-    "ajusteHolding",
     "estadoSolo",
     "cobrosOpMedia3m",
   ];

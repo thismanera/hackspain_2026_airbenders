@@ -10,14 +10,17 @@ import type {
   CompanyMeta,
   Direccion,
   Estado,
+  HotSignal,
   MonthScore,
   PortfolioResponse,
   PortfolioRow,
   PortfolioSummary,
   GroupFileResponse,
   GroupMember,
+  TrailPoint,
 } from "./types";
 import { deriveBanda } from "./vocabulary";
+import { INDICATORS } from "./indicators";
 
 type CompatibleRun = {
   id: string;
@@ -397,11 +400,27 @@ function portfolioRow(
   meta: CompanyMeta,
   current: MonthScore,
   previous: MonthScore | null,
+  history: MonthScore[],
 ): PortfolioRow {
   const changed =
     current.decision.action !== "mantener" &&
     !(current.decision.action === "cerrar" && current.decision.previousLimit === 0);
   const failed = current.decision.gates.find((gate) => !gate.passed);
+  const index = history.findIndex((item) => item.month === current.month);
+  const spark = history
+    .slice(Math.max(0, index - 11), index + 1)
+    .map((entry) => entry.score);
+  const trail = history
+    .slice(Math.max(0, index - 5), index + 1)
+    .flatMap((entry): TrailPoint[] =>
+      entry.trend3m === null
+        ? []
+        : [{ month: entry.month, score: entry.score, trend3m: entry.trend3m }],
+    );
+  const hot =
+    current.nature === "estructural" && current.trend3m !== null && current.trend3m !== 0
+      ? driverOf(history, index, current.trend3m)
+      : null;
   return {
     company: meta,
     month: current.month,
@@ -421,9 +440,59 @@ function portfolioRow(
     blockedBy: failed?.label ?? null,
     reason: current.decision.reason,
     alertCount: current.alerts.length,
-    spark: previous ? [previous.score, current.score] : [current.score],
+    spark: previous ? spark : [current.score],
+    trail,
+    hot,
     share: current.group?.share ?? 1,
   };
+}
+
+function driverOf(months: MonthScore[], index: number, trend3m: number): HotSignal {
+  const window = months.slice(Math.max(0, index - 2), index + 1);
+  const totals = new Map<string, number>();
+  for (const entry of window) {
+    for (const contribution of entry.contributions) {
+      totals.set(
+        contribution.indicator,
+        (totals.get(contribution.indicator) ?? 0) + contribution.delta,
+      );
+    }
+  }
+  let best: { indicator: string; delta: number } | null = null;
+  for (const [indicator, delta] of totals) {
+    if (Math.sign(delta) !== Math.sign(trend3m)) continue;
+    if (!best || Math.abs(delta) > Math.abs(best.delta)) best = { indicator, delta };
+  }
+  const current = months[index]!;
+  return {
+    rank: 0,
+    driver: best ? (INDICATORS.find((item) => item.id === best.indicator)?.label ?? null) : null,
+    driverDelta: best ? Math.round(best.delta * 10) / 10 : 0,
+    hasCritical: current.alerts.some((alert) => alert.severity === "critica"),
+  };
+}
+
+function rankHot(rows: PortfolioRow[]): PortfolioRow[] {
+  const candidates = rows.filter(
+    (row): row is PortfolioRow & { hot: HotSignal; trend3m: number } =>
+      row.hot !== null && row.trend3m !== null,
+  );
+  candidates.sort((a, b) => {
+    const byMove = Math.abs(b.trend3m) - Math.abs(a.trend3m);
+    if (byMove !== 0) return byMove;
+    if (a.hot.hasCritical !== b.hot.hasCritical) return a.hot.hasCritical ? -1 : 1;
+    if (a.changed !== b.changed) return a.changed ? -1 : 1;
+    return a.company.id.localeCompare(b.company.id);
+  });
+  const top = candidates.slice(0, 8);
+  const ranked = new Set(top.map((row) => row.company.id));
+  for (const row of rows) {
+    if (!ranked.has(row.company.id)) row.hot = null;
+  }
+  top.forEach((row, index) => {
+    row.hot.rank = index + 1;
+  });
+  return top;
 }
 
 function summary(month: string, rows: PortfolioRow[]): PortfolioSummary {
@@ -520,9 +589,11 @@ export async function getPortfolioLive(
           metadata.get(current.company)!,
           current,
           index > 0 ? history[index - 1] : null,
+          history,
         );
       });
     const all = allAt(month);
+    const hot = rankHot(all);
     const rows = all.filter(matches);
     rows.sort((a, b) => a.score - b.score || a.company.id.localeCompare(b.company.id));
     const months = CALENDAR.filter((candidate) => monthRows.has(candidate) && candidate <= month);
@@ -534,6 +605,7 @@ export async function getPortfolioLive(
       previous: history.length > 1 ? history.at(-2)! : null,
       history,
       rows,
+      hot,
       totalUnfiltered: all.length,
     };
   } catch {

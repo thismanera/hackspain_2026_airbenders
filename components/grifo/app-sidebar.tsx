@@ -1,10 +1,22 @@
 "use client";
 
-import { AlertTriangle, CircleSlash, Layers, TrendingDown } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Bell,
+  Building2,
+  CirclePlay,
+  FlaskConical,
+  Layers,
+  Network,
+  Scale,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 
+import { EmbatMark } from "@/components/grifo/embat-mark";
+import { readViewMode, type ViewMode } from "@/components/grifo/view-mode";
 import {
   Sidebar,
   SidebarContent,
@@ -18,45 +30,92 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
+type NavItem = { label: string; href: string; icon: LucideIcon; hint: string };
+
 /**
- * Las "vistas" no son secciones inventadas: cada una es la cartera con un filtro
- * distinto, el mismo estado que vive en la URL. Un enlace aquí y teclear el
- * filtro a mano llevan exactamente al mismo sitio.
+ * Una sección por actor de PRODUCT §3, etiquetada con la vista a la que
+ * pertenece: el partner y el CFO de grupo trabajan la cartera; la empresa
+ * mira solo su propio score. Cada entrada es una página con su URL, y el mes
+ * que se está mirando viaja con ella.
  */
-const VIEWS = [
-  { label: "Todas las empresas", icon: Layers, estado: null, direccion: null },
-  { label: "En riesgo", icon: AlertTriangle, estado: "riesgo", direccion: null },
-  { label: "Con deterioro", icon: TrendingDown, estado: null, direccion: "deterioro" },
-  { label: "Sin datos suficientes", icon: CircleSlash, estado: "sin_datos", direccion: null },
-] as const;
+const SECTIONS: { label: string; view: ViewMode; items: NavItem[] }[] = [
+  {
+    label: "Cartera",
+    view: "partner",
+    items: [
+      {
+        label: "Empresas",
+        href: "/cartera",
+        icon: Layers,
+        hint: "Quién está sano, quién se tuerce",
+      },
+      { label: "Grupos", href: "/grupos", icon: Network, hint: "Aval, contagio y techo" },
+      { label: "Alertas", href: "/alertas", icon: Bell, hint: "Deterioro y mejora, fechados" },
+      {
+        label: "Comparar",
+        href: "/comparar",
+        icon: Scale,
+        hint: "Hasta tres empresas lado a lado",
+      },
+    ],
+  },
+  {
+    label: "Empresa",
+    view: "empresa",
+    items: [
+      {
+        label: "Mi score",
+        href: "/empresa",
+        icon: Building2,
+        hint: "Lo que ve la empresa antes de pedir",
+      },
+    ],
+  },
+  {
+    label: "Modelo",
+    view: "partner",
+    items: [
+      {
+        label: "Backtest",
+        href: "/backtest",
+        icon: FlaskConical,
+        hint: "Cuánto antes avisó el motor",
+      },
+    ],
+  },
+];
 
-type ViewFilter = { estado: string | null; direccion: string | null };
-
-function hrefFor(view: ViewFilter, month: string | null): string {
-  const params = new URLSearchParams();
-  if (view.estado) params.set("estado", view.estado);
-  if (view.direccion) params.set("direccion", view.direccion);
-  if (month) params.set("mes", month);
-  const search = params.toString();
-  return search ? `/cartera?${search}` : "/cartera";
+function hrefWithMonth(href: string, month: string | null): string {
+  return month ? `${href}?mes=${month}` : href;
 }
 
-function ViewsMenu({ month, current }: { month: string | null; current: ViewFilter | null }) {
+function NavMenu({
+  items,
+  month,
+  pathname,
+}: {
+  items: NavItem[];
+  month: string | null;
+  pathname: string | null;
+}) {
   return (
     <SidebarMenu>
-      {VIEWS.map((view) => {
-        const active =
-          current !== null && current.estado === view.estado && current.direccion === view.direccion;
+      {items.map((item) => {
+        const active = pathname === item.href || pathname?.startsWith(`${item.href}/`) === true;
         return (
-          <SidebarMenuItem key={view.label}>
+          <SidebarMenuItem key={item.href}>
             <SidebarMenuButton
               isActive={active}
+              tooltip={item.hint}
               render={
-                <Link href={hrefFor(view, month)} aria-current={active ? "page" : undefined} />
+                <Link
+                  href={hrefWithMonth(item.href, month)}
+                  aria-current={active ? "page" : undefined}
+                />
               }
             >
-              <view.icon aria-hidden className="size-4" />
-              <span>{view.label}</span>
+              <item.icon aria-hidden className="size-4" />
+              <span>{item.label}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         );
@@ -65,57 +124,89 @@ function ViewsMenu({ month, current }: { month: string | null; current: ViewFilt
   );
 }
 
-function LiveViewsMenu() {
+function LiveNav({ sections }: { sections: typeof SECTIONS }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-
+  const month = searchParams.get("mes");
   return (
-    <ViewsMenu
-      month={searchParams.get("mes")}
-      current={
-        pathname === "/cartera"
-          ? { estado: searchParams.get("estado"), direccion: searchParams.get("direccion") }
-          : null
-      }
-    />
+    <>
+      {sections.map((section) => (
+        <SidebarGroup key={section.label}>
+          <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <NavMenu items={section.items} month={month} pathname={pathname} />
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ))}
+    </>
+  );
+}
+
+function StaticNav({ sections }: { sections: typeof SECTIONS }) {
+  return (
+    <>
+      {sections.map((section) => (
+        <SidebarGroup key={section.label}>
+          <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <NavMenu items={section.items} month={null} pathname={null} />
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ))}
+    </>
   );
 }
 
 export function AppSidebar() {
+  // Arranca en "partner" (el comportamiento de siempre) y se corrige en cuanto
+  // el efecto lee sessionStorage — sincroniza con un sistema externo real, el
+  // caso que AGENTS.md sí permite para useEffect.
+  const [view, setView] = useState<ViewMode>("partner");
+  useEffect(() => {
+    setView(readViewMode());
+  }, []);
+  const sections = SECTIONS.filter((section) => section.view === view);
+
   return (
     <Sidebar collapsible="offcanvas" className="border-r">
       <SidebarHeader className="border-b px-4 py-3">
         <Link href="/cartera" className="flex items-center gap-2.5 rounded-md">
-          <span
-            aria-hidden
-            className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md text-sm font-semibold"
-          >
-            G
-          </span>
+          <EmbatMark size={28} />
           <span className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold">Grifo</span>
-            <span className="text-muted-foreground text-xs">Decisión de crédito</span>
+            <span className="text-sm font-semibold">Embat Flow</span>
+            <span className="text-muted-foreground text-xs">
+              Circulante que se recalcula cada mes
+            </span>
           </span>
         </Link>
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Cartera</SidebarGroupLabel>
-          <SidebarGroupContent>
-            {/* Solo el menú lee la URL, y por eso solo él necesita el límite de
-                Suspense que exige useSearchParams. Envolver la barra entera
-                retrasaría su hidratación hasta después de que el proveedor
-                detecte el móvil, y servidor y cliente renderizarían variantes
-                distintas (rail vs. panel deslizante). */}
-            <Suspense fallback={<ViewsMenu month={null} current={null} />}>
-              <LiveViewsMenu />
-            </Suspense>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Solo el menú lee la URL, y por eso solo él necesita el límite de
+            Suspense que exige useSearchParams. Envolver la barra entera
+            retrasaría su hidratación hasta después de que el proveedor
+            detecte el móvil, y servidor y cliente renderizarían variantes
+            distintas (rail vs. panel deslizante). */}
+        <Suspense fallback={<StaticNav sections={sections} />}>
+          <LiveNav sections={sections} />
+        </Suspense>
       </SidebarContent>
 
       <SidebarFooter className="border-t">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="Cambiar entre vista de empresa y de partner" render={<Link href="/vista" />}>
+              <ArrowLeftRight aria-hidden className="size-4" />
+              <span>Cambiar de vista</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="La introducción, otra vez" render={<Link href="/intro" />}>
+              <CirclePlay aria-hidden className="size-4" />
+              <span>Qué es Embat Flow</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <p className="text-muted-foreground px-2 py-1 text-xs leading-relaxed">
           Datos de demostración sobre metadatos reales del dataset. Parámetros{" "}
           <span className="font-mono">v1</span>.

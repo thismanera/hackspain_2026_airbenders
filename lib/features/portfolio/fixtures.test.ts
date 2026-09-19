@@ -20,7 +20,10 @@ test("la cascada suma exactamente el score en solitario", () => {
 
 test("el score final es el score en solitario más el ajuste de grupo", () => {
   for (const month of everyMonth) {
-    const expected = Math.min(100, Math.max(0, month.standaloneScore + (month.group?.adjustment ?? 0)));
+    const expected = Math.min(
+      100,
+      Math.max(0, month.standaloneScore + (month.group?.adjustment ?? 0)),
+    );
     assert.ok(Math.abs(month.score - expected) < 0.05, `${month.company} ${month.month}`);
   }
 });
@@ -112,6 +115,37 @@ test("los filtros reducen la lista sin perder el total sin filtrar", () => {
   assert.equal(onlyRisk.totalUnfiltered, all.totalUnfiltered);
   assert.ok(onlyRisk.rows.every((row) => row.estado === "riesgo"));
   assert.ok(onlyRisk.rows.length <= all.rows.length);
+});
+
+test("hot solo señala cambios estructurales, del mayor al menor, y sobrevive al filtro", () => {
+  const all = getPortfolio();
+  assert.ok(all.hot.length <= 8);
+  for (const [index, row] of all.hot.entries()) {
+    assert.equal(row.nature, "estructural", row.company.id);
+    assert.equal(row.hot?.rank, index + 1);
+    const next = all.hot[index + 1];
+    if (next) assert.ok(Math.abs(row.trend3m ?? 0) >= Math.abs(next.trend3m ?? 0));
+  }
+  const flagged = all.rows.filter((row) => row.hot !== null).map((row) => row.company.id);
+  assert.deepEqual(flagged.sort(), all.hot.map((row) => row.company.id).sort());
+
+  const onlyRisk = getPortfolio({ estado: "riesgo" });
+  assert.deepEqual(
+    onlyRisk.hot.map((row) => row.company.id),
+    all.hot.map((row) => row.company.id),
+  );
+});
+
+test("la estela son como mucho seis meses con tendencia, el actual el último", () => {
+  const { rows, month } = getPortfolio();
+  for (const row of rows) {
+    assert.ok(row.trail.length <= 6);
+    if (row.trend3m !== null) {
+      const last = row.trail[row.trail.length - 1];
+      assert.equal(last?.month, month);
+      assert.equal(last?.score, row.score);
+    }
+  }
 });
 
 test("la ficha de una empresa inexistente es nula", () => {

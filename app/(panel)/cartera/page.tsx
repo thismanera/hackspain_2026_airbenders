@@ -4,6 +4,7 @@ import type { SearchParams } from "nuqs/server";
 import { Suspense } from "react";
 
 import { ExportButton } from "@/components/grifo/export-button";
+import { GlobalSearch } from "@/components/grifo/global-search";
 import { MonthSelect } from "@/components/grifo/month-select";
 import { PageHeader } from "@/components/grifo/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,7 +15,7 @@ import { loadPortfolioSearchParams } from "@/lib/features/portfolio/search-param
 import { CarteraClient } from "./cartera-client";
 
 export const metadata: Metadata = {
-  title: "Cartera · Grifo",
+  title: "Cartera · Embat Flow",
   description: "Estado de crédito de la cartera, empresa a empresa, mes a mes.",
 };
 
@@ -38,6 +39,7 @@ export default async function CarteraPage({
         crumbs={[{ label: "Cartera" }]}
         actions={
           <Suspense fallback={<Skeleton className="h-8 w-56" />}>
+            <GlobalSearch />
             <MonthSelect />
             <ExportButton />
           </Suspense>

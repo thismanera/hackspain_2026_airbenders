@@ -41,6 +41,7 @@ end-to-end de Prisma + API route + TanStack Query con prefetch SSR).
 | `pnpm db:setup:force`     | Recalcula e importa el scoring aunque ya exista una ejecución      |
 | `pnpm db:up`              | Arranca el Postgres local conservando sus datos                    |
 | `pnpm db:down`            | Detiene Postgres; el volumen y sus datos se conservan              |
+| `pnpm helmcode:check`     | Comprueba la API key de Helmcode (lista modelos + chat de prueba)  |
 | `pnpm run lint`           | [oxlint](https://oxc.rs) (no ESLint, ver `AGENTS.md`)              |
 | `pnpm run lint:fix`       | oxlint con `--fix`                                                 |
 | `pnpm run format`         | Prettier (con orden de clases de Tailwind)                         |
@@ -94,6 +95,73 @@ Normalmente basta con `pnpm db:setup`. Salida en `/api/scoring/companies`
 [docs/SOURCE.md](./docs/SOURCE.md),
 [docs/scoring-engine.md](./docs/scoring-engine.md) y
 [docs/decision-engine.md](./docs/decision-engine.md).
+
+## Inferencia LLM con Helmcode (sponsor)
+
+[Helmcode](https://helmcode.com) nos da inferencia OpenAI-compatible en la UE
+(`deepseek-v4-flash` y `glm5.3`, 1M de contexto; también `qwen3.6`, `gemma4`,
+`qwen3-embedding`, `rerank`, `whisper`, `kokoro`). Límites por key: 100 rpm,
+5–10 peticiones concurrentes, 2M tokens/min.
+
+### La key
+
+**El repo es público: la key nunca va en el código ni en Git.** Se reparte por
+canal privado y cada uno la pega en su `.env` local (ignorado por Git):
+
+```bash
+# .env
+HELMCODE_API_KEY="sk-hke_..."           # la que te han pasado
+HELMCODE_BASE_URL="https://api.helmcode.com/v1"
+HELMCODE_MODEL="deepseek-v4-flash"
+```
+
+Reglas:
+
+- No usar prefijo `NEXT_PUBLIC_`: la key solo se lee en servidor (Server
+  Components, Route Handlers, Server Actions, scripts). El cliente
+  `lib/integrations/helmcode.ts` importa `server-only` y rompe el build si se
+  importa desde un Client Component.
+- No pegarla en issues, PRs, capturas ni en el prompt de un agente de IA.
+- Si se filtra, revocarla y crear otra en la consola
+  (<https://cloud.helmcode.com/> → API Keys). Las keys son del workspace, no
+  personales.
+- En despliegue (Vercel/Docker/etc.) va como variable de entorno del servidor,
+  igual que `DATABASE_URL`.
+
+Comprobar que funciona: `pnpm helmcode:check`.
+
+### Uso desde código
+
+```ts
+import { ask, chat } from "@/lib/integrations/helmcode";
+
+// System + user en una llamada
+const { content } = await ask("Resume este balance en dos frases", "Eres analista de riesgo.");
+
+// Conversación completa con opciones
+const result = await chat(
+  [
+    {
+      role: "system",
+      content: "Devuelve solo JSON con { riesgo: 'bajo'|'medio'|'alto', motivo: string }",
+    },
+    { role: "user", content: JSON.stringify(companyMetrics) },
+  ],
+  { model: "glm5.3", reasoningEffort: "medium", json: true, maxTokens: 300 },
+);
+const parsed = mySchema.parse(JSON.parse(result.content)); // valida siempre con zod
+```
+
+`chat` devuelve `{ content, reasoning?, model, finishReason?, usage? }`.
+Errores HTTP llegan como `HelmcodeError` con `status` (401 key inválida, 402
+sin plan/créditos, 429 rate limit). `isHelmcodeConfigured()` sirve para
+degradar la feature si falta la key en lugar de romper la página.
+
+Cualquier SDK OpenAI también funciona apuntando `baseURL` a
+`process.env.HELMCODE_BASE_URL` y `apiKey` a `process.env.HELMCODE_API_KEY`.
+Docs: [integraciones](https://helmcode.com/docs/integrations) ·
+[modelos](https://helmcode.com/docs/models) ·
+[rate limits](https://helmcode.com/docs/rate-limits).
 
 ## Flujo recomendado para un proyecto nuevo
 
@@ -153,6 +221,7 @@ components/ui/         componentes shadcn/ui (generados, no editar a mano)
 lib/core/               infraestructura: db.ts, react-query.ts, utils.ts (cn),
                         auth.ts (servidor), auth-client.ts (React)
 lib/features/tasks/     ejemplo de patrón por-feature (queries + hooks)
+lib/integrations/       clientes de APIs de terceros (helmcode.ts, solo servidor)
 prisma/schema/          un archivo .prisma por dominio (auth.prisma generado
                         por `pnpm run auth:generate`, no editar a mano)
 prisma/seed.ts          seed de desarrollo

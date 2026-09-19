@@ -2,11 +2,13 @@
 
 import { SearchX } from "lucide-react";
 
+import { HotList } from "@/components/grifo/hot-list";
 import { AccionBreakdown, EstadoEvolution } from "@/components/grifo/portfolio-charts";
 import { PortfolioFilters } from "@/components/grifo/portfolio-filters";
 import { PortfolioKpis } from "@/components/grifo/portfolio-summary";
 import { PortfolioTable } from "@/components/grifo/portfolio-table";
 import { EntitySheet } from "@/components/grifo/sheet/entity-sheet";
+import { TrajectoryMap } from "@/components/grifo/trajectory-map";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -33,6 +35,8 @@ export function CarteraClient() {
 
   const noneAtAll = data.totalUnfiltered === 0;
   const onChange = (update: Partial<typeof filters>) => void setFilters(update);
+  const openCompany = (empresa: string) =>
+    void setSheet({ empresa, grupo: "", pestana: "decision" });
 
   return (
     <div className="flex flex-col gap-4">
@@ -57,10 +61,21 @@ export function CarteraClient() {
       />
 
       {!noneAtAll && data.summary.total > 0 ? (
-        <div className="grid gap-4 lg:grid-cols-3">
-          <EstadoEvolution history={data.history} filters={filters} onChange={onChange} />
-          <AccionBreakdown summary={data.summary} filters={filters} onChange={onChange} />
-        </div>
+        <>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <TrajectoryMap
+              rows={data.rows}
+              months={data.months}
+              onOpenCompany={openCompany}
+              className="lg:col-span-2"
+            />
+            <HotList rows={data.hot} onOpenCompany={openCompany} />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <EstadoEvolution history={data.history} filters={filters} onChange={onChange} />
+            <AccionBreakdown summary={data.summary} filters={filters} onChange={onChange} />
+          </div>
+        </>
       ) : null}
 
       <PortfolioFilters
@@ -96,7 +111,7 @@ export function CarteraClient() {
         <PortfolioTable
           rows={data.rows}
           month={data.month}
-          onOpenCompany={(empresa) => void setSheet({ empresa, grupo: "", pestana: "decision" })}
+          onOpenCompany={openCompany}
           onOpenGroup={(grupo) => void setSheet({ empresa: "", grupo, pestana: "decision" })}
         />
       )}
