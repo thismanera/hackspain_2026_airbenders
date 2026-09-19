@@ -20,6 +20,8 @@
     "forecast:run": "node --import tsx scripts/forecast.ts run",
     "forecast:backtest": "node --import tsx scripts/forecast.ts backtest",
     "scoring:decide": "node --import tsx scripts/scoring.ts decide",
+    "export:submission": "tsx scripts/export-submission.ts",
+    "pipeline:eval": "tsx scripts/evaluate.ts",
     "scoring:backtest": "node --import tsx scripts/scoring.ts backtest",
     "scoring:import": "node --conditions=react-server --import tsx scripts/scoring.ts import",
     "scoring:snapshot": "node --conditions=react-server --import tsx scripts/scoring.ts snapshot",

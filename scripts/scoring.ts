@@ -1,47 +1,38 @@
 import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream, existsSync } from "node:fs";
+import { createWriteStream, existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { once } from "node:events";
-import { createInterface } from "node:readline";
 
-import { decisionRowSchema, type DecisionRowDTO } from "../lib/features/decision/contracts";
+import { decisionRowSchema } from "../lib/features/decision/contracts";
 import { decideGroup, parametrosDecision } from "../lib/features/decision/engine";
 import { metricasDecision } from "../lib/features/decision/metrics";
 import type { DecisionRow } from "../lib/features/decision/types";
 import { previsiones } from "../lib/features/forecast/adapter";
 import { forecastParametersSchema, forecastRowSchema } from "../lib/features/forecast/contracts";
-import type { ForecastRow } from "../lib/features/forecast/types";
-import type { ForecastParameters } from "../lib/features/forecast/params";
 import { backtest } from "../lib/features/scoring/backtest";
-import {
-  parametersSchema,
-  scoreRowSchema,
-  type ScoreRowDTO,
-} from "../lib/features/scoring/contracts";
-import {
-  prepareGroup,
-  scoreGroup,
-  variablesAt,
-  type GroupInput,
-} from "../lib/features/scoring/engine";
+import { parametersSchema, scoreRowSchema } from "../lib/features/scoring/contracts";
+import { prepareGroup, scoreGroup, variablesAt } from "../lib/features/scoring/engine";
 import { fitPercentiles, groupSplit, type Sample } from "../lib/features/scoring/fit";
-import { fingerprint, ingest, readPartition, type Meta } from "../lib/features/scoring/ingest";
+import { ingest } from "../lib/features/scoring/ingest";
 import { VARIABLES } from "../lib/features/scoring/params";
-import type { Invoice, Parameters, Product, ScoreRow, Tx } from "../lib/features/scoring/types";
+import type { ForecastParameters } from "../lib/features/forecast/params";
+import type { ForecastRow } from "../lib/features/forecast/types";
+import type { ScoreRow } from "../lib/features/scoring/types";
 import { CALENDAR } from "../lib/features/scoring/windows";
-
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const dataset = path.resolve(process.env.SCORING_DATASET ?? path.join(root, "dataset"));
-const dir = path.resolve(process.env.SCORING_OUT ?? path.join(root, "tmp", "scoring-v1"));
-/** El CSV de categorías normalizadas es opcional (está en .gitignore): si falta, se ingesta sin él. */
-const categoriesCsv = (() => {
-  const file = path.resolve(
-    process.env.SCORING_CATEGORIES ?? path.join(root, "analysis", "transaction_categories.csv"),
-  );
-  return existsSync(file) ? file : null;
-})();
+import {
+  categoriesCsv,
+  close,
+  dataset,
+  dir,
+  groupInput,
+  groupsOf,
+  lines,
+  meta,
+  parameterPath,
+  put,
+  readForecasts,
+  runDir,
+} from "./scoring-io";
 /** Ventanas temporales de validación; septiembre de 2026 queda fuera por estar truncado. */
 const BACKTEST_WINDOWS = {
   trailing6: ["2026-03", "2026-08"],
@@ -54,54 +45,6 @@ const BACKTEST_WINDOWS = {
 /** Último mes de ajuste: los percentiles solo ven muestras ≤ 2026-02 (§11). */
 const FIT_CUTOFF = "2026-02";
 const command = process.argv[2];
-
-function runDir(params: Parameters, inputFingerprint: string): string {
-  return path.join(dir, "runs", params.version, inputFingerprint);
-}
-function parameterPath(): string {
-  return path.resolve(process.env.SCORING_PARAMS ?? path.join(dir, "parameters.json"));
-}
-async function meta(): Promise<Meta> {
-  const m = JSON.parse(await readFile(path.join(dir, "ingest.json"), "utf8")) as Meta;
-  if (m.fingerprint !== (await fingerprint(dataset, categoriesCsv)))
-    throw new Error("dataset changed; run fit again with SCORING_REINGEST=1");
-  return m;
-}
-/** Las particiones se escriben por grupo, así que un `GroupInput` se arma de una sola lectura. */
-async function groupInput(groupId: string, m: Meta): Promise<GroupInput> {
-  const txs = await readPartition<Tx>(dir, groupId, "tx");
-  const invoices = new Map<string, Invoice[]>();
-  for (const invoice of await readPartition<Invoice>(dir, groupId, "invoice")) {
-    const list = invoices.get(invoice.company) ?? [];
-    list.push(invoice);
-    invoices.set(invoice.company, list);
-  }
-  return {
-    groupId,
-    companies: m.companies.filter((c) => c.groupId === groupId),
-    txs,
-    invoices,
-    schedule: new Map(Object.entries(m.schedule)),
-    products: new Map(Object.entries(m.products) as [string, Product][]),
-  };
-}
-function groupsOf(m: Meta): string[] {
-  return [...new Set(m.companies.map((c) => c.groupId))].sort();
-}
-async function* lines<T>(file: string): AsyncGenerator<T> {
-  for await (const line of createInterface({ input: createReadStream(file), crlfDelay: Infinity }))
-    if (line) yield JSON.parse(line) as T;
-}
-async function put(
-  stream: ReturnType<typeof createWriteStream>,
-  item: ScoreRowDTO | DecisionRowDTO,
-): Promise<void> {
-  if (!stream.write(JSON.stringify(item) + "\n")) await once(stream, "drain");
-}
-async function close(stream: ReturnType<typeof createWriteStream>): Promise<void> {
-  stream.end();
-  await once(stream, "finish");
-}
 
 async function doFit() {
   const m =
@@ -141,10 +84,13 @@ async function doFit() {
 }
 
 async function doScore() {
-  const m = await meta().catch(() => ingest(dataset, dir, categoriesCsv));
+  const m = await meta();
   const params = parametersSchema.parse(JSON.parse(await readFile(parameterPath(), "utf8")));
   if (params.inputFingerprint !== m.fingerprint)
-    throw new Error("parameters were fitted on a different dataset; run scoring:fit");
+    console.warn(
+      `[WARN] Evaluando con parámetros congelados (${params.version}) sobre un dataset nuevo (${m.fingerprint}); ` +
+        `fingerprint de calibración: ${params.inputFingerprint}.`,
+    );
   await mkdir(runDir(params, m.fingerprint), { recursive: true });
   const output = createWriteStream(path.join(runDir(params, m.fingerprint), "scores.jsonl"));
   let count = 0;
@@ -179,21 +125,15 @@ async function doDecide() {
   const run = runDir(scoringParams, m.fingerprint);
   const forecastFile = path.join(run, "forecasts.jsonl");
   const forecastParametersFile = path.join(run, "forecast-parameters.json");
-  const forecastRows: ForecastRow[] = [];
-  if (!existsSync(forecastFile) || !existsSync(forecastParametersFile))
-    throw new Error("forecast artifacts missing or stale; run forecast:fit and forecast:run first");
-  const forecastParameters = forecastParametersSchema.parse(
-    JSON.parse(await readFile(forecastParametersFile, "utf8")),
-  );
-  if (forecastParameters.versionScoring !== scoringParams.version)
-    throw new Error("forecast artifacts use an incompatible scoring version; run forecast:fit");
-  for await (const row of lines<ForecastRow>(forecastFile)) {
-    const parsed = forecastRowSchema.parse(row);
-    if (parsed.versionParametros !== forecastParameters.version)
-      throw new Error("forecast artifacts are stale; run forecast:run");
-    forecastRows.push(parsed);
+  let forecastMap: ReturnType<typeof previsiones> | undefined;
+  if (!existsSync(forecastFile) || !existsSync(forecastParametersFile)) {
+    console.warn(
+      "[WARN] Forecast no disponible en el run; la decisión se ejecutará en modo desconectado.",
+    );
+  } else {
+    const forecastRows = await readForecasts(run, scoringParams.version);
+    forecastMap = previsiones(forecastRows ?? []);
   }
-  const forecastMap = previsiones(forecastRows);
   // El motor v1 decide **un grupo entero** de una vez (techo consolidado y cross-default, §9):
   // agrupar por `groupId` no es una optimización, es el contrato de `decideGroup`.
   const byGroup = new Map<string, ScoreRow[]>();

@@ -5,11 +5,16 @@ import path from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
-import type { ForecastParameters } from "../lib/features/forecast/params";
-import { forecastRowSchema } from "../lib/features/forecast/contracts";
+import {
+  FORECAST_PARAMS,
+  hashForecastParams,
+  type ForecastParameters,
+} from "../lib/features/forecast/params";
+import { forecastParametersSchema, forecastRowSchema } from "../lib/features/forecast/contracts";
 import type { ForecastRow } from "../lib/features/forecast/types";
 import type { GroupInput } from "../lib/features/scoring/engine";
-import { fingerprint, readPartition, type Meta } from "../lib/features/scoring/ingest";
+import { fingerprint, ingest, readPartition, type Meta } from "../lib/features/scoring/ingest";
+import { parametersSchema } from "../lib/features/scoring/contracts";
 import type { Invoice, Parameters, Product, Tx } from "../lib/features/scoring/types";
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -31,16 +36,58 @@ export function runDir(params: Parameters, inputFingerprint: string): string {
   return path.join(dir, "runs", params.version, inputFingerprint);
 }
 export function parameterPath(): string {
-  return path.resolve(process.env.SCORING_PARAMS ?? path.join(dir, "parameters.json"));
+  if (process.env.SCORING_PARAMS) return path.resolve(process.env.SCORING_PARAMS);
+  const local = path.join(dir, "parameters.json");
+  if (existsSync(local)) return local;
+  // Permite ejecutar `scoring:score`/`export:submission` sobre una carpeta de
+  // inferencia nueva sin copiar manualmente el artefacto congelado.
+  const frozen = path.join(
+    root,
+    "artifacts",
+    "inference",
+    "scoreSolo-holding-v7",
+    "parameters.json",
+  );
+  return existsSync(frozen) ? frozen : local;
 }
+
+function isUsableMeta(value: unknown): value is Meta {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<Meta>;
+  return (
+    typeof candidate.fingerprint === "string" &&
+    Array.isArray(candidate.companies) &&
+    candidate.products !== null &&
+    typeof candidate.products === "object" &&
+    candidate.schedule !== null &&
+    typeof candidate.schedule === "object" &&
+    candidate.fx !== null &&
+    typeof candidate.fx === "object" &&
+    candidate.diagnostics !== null &&
+    typeof candidate.diagnostics === "object"
+  );
+}
+
 export async function meta(): Promise<Meta> {
-  const m = JSON.parse(await readFile(path.join(dir, "ingest.json"), "utf8")) as Meta;
-  if (m.fingerprint !== (await fingerprint(dataset, categoriesCsv)))
-    throw new Error("dataset changed; run fit again with SCORING_REINGEST=1");
-  return m;
+  const currentFingerprint = await fingerprint(dataset, categoriesCsv);
+  let stored: Meta | null = null;
+  let reason = "ingest.json no existe";
+  try {
+    const parsed: unknown = JSON.parse(await readFile(path.join(dir, "ingest.json"), "utf8"));
+    if (isUsableMeta(parsed) && parsed.fingerprint === currentFingerprint) return parsed;
+    stored = isUsableMeta(parsed) ? parsed : null;
+    reason = stored
+      ? `fingerprint ${stored.fingerprint} != ${currentFingerprint}`
+      : "ingest.json tiene una estructura inválida";
+  } catch (error) {
+    if (error instanceof SyntaxError) reason = "ingest.json no es JSON válido";
+    else if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  console.warn(`[WARN] Reingesta automática: ${reason}.`);
+  return ingest(dataset, dir, categoriesCsv);
 }
 export async function scoringParams(): Promise<Parameters> {
-  return JSON.parse(await readFile(parameterPath(), "utf8")) as Parameters;
+  return parametersSchema.parse(JSON.parse(await readFile(parameterPath(), "utf8")));
 }
 /** Las particiones se escriben por grupo, así que un `GroupInput` se arma de una sola lectura. */
 export async function groupInput(groupId: string, m: Meta): Promise<GroupInput> {
@@ -64,13 +111,24 @@ export function groupsOf(m: Meta): string[] {
   return [...new Set(m.companies.map((c) => c.groupId))].sort();
 }
 /** Previsiones del run, o undefined si no hay; falla si están desfasadas respecto a forecast-parameters.json. */
-export async function readForecasts(run: string): Promise<ForecastRow[] | undefined> {
+export async function readForecasts(
+  run: string,
+  expectedScoringVersion?: string,
+): Promise<ForecastRow[] | undefined> {
   const file = path.join(run, "forecasts.jsonl");
   if (!existsSync(file)) return undefined;
   const paramsFile = path.join(run, "forecast-parameters.json");
   if (!existsSync(paramsFile))
     throw new Error("forecast-parameters.json missing; run forecast:fit and forecast:run");
-  const fp = JSON.parse(await readFile(paramsFile, "utf8")) as ForecastParameters;
+  const fp: ForecastParameters = forecastParametersSchema.parse(
+    JSON.parse(await readFile(paramsFile, "utf8")),
+  );
+  if (fp.paramsHash !== hashForecastParams(FORECAST_PARAMS))
+    throw new Error("forecast parameters hash is incompatible with the installed forecast engine");
+  if (expectedScoringVersion !== undefined && fp.versionScoring !== expectedScoringVersion)
+    throw new Error(
+      `forecast parameters use scoring ${fp.versionScoring}; expected ${expectedScoringVersion}`,
+    );
   const rows: ForecastRow[] = [];
   for await (const raw of lines<ForecastRow>(file)) {
     const row = forecastRowSchema.parse(raw);

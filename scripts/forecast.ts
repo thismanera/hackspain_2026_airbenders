@@ -9,7 +9,12 @@ import { backtestForecast } from "../lib/features/forecast/backtest";
 import { forecastParametersSchema, forecastRowSchema } from "../lib/features/forecast/contracts";
 import { forecastGroup } from "../lib/features/forecast/engine";
 import { fitForecast } from "../lib/features/forecast/fit";
-import type { ForecastParameters, Horizonte } from "../lib/features/forecast/params";
+import {
+  FORECAST_PARAMS,
+  hashForecastParams,
+  type ForecastParameters,
+  type Horizonte,
+} from "../lib/features/forecast/params";
 import type { ForecastGroupInput, ForecastRow, MonthlyFlow } from "../lib/features/forecast/types";
 import { type Prepared, prepareGroup, variablesAt } from "../lib/features/scoring/engine";
 import type { Sample } from "../lib/features/scoring/fit";
@@ -129,6 +134,8 @@ async function doRun() {
   const params = await scoringParams();
   if (!existsSync(forecastParameterPath())) throw new Error("run forecast:fit first");
   const fp = await forecastParams();
+  if (fp.paramsHash !== hashForecastParams(FORECAST_PARAMS))
+    throw new Error("forecast parameters hash is incompatible with the installed forecast engine");
   if (fp.versionScoring !== params.version)
     throw new Error("forecast parameters were fitted on another scoring version; run forecast:fit");
   const run = runDir(params, m.fingerprint);
@@ -146,6 +153,9 @@ async function doRun() {
       count++;
     }
   await close(output);
+  // Cada run debe ser autosuficiente: scoring:decide valida el forecast contra
+  // los parámetros que realmente lo generaron, incluso al evaluar otro dataset.
+  await writeFile(path.join(run, "forecast-parameters.json"), JSON.stringify(fp));
   const summary = {
     forecasts: count,
     groups: byGroup.size,

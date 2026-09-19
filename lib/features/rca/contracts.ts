@@ -98,7 +98,8 @@ export const analisisPostInflexionSchema = z
         path: ["mesesTranscurridos"],
         message: "debe coincidir con la distancia entre los meses",
       });
-    const expectedDelta = Math.round((analysis.scoreActual - analysis.scoreEnInflexion) * 10) / 10;
+    const expectedDelta =
+      Math.round((analysis.scoreActual - analysis.scoreEnInflexion) * 1000) / 1000;
     if (Math.abs(analysis.deltaScoreTotal - expectedDelta) > 1e-9)
       ctx.addIssue({
         code: "custom",

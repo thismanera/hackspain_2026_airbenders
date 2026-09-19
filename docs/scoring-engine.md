@@ -27,6 +27,13 @@ Por cada empresa y cierre de mes:
 Responde a las seis preguntas del reto: sanas, mejoran, empeoran,
 temporal/estructural, por qué, con cuánta antelación (§13).
 
+La ejecución reproducible usa exclusivamente los parámetros versionados en
+`artifacts/inference/scoreSolo-holding-v7/parameters.json`. `scoring:score`
+admite un fingerprint de entrada diferente con warning, pero mantiene
+estrictos el contrato, el hash de parámetros y la validación de los artefactos.
+El pipeline normal no ejecuta `fit`; la calibración ya está congelada para el
+dataset incluido.
+
 La detección de inflexión conserva el origen autónomo y el de grupo mientras el régimen
 continúe: exige continuidad mensual, permite meses planos y oscilaciones internas de hasta un
 punto, y actualiza `antelacionMeses` sin desplazar el origen por un nuevo extremo de la misma
