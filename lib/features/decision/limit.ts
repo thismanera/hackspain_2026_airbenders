@@ -12,6 +12,10 @@ export function banda(score: number): Banda {
   return "D";
 }
 
+export function scoreForDecision(r: DecisionInput): number {
+  return r.scoreDecision ?? r.score;
+}
+
 export function bajarBanda(b: Banda, n = 1): Banda {
   return ORDEN[Math.min(ORDEN.length - 1, ORDEN.indexOf(b) + n)];
 }
@@ -28,7 +32,7 @@ export function esPeor(a: Banda, b: Banda): boolean {
 /** Banda tras el recorte por deterioro estructural (§4) y por cross-default (§9, `escalonesExtra`). */
 export function bandaEfectiva(r: DecisionInput, escalonesExtra = 0): Banda {
   const estructural = r.direccion === "deterioro" && r.naturaleza === "estructural" ? 1 : 0;
-  return bajarBanda(banda(r.score), estructural + escalonesExtra);
+  return bajarBanda(banda(scoreForDecision(r)), estructural + escalonesExtra);
 }
 
 /**

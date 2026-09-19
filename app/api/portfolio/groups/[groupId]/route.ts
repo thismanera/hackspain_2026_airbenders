@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { getGroupFileLive } from "@/lib/features/portfolio/live";
 import { getGroupFile } from "@/lib/features/portfolio/source";
 
 const querySchema = z.object({
@@ -19,7 +20,9 @@ export async function GET(
     return Response.json({ error: z.treeifyError(parsed.error) }, { status: 400 });
   }
 
-  const file = getGroupFile(groupId, parsed.data.month);
+  const file =
+    (await getGroupFileLive(groupId, parsed.data.month)) ??
+    getGroupFile(groupId, parsed.data.month);
   if (!file) {
     return Response.json({ error: "Grupo no encontrado" }, { status: 404 });
   }

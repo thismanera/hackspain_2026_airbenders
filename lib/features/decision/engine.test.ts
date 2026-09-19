@@ -522,7 +522,8 @@ test("§13 property 7: a forecast equal to the current band changes nothing but 
     scores.map((r) => [
       `${r.company}|${r.month}`,
       {
-        bandaPred3m: r.scoreSolo >= 75 ? "A" : r.scoreSolo >= 60 ? "B" : r.scoreSolo >= 45 ? "C" : "D",
+        bandaPred3m:
+          r.scoreSolo >= 75 ? "A" : r.scoreSolo >= 60 ? "B" : r.scoreSolo >= 45 ? "C" : "D",
         scorePred3m: r.scoreSolo,
         direccionPred: "estable",
         probDeterioro6m: 0,
@@ -533,10 +534,99 @@ test("§13 property 7: a forecast equal to the current band changes nothing but 
   const sin = decideGroup(scores, params);
   const con = decideGroup(scores, params, previsiones);
   assert.deepEqual(
-    con.map((r) => ({ ...r, bandaPred3mUsada: null })),
-    sin,
+    con.map(
+      ({
+        bandaPred3mUsada: _bandaPred,
+        bandaPredGrupo3mUsada: _grupoPred,
+        scorePredSolo3m: _soloPred,
+        scorePredGrupo3m: _grupoScore,
+        ...r
+      }) => r,
+    ),
+    sin.map(
+      ({
+        bandaPred3mUsada: _bandaPred,
+        bandaPredGrupo3mUsada: _grupoPred,
+        scorePredSolo3m: _soloPred,
+        scorePredGrupo3m: _grupoScore,
+        ...r
+      }) => r,
+    ),
   );
   assert.ok(con.every((r) => r.bandaPred3mUsada !== null));
+});
+
+test("a forecast in shadow mode cannot alter the decision", () => {
+  const scores = serie("a", () => ({}));
+  const shadow = new Map<string, PrevisionInput>(
+    scores.map((row) => [
+      `${row.company}|${row.month}`,
+      {
+        bandaPred3m: "D",
+        scorePred3m: 10,
+        direccionPred: "deterioro",
+        probDeterioro6m: 1,
+        metodo: "desconectado",
+      },
+    ]),
+  );
+  const baseline = decideGroup(scores, params);
+  const withShadow = decideGroup(scores, params, shadow);
+  assert.deepEqual(withShadow, baseline);
+});
+
+test("an aval cannot override a persistent deficit door", () => {
+  const rows = decideGroup(
+    serie("a", (i) =>
+      i === 2
+        ? {
+            scoreSolo: 40,
+            scoreGrupo: 80,
+            requiereAvalMatriz: true,
+            alertas: alertas("deficit_persistente"),
+          }
+        : {},
+    ),
+    params,
+  );
+  assert.equal(rows[2].condicionAvalMatriz, false);
+  assert.equal(rows[2].accion, "cerrar");
+  assert.equal(rows[2].LVigente, 0);
+  assert.ok(rows[2].puertasFallidas.includes("caja"));
+});
+
+test("a weak holding keeps the worse current band without improving autonomous eligibility", () => {
+  const rows = decideGroup(
+    serie("a", () => ({ scoreGrupo: 40 })),
+    params,
+  );
+  assert.equal(rows[0].banda, "D");
+  assert.equal(rows[0].bandaEfectiva, "D");
+  assert.equal(rows[0].L, 0);
+  assert.equal(rows[0].elegible, false);
+});
+
+test("a strong holding can support a weak autonomous score only with the matrix guarantee", () => {
+  const rows = decideGroup(
+    serie("a", (i) =>
+      i === 2
+        ? {
+            scoreSolo: 40,
+            scoreGrupo: 60,
+            ajusteHolding: 20,
+            requiereAvalMatriz: true,
+            estadoSolo: "riesgo",
+            estadoGrupo: "vigilar",
+            perfilGrupo: "filial_subvencionada",
+          }
+        : {},
+    ),
+    params,
+  );
+  assert.equal(rows[2].condicionAvalMatriz, true);
+  assert.equal(rows[2].elegible, true);
+  assert.equal(rows[2].banda, "B");
+  assert.match(rows[2].motivoAccion, /Requiere Aval Solidario de Matriz/);
 });
 
 test("decideGroup refuses rows from another group or outside the calendar", () => {

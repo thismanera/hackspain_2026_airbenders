@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { getPortfolio } from "@/lib/features/portfolio/source";
+import { getPortfolioLive } from "@/lib/features/portfolio/live";
 
 const querySchema = z.object({
   month: z
@@ -21,5 +22,5 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: z.treeifyError(parsed.error) }, { status: 400 });
   }
 
-  return Response.json(getPortfolio(parsed.data));
+  return Response.json((await getPortfolioLive(parsed.data)) ?? getPortfolio(parsed.data));
 }

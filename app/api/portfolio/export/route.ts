@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { getPortfolioLive } from "@/lib/features/portfolio/live";
 import { getPortfolio } from "@/lib/features/portfolio/source";
 import { ACCION, DIRECCION, ESTADO, NATURALEZA } from "@/lib/features/portfolio/vocabulary";
 
@@ -45,7 +46,8 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: z.treeifyError(parsed.error) }, { status: 400 });
   }
 
-  const { month, rows } = getPortfolio(parsed.data);
+  const live = await getPortfolioLive(parsed.data);
+  const { month, rows } = live ?? getPortfolio(parsed.data);
 
   const body = rows.map((row) =>
     [

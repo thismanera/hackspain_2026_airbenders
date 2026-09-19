@@ -10,6 +10,10 @@ import { decisionRowSchema, type DecisionRowDTO } from "../lib/features/decision
 import { decideGroup, parametrosDecision } from "../lib/features/decision/engine";
 import { metricasDecision } from "../lib/features/decision/metrics";
 import type { DecisionRow } from "../lib/features/decision/types";
+import { previsiones } from "../lib/features/forecast/adapter";
+import { forecastParametersSchema, forecastRowSchema } from "../lib/features/forecast/contracts";
+import type { ForecastRow } from "../lib/features/forecast/types";
+import type { ForecastParameters } from "../lib/features/forecast/params";
 import { backtest } from "../lib/features/scoring/backtest";
 import {
   parametersSchema,
@@ -173,6 +177,23 @@ async function doDecide() {
   const scoringParams = parametersSchema.parse(JSON.parse(await readFile(parameterPath(), "utf8")));
   const decParams = parametrosDecision(scoringParams.version);
   const run = runDir(scoringParams, m.fingerprint);
+  const forecastFile = path.join(run, "forecasts.jsonl");
+  const forecastParametersFile = path.join(run, "forecast-parameters.json");
+  const forecastRows: ForecastRow[] = [];
+  if (!existsSync(forecastFile) || !existsSync(forecastParametersFile))
+    throw new Error("forecast artifacts missing or stale; run forecast:fit and forecast:run first");
+  const forecastParameters = forecastParametersSchema.parse(
+    JSON.parse(await readFile(forecastParametersFile, "utf8")),
+  );
+  if (forecastParameters.versionScoring !== scoringParams.version)
+    throw new Error("forecast artifacts use an incompatible scoring version; run forecast:fit");
+  for await (const row of lines<ForecastRow>(forecastFile)) {
+    const parsed = forecastRowSchema.parse(row);
+    if (parsed.versionParametros !== forecastParameters.version)
+      throw new Error("forecast artifacts are stale; run forecast:run");
+    forecastRows.push(parsed);
+  }
+  const forecastMap = previsiones(forecastRows);
   // El motor v1 decide **un grupo entero** de una vez (techo consolidado y cross-default, §9):
   // agrupar por `groupId` no es una optimización, es el contrato de `decideGroup`.
   const byGroup = new Map<string, ScoreRow[]>();
@@ -186,7 +207,7 @@ async function doDecide() {
   let count = 0;
   for (const rows of byGroup.values())
     // Sin previsión conectada el motor opera como "desconectado" (§1): `banda_pred_3m = banda`.
-    for (const decision of decideGroup(rows, decParams)) {
+    for (const decision of decideGroup(rows, decParams, forecastMap)) {
       await put(output, decisionRowSchema.parse(decision));
       companies.add(decision.company);
       count++;
@@ -243,8 +264,18 @@ async function doImport() {
   const params = parametersSchema.parse(JSON.parse(await readFile(parameterPath(), "utf8")));
   const run = runDir(params, m.fingerprint);
   // Antes de borrar nada: sin las dos salidas la importación dejaría la ejecución a medias.
-  if (!existsSync(path.join(run, "scores.jsonl")) || !existsSync(path.join(run, "decisions.jsonl")))
-    throw new Error("run scoring:score and scoring:decide first");
+  if (
+    !existsSync(path.join(run, "scores.jsonl")) ||
+    !existsSync(path.join(run, "decisions.jsonl")) ||
+    !existsSync(path.join(run, "forecasts.jsonl")) ||
+    !existsSync(path.join(run, "forecast-parameters.json"))
+  )
+    throw new Error("run scoring:score, forecast:fit, forecast:run and scoring:decide first");
+  const forecastParameters = forecastParametersSchema.parse(
+    JSON.parse(await readFile(path.join(run, "forecast-parameters.json"), "utf8")),
+  ) as ForecastParameters;
+  if (forecastParameters.versionScoring !== params.version)
+    throw new Error("forecast parameters were fitted on another scoring version");
   const manifest = JSON.parse(await readFile(path.join(run, "manifest.json"), "utf8")) as {
     runId: string;
     rows: number;
@@ -256,6 +287,18 @@ async function doImport() {
     where: { version: params.version },
     update: {},
     create: { version: params.version, data: params as never },
+  });
+  await prisma.forecastParameters.upsert({
+    where: { version: forecastParameters.version },
+    update: {
+      versionScoring: forecastParameters.versionScoring,
+      data: forecastParameters as never,
+    },
+    create: {
+      version: forecastParameters.version,
+      versionScoring: forecastParameters.versionScoring,
+      data: forecastParameters as never,
+    },
   });
   await prisma.scoreRun.upsert({
     where: { id: manifest.runId },
@@ -270,6 +313,7 @@ async function doImport() {
     });
   // Las decisiones cuelgan de la clave compuesta del score: se borran antes por la FK.
   await prisma.companyMonthDecision.deleteMany({ where: { runId: manifest.runId } });
+  await prisma.companyMonthForecast.deleteMany({ where: { runId: manifest.runId } });
   await prisma.companyMonthScore.deleteMany({ where: { runId: manifest.runId } });
   let batch: ScoreRow[] = [];
   let imported = 0;
@@ -297,6 +341,28 @@ async function doImport() {
   await flush();
   if (imported !== manifest.rows)
     throw new Error(`imported ${imported}, expected ${manifest.rows}`);
+  let forecasts: ForecastRow[] = [];
+  for await (const f of lines<ForecastRow>(path.join(run, "forecasts.jsonl")))
+    forecasts.push(forecastRowSchema.parse(f));
+  await prisma.companyMonthForecast.createMany({
+    data: forecasts.map((f) => ({
+      runId: manifest.runId,
+      companyId: f.company,
+      month: f.month,
+      parameterVersion: forecastParameters.version,
+      scoreSoloPred3m: f.horizontes[3].scoreSoloPred,
+      scoreGrupoPred3m: f.horizontes[3].scoreGrupoPred,
+      scoreSoloPred6m: f.horizontes[6].scoreSoloPred,
+      scoreGrupoPred6m: f.horizontes[6].scoreGrupoPred,
+      bandaSoloPred3m: f.horizontes[3].bandaSoloPred,
+      bandaGrupoPred3m: f.horizontes[3].bandaGrupoPred,
+      direccionSolo: f.direccionSoloPred,
+      direccionGrupo: f.direccionGrupoPred,
+      metodoSolo: f.metodoSolo,
+      metodoGrupo: f.metodoGrupo,
+      data: f as never,
+    })),
+  });
   let decisions: DecisionRow[] = [];
   let importedDecisions = 0;
   async function flushDecisions() {
