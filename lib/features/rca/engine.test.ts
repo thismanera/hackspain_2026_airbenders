@@ -76,7 +76,9 @@ test("detecta una mejora A1 en el umbral exacto y usa evidencia, no causalidad",
   );
   assert.equal(result.scoreEnInflexion, 68, "the origin score is the observed scoreSolo");
   assert.equal(result.aciertos[0].canal, "operativo");
+  assert.equal(result.aciertos[0].productoSugerido, "ninguno");
   assert.equal(result.scoreRecuperableEstimado, 72);
+  assert.equal(result.scoreRecuperableGrupoEstimado, 72);
   analisisPostInflexionSchema.parse(result);
 });
 
@@ -99,7 +101,69 @@ test("detecta el deterioro B3 y propone acordar el aplazamiento", () => {
       action.startsWith("Utilizar confirming o acuerdos de aplazamiento"),
     ),
   );
+  assert.equal(result.errores[0].productoSugerido, "embat_confirming");
   assert.equal(result.diagnosticoRespuesta, "reaccion_destructiva");
+});
+
+test("C1 y C2 usan materialidad relativa y C5 puede entrar por subnota", () => {
+  const rows = [
+    row("2025-01", {
+      C1: { aportacion: 1 },
+      C2: { aportacion: 2 },
+      C5: { aportacion: 1, subnota: 60 },
+    }),
+    row("2025-02", {
+      C1: { aportacion: 1.3 },
+      C2: { aportacion: 1.7 },
+      C5: { aportacion: 1.1, subnota: 85 },
+    }),
+    row(
+      "2025-03",
+      {
+        C1: { aportacion: 1.3 },
+        C2: { aportacion: 1.7 },
+        C5: { aportacion: 1.1, subnota: 85 },
+      },
+      { inflexion: inflexion("pico_bajista") },
+    ),
+  ];
+  const result = analizarReaccionPostInflexion(rows)!;
+  assert.deepEqual(
+    result.aciertos.map((item) => item.variable),
+    ["C1", "C5"],
+  );
+  assert.deepEqual(
+    result.errores.map((item) => item.variable),
+    ["C2"],
+  );
+  assert.equal(result.aciertos.find((item) => item.variable === "C5")?.productoSugerido, "ninguno");
+});
+
+test("el drenaje del holding solo aumenta el escenario recuperable de grupo", () => {
+  const rows = [
+    row("2025-01", { A1: { aportacion: 2 } }, { scoreSolo: 70, aportacionGrupo: 0 }),
+    row("2025-02", { A1: { aportacion: 1 } }, { scoreSolo: 68, aportacionGrupo: -3 }),
+    row(
+      "2025-03",
+      { A1: { aportacion: 0.5 } },
+      { scoreSolo: 66, aportacionGrupo: -3, inflexion: inflexion("pico_bajista") },
+    ),
+  ];
+  const result = analizarReaccionPostInflexion(rows)!;
+  assert.equal(result.scoreRecuperableEstimado, 67.5);
+  assert.equal(result.scoreRecuperableGrupoEstimado, 70.5);
+  assert.equal(result.diagnosticoRespuesta, "reaccion_destructiva");
+
+  const capped = analizarReaccionPostInflexion([
+    row("2025-01", { A1: { aportacion: 1 } }, { scoreSolo: 99, aportacionGrupo: 0 }),
+    row("2025-02", { A1: { aportacion: 1 } }, { scoreSolo: 99, aportacionGrupo: -10 }),
+    row(
+      "2025-03",
+      { A1: { aportacion: 1 } },
+      { scoreSolo: 99, aportacionGrupo: -10, inflexion: inflexion("pico_bajista") },
+    ),
+  ])!;
+  assert.equal(capped.scoreRecuperableGrupoEstimado, 100);
 });
 
 test("el diagnóstico usa el saldo de puntos y los empates siguen el orden canónico", () => {
@@ -144,6 +208,7 @@ test("el holding se explica aparte y no cambia el diagnóstico autónomo", () =>
   assert.equal(result.contextoHolding.deltaPuntos, 2);
   assert.equal(result.contextoHolding.observacion?.variable, "holding");
   assert.equal(result.contextoHolding.observacion?.tipo, "acierto_mitigante");
+  assert.equal(result.contextoHolding.observacion?.productoSugerido, "cortafuegos_holding");
   assert.deepEqual(result.playbook.accionesInmediatas, []);
 });
 
@@ -251,10 +316,28 @@ test("los contratos rechazan deltas con signo incoherente", () => {
     decisionPostInflexionSchema.parse({
       variable: "A1",
       tipo: "acierto_mitigante",
+      productoSugerido: "ninguno",
       deltaPuntos: -2,
       descripcion: "Cambio observado",
       leccionAprendida: "Lección",
       accionRecomendada: "Acción",
     }),
+  );
+});
+
+test("el contrato exige un producto sugerido válido", () => {
+  const base = {
+    variable: "A1",
+    canal: "operativo",
+    tipo: "acierto_mitigante",
+    deltaPuntos: 2,
+    descripcion: "Cambio observado",
+    leccionAprendida: "Lección",
+    accionRecomendada: "Acción",
+  };
+  assert.throws(() => decisionPostInflexionSchema.parse(base), /productoSugerido/);
+  assert.throws(
+    () => decisionPostInflexionSchema.parse({ ...base, productoSugerido: "producto_invalido" }),
+    /productoSugerido/,
   );
 });

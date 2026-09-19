@@ -156,8 +156,10 @@ export function earlyWarning(
   rachaDeficit: number,
   c4: number | null,
   c6: number | null,
+  three?: ScoreRow,
 ): boolean {
   if (previous && scoreSolo - previous.scoreSolo <= -4) return true;
+  if (three && scoreSolo - three.scoreSolo <= -PARAMS.caidaAcumulada3mAlerta) return true;
   const healthyRun =
     previousRows.slice(-4).length === 4 &&
     previousRows.slice(-4).every((r) => r.margenMes !== null && r.margenMes > 0);
@@ -362,6 +364,7 @@ export function scoreGroup(input: GroupInput, params: Parameters): ScoreRow[] {
         s.extras.rachaDeficit,
         s.extras.C4,
         c6,
+        three,
       );
       const senales: Senales = {
         deterioro: dir === "deterioro",

@@ -5,7 +5,7 @@ Detalle técnico ampliado en [`scoring-engine.md`](./scoring-engine.md) (`scoreS
 [`forecast-engine.md`](./forecast-engine.md) (previsión) y
 [`decision-engine.md`](./decision-engine.md) (decisión).
 
-Contrato vigente (19-09-2026, scoreSolo-holding-v6): `scoreSolo` es la única nota autónoma persistida mediante
+Contrato vigente (19-09-2026, scoreSolo-holding-v7): `scoreSolo` es la única nota autónoma persistida mediante
 `@map("score")`; `scoreGrupo = clamp(scoreSolo + ajusteHolding, 0, 100)`. El estado autónomo
 se publica como `estadoSolo` y el ajustado como `estadoGrupo`. Las ejecuciones incompatibles
 se rechazan con 409 y el selector por defecto ignora ejecuciones antiguas incompatibles.

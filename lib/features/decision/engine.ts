@@ -208,7 +208,11 @@ function fila(
 ): DecisionRow {
   const { r, e, pred, prev } = x;
   const TBase = d.accion === "cerrar" ? 0 : tMax(x.decisionR, pred.bandaPred3m);
-  const T = r.revisionStage2Candidata ? Math.min(TBase, P.revisionStage2PlazoDias) : TBase;
+  const T = Math.min(
+    TBase,
+    r.revisionStage2Candidata ? P.revisionStage2PlazoDias : Infinity,
+    r.alertaPignoracionCaja ? P.alertaPignoracionPlazoMaxDias : Infinity,
+  );
   const opciones =
     T === 0 ? [] : menu(x.decisionR, d.LVigente, T, d.bandaEfectiva, pred.bandaPred3m);
   const bandaPred = pred.metodo === "desconectado" ? null : pred.bandaPred3m;
@@ -216,7 +220,7 @@ function fila(
     pred.grupo?.metodo === "desconectado" ? null : (pred.grupo?.bandaPred3m ?? null);
   // La empresa pasa las seis puertas pero el techo del grupo la dejó en cero (§9): el motivo del
   // cierre es el del grupo, no una puerta de elegibilidad.
-  const cerradoPorGrupo = e.elegible && d.accion === "cerrar";
+  const cerradoPorGrupo = e.elegible && d.accion === "cerrar" && d.causaReduccion === "grupo";
   const motivoCierre = cerradoPorGrupo ? motivoGrupo : e.motivo;
   // §7 + §10: "elegible" significa que hay grifo que abrir, así que un menú vacío nunca sale
   // elegible y una fila elegible nunca lleva motivo. Con las seis puertas pasadas y `L_vigente`
@@ -276,9 +280,13 @@ function fila(
     menu: opciones,
     plazoNaturalAnticipo: plazoNatural(),
     accion: d.accion,
-    motivoAccion: x.condicionAvalMatriz
-      ? `${motivoDeAccion} [Requiere Aval Solidario de Matriz]`
-      : motivoDeAccion,
+    motivoAccion: [
+      motivoDeAccion,
+      x.condicionAvalMatriz ? "[Requiere Aval Solidario de Matriz]" : null,
+      r.alertaPignoracionCaja ? "[Alerta: Requiere Pignoración de Caja / Cortafuegos]" : null,
+    ]
+      .filter((tag): tag is string => tag !== null)
+      .join(" "),
     motivoGrupo,
     bandaPred3mUsada: bandaPred,
     bandaPredGrupo3mUsada: grupoPred,
@@ -365,7 +373,14 @@ export function decideGroup(
             motivo: `Previsión autónoma inferior a ${P.scorePredMinApertura} en 3 meses`,
           }
         : eWithAval;
-      let d = decidirAccion(decisionR, e, selected.bandaPred3m, prev, escalonesExtra);
+      let d = decidirAccion(
+        decisionR,
+        e,
+        selected.bandaPred3m,
+        prev,
+        escalonesExtra,
+        solo.metodo === "desconectado" ? null : solo.scorePred3m,
+      );
       if (r.revisionStage2Candidata && d.accion === "ampliar")
         d = { ...d, accion: "mantener", LVigente: prev.LPrev, causaReduccion: null };
       return {
@@ -401,7 +416,14 @@ export function decideGroup(
     // Primero el estado de todas (§8) y luego el cross-default, que mira el mes ya cerrado.
     const cerradas = candidatas.map((x) => {
       const d = aplicarTecho(x.d, LVigentes.get(x.r.company) ?? x.d.LVigente, x.prev);
-      return { x, d, siguiente: siguienteEstado(x.prev, d, x.decisionR, x.pred.bandaPred3m, x.e) };
+      const siguienteBase = siguienteEstado(x.prev, d, x.decisionR, x.pred.bandaPred3m, x.e);
+      const cierreExclusivoGrupo =
+        x.e.elegible && d.accion === "cerrar" && d.causaReduccion === "grupo";
+      return {
+        x,
+        d,
+        siguiente: cierreExclusivoGrupo ? { ...siguienteBase, cerradoDesde: null } : siguienteBase,
+      };
     });
     const siguientes = new Map(cerradas.map(({ x, siguiente }) => [x.r.company, siguiente]));
     for (const { x, d, siguiente } of cerradas) {

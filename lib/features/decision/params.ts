@@ -62,6 +62,8 @@ export const DECISION_PARAMS = {
   usoSimulado: 0.6,
   plazoNaturalDefecto: 60,
   revisionStage2PlazoDias: 60,
+  alertaPignoracionPlazoMaxDias: 90,
+  caidaForecastBloqueoAmpliacion: 5,
   scorePredMinApertura: 45,
   avalMatrizMin: 15,
 } as const;

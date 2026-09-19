@@ -74,6 +74,27 @@ test("mejora: ampliar capped at +25 % per month, only if L > 1.15 × L_prev", ()
   assert.equal(out[1].LVigente, 150_000);
 });
 
+test("pignoración y caída prevista continua bloquean solo la ampliación", () => {
+  const first = sana(0, { tamano: 50_000 });
+  const opened = decidirAccion(first, ELEGIBLE, "A", ESTADO_INICIAL);
+  const state = siguienteEstado(ESTADO_INICIAL, opened, first, "A", ELEGIBLE);
+
+  const withPignoracion = decidirAccion(
+    sana(1, { tamano: 100_000, alertaPignoracionCaja: true }),
+    ELEGIBLE,
+    "A",
+    state,
+  );
+  assert.equal(withPignoracion.accion, "mantener");
+  assert.equal(withPignoracion.LVigente, opened.LVigente);
+
+  const fallingForecast = decidirAccion(sana(1, { tamano: 100_000 }), ELEGIBLE, "A", state, 0, 77);
+  assert.equal(fallingForecast.accion, "mantener");
+
+  const slightForecast = decidirAccion(sana(1, { tamano: 100_000 }), ELEGIBLE, "A", state, 0, 77.1);
+  assert.equal(slightForecast.accion, "ampliar");
+});
+
 test("deterioro estructural: reducir immediately without hysteresis", () => {
   // score 68 = banda B; el recorte estructural la deja en C: L = 240 000 × 0,4 = 96 000.
   const out = run([

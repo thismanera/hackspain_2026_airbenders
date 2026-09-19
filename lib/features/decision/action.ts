@@ -68,6 +68,7 @@ export function decidirAccion(
   bandaPred: Banda,
   prev: EstadoDecision,
   escalonesExtra = 0,
+  scorePredSolo3m: number | null = null,
 ): Decision {
   const b = bandaEfectiva(r, escalonesExtra);
   const lim = limite(r, b);
@@ -135,7 +136,15 @@ export function decidirAccion(
       };
   }
 
-  if (L > P.ampliarRatio * Lp && r.direccion !== "deterioro" && !esPeor(bandaPred, bActual))
+  const forecastCaidaBloqueaAmpliacion =
+    scorePredSolo3m !== null && scorePredSolo3m - r.score <= -P.caidaForecastBloqueoAmpliacion;
+  if (
+    L > P.ampliarRatio * Lp &&
+    r.direccion !== "deterioro" &&
+    !esPeor(bandaPred, bActual) &&
+    !r.alertaPignoracionCaja &&
+    !forecastCaidaBloqueaAmpliacion
+  )
     return { ...base, accion: "ampliar", LVigente: LAcotado };
 
   if (L < P.reducirRatio * Lp) {
