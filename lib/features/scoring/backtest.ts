@@ -1,4 +1,5 @@
-import { median, percentile, type Result } from "@/lib/features/scoring/model";
+import type { ScoreRow } from "@/lib/features/scoring/types";
+import { median, monthIndex, percentile } from "@/lib/features/scoring/windows";
 
 type Kind = "deterioro" | "recuperacion";
 type Event = { company: string; month: string; index: number; kind: Kind };
@@ -17,23 +18,23 @@ export type BacktestReport = {
   deterioro: BacktestKind;
   recuperacion: BacktestKind;
 };
-function eventAt(rows: Result[], index: number, kind: Kind): boolean {
+function eventAt(rows: ScoreRow[], index: number, kind: Kind): boolean {
   const next = rows.slice(index, index + 3);
-  if (next.length < 3 || next.some((r) => r.monthlyDeficit === null)) return false;
+  if (next.length < 3 || next.some((r) => r.deficitMes === null)) return false;
   if (kind === "deterioro")
     return (
       index >= 6 &&
-      rows[index - 1].monthlyDeficit === false &&
-      rows.slice(index - 6, index).every((r) => r.monthlyDeficit !== null) &&
-      rows.slice(index - 6, index).filter((r) => r.monthlyDeficit).length <= 1 &&
-      next.every((r) => r.monthlyDeficit)
+      rows[index - 1].deficitMes === false &&
+      rows.slice(index - 6, index).every((r) => r.deficitMes !== null) &&
+      rows.slice(index - 6, index).filter((r) => r.deficitMes).length <= 1 &&
+      next.every((r) => r.deficitMes)
     );
   return (
     index >= 3 &&
-    rows[index - 1].monthlyDeficit === true &&
-    rows.slice(index - 3, index).every((r) => r.monthlyDeficit !== null) &&
-    rows.slice(index - 3, index).filter((r) => r.monthlyDeficit).length >= 2 &&
-    next.every((r) => r.monthlyDeficit === false)
+    rows[index - 1].deficitMes === true &&
+    rows.slice(index - 3, index).every((r) => r.deficitMes !== null) &&
+    rows.slice(index - 3, index).filter((r) => r.deficitMes).length >= 2 &&
+    next.every((r) => r.deficitMes === false)
   );
 }
 function ranks(xs: number[]): number[] {
@@ -63,8 +64,8 @@ function spearman(pairs: [number, number][]): number | null {
   }
   return vx && vy ? cov / Math.sqrt(vx * vy) : null;
 }
-export function backtest(rows: Result[]): BacktestReport {
-  const companies = new Map<string, Result[]>();
+export function backtest(rows: ScoreRow[]): BacktestReport {
+  const companies = new Map<string, ScoreRow[]>();
   for (const r of rows) {
     const list = companies.get(r.company) ?? [];
     list.push(r);
@@ -77,8 +78,8 @@ export function backtest(rows: Result[]): BacktestReport {
     for (let i = 0; i < list.length; i++) {
       for (const kind of ["deterioro", "recuperacion"] as const)
         if (eventAt(list, i, kind)) events.push({ company, month: list[i].month, index: i, kind });
-      if (i + 3 < list.length && list[i + 3].monthlyMargin !== null)
-        pairs.push([list[i].score, list[i + 3].monthlyMargin!]);
+      if (i + 3 < list.length && list[i + 3].margenMes !== null)
+        pairs.push([list[i].score, list[i + 3].margenMes!]);
     }
   }
   const report: BacktestReport = {
@@ -113,20 +114,18 @@ export function backtest(rows: Result[]): BacktestReport {
       const list = companies.get(e.company)!;
       const candidates = list
         .slice(Math.max(0, e.index - 6), e.index)
-        .flatMap((r) => r.alerts)
-        .filter((a) => a.type === kind && a.confirmedMonth < e.month);
+        .flatMap((r) => r.alertas.map((a) => ({ ...a, mes: r.month })))
+        .filter((a) => a.tipo === kind && a.mes < e.month);
       if (candidates.length) {
         matched++;
-        const first = candidates.sort((a, b) =>
-          a.confirmedMonth.localeCompare(b.confirmedMonth),
-        )[0];
-        leads.push(e.index - list.findIndex((r) => r.month === first.confirmedMonth));
+        const first = candidates.sort((a, b) => a.desdeMes.localeCompare(b.desdeMes))[0];
+        leads.push(e.index - monthIndex(first.desdeMes));
       }
     }
     for (const [company, list] of companies)
       for (let i = 0; i + 6 < list.length; i++) {
-        const emitted = list[i].alerts.some(
-          (a) => a.type === kind && a.confirmedMonth === list[i].month,
+        const emitted = list[i].alertas.some(
+          (a) => a.tipo === kind && !list[i - 1]?.alertas.some((p) => p.tipo === kind),
         );
         if (!emitted) continue;
         alerts++;
