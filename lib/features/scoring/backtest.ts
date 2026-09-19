@@ -74,15 +74,27 @@ function spearman(pairs: [number, number][]): number | null {
 }
 
 /**
- * Métricas de §13. `options.months` acota qué filas puntúan (eventos, alertas, falsas alarmas y
- * pares de Spearman): la validación usa 2026-03..2026-08. El denominador de falsas alarmas excluye
- * siempre los últimos `censoredMonths` (6) meses de cada serie: una alerta emitida ahí no ha tenido
- * tiempo de que su evento aparezca, así que contarla como falsa sería censura por la derecha.
- * El lead time se mide entre índices de CALENDAR, no entre posiciones de la lista.
+ * Métricas de §13 sobre la ventana `options.months` (ambos meses inclusive). Reglas:
+ *
+ * - **Eventos**: cuentan si el mes del evento cae dentro de la ventana y existen los 3 meses de
+ *   seguimiento que exige su definición.
+ * - **`matched` y lead time**: valen las alertas del mismo tipo emitidas en los 6 meses previos al
+ *   evento, caigan donde caigan; una alerta puede adelantarse a la ventana.
+ * - **Falsas alarmas**: una alerta se *emite* el primer mes en que aparece, no cada mes que sigue
+ *   activa. Es elegible si su mes `m` cumple `m + censoredMonths ≤ último mes de la serie` —su
+ *   seguimiento es observable; contarla si no lo es sería censura por la derecha— y
+ *   `m + censoredMonths ≥ primer mes de la ventana` —su seguimiento solapa con la ventana—. Es
+ *   falsa si no hay evento de su tipo en `(m, m + censoredMonths]`; ese evento vale aunque caiga
+ *   fuera de la ventana, porque la alerta sí acertó. `alerts` cuenta las alertas elegibles y
+ *   `falseAlarmRate = falseAlarms / alerts`.
+ * - **Pares de Spearman**: `t` dentro de la ventana y con fila en `t + 3`.
+ *
+ * Los meses se comparan por índice de CALENDAR, no por posición en la lista de la empresa.
  */
 export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): BacktestReport {
   const [desde, hasta] = options.months ?? [];
   const enVentana = (month: string) => desde === undefined || (month >= desde && month <= hasta!);
+  const iVentana = desde === undefined ? Number.NEGATIVE_INFINITY : monthIndex(desde);
   const companies = new Map<string, ScoreRow[]>();
   for (const r of rows) {
     const list = companies.get(r.company) ?? [];
@@ -94,9 +106,11 @@ export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): Backt
   for (const [company, list] of companies) {
     list.sort((a, b) => (a.month < b.month ? -1 : a.month > b.month ? 1 : 0));
     for (let i = 0; i < list.length; i++) {
-      if (!enVentana(list[i].month)) continue;
+      // Los eventos se detectan en toda la serie: la ventana filtra los que cuentan (abajo), pero
+      // un evento fuera de ella sigue redimiendo a la alerta que lo anunció.
       for (const kind of ["deterioro", "recuperacion"] as const)
         if (eventAt(list, i, kind)) events.push({ company, month: list[i].month, index: i, kind });
+      if (!enVentana(list[i].month)) continue;
       if (i + 3 < list.length && list[i + 3].margenMes !== null)
         pairs.push([list[i].score, list[i + 3].margenMes!]);
     }
@@ -118,8 +132,9 @@ export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): Backt
     recuperacion: empty(),
   };
   for (const kind of ["deterioro", "recuperacion"] as const) {
-    const relevant = events.filter((e) => e.kind === kind),
-      leads: number[] = [];
+    const todos = events.filter((e) => e.kind === kind);
+    const relevant = todos.filter((e) => enVentana(e.month));
+    const leads: number[] = [];
     let matched = 0,
       falseAlarms = 0,
       alerts = 0;
@@ -138,16 +153,22 @@ export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): Backt
       )[0];
       leads.push(iEvento - monthIndex(first.desdeMes));
     }
-    for (const [company, list] of companies)
-      for (let i = 0; i + CENSORED_MONTHS < list.length; i++) {
-        if (!enVentana(list[i].month)) continue;
+    for (const [company, list] of companies) {
+      const ultimo = monthIndex(list[list.length - 1].month);
+      if (ultimo === -1) continue;
+      const cuando = todos.filter((e) => e.company === company).map((e) => monthIndex(e.month));
+      for (let i = 0; i < list.length; i++) {
         const ahora = list[i].alertas.some((a) => a.tipo === kind);
         const antes = list[i - 1]?.alertas.some((a) => a.tipo === kind) ?? false;
         if (!ahora || antes) continue; // solo la emisión, no cada mes que sigue activa
+        const m = monthIndex(list[i].month);
+        if (m === -1) continue;
+        if (m + CENSORED_MONTHS > ultimo) continue; // seguimiento no observable (censura)
+        if (m + CENSORED_MONTHS < iVentana) continue; // seguimiento ajeno a la ventana
         alerts++;
-        if (!relevant.some((e) => e.company === company && e.index > i && e.index <= i + 6))
-          falseAlarms++;
+        if (!cuando.some((e) => e > m && e <= m + CENSORED_MONTHS)) falseAlarms++;
       }
+    }
     report[kind] = {
       events: relevant.length,
       alerts,

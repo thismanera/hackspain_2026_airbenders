@@ -102,15 +102,57 @@ test("companies are scored independently and pooled", () => {
   assert.equal(r.forwardMarginPairs, 2 * (D.length - 3));
 });
 
-test("the month window restricts every counted row", () => {
+test("the month window restricts events and pairs, not alert eligibility", () => {
   const alerta = (mes: string): Alert[] => [{ tipo: "deterioro", desdeMes: mes }];
   const rows = series("c", D, { 6: alerta(CALENDAR[5]), 7: alerta(CALENDAR[5]) });
   const dentro = backtest(rows, { months: [CALENDAR[0], CALENDAR[17]] });
   assert.equal(dentro.deterioro.events, 1);
   assert.equal(dentro.deterioro.alerts, 1);
   const fuera = backtest(rows, { months: [CALENDAR[10], CALENDAR[17]] });
-  assert.equal(fuera.deterioro.events, 0);
-  assert.equal(fuera.deterioro.alerts, 0);
+  assert.equal(fuera.deterioro.events, 0); // el evento de CALENDAR[8] queda fuera
   assert.equal(fuera.deterioro.recall, null);
+  // La alerta se emite en CALENDAR[6] y su seguimiento (hasta CALENDAR[12]) solapa la ventana:
+  // sigue siendo elegible, y el evento de CALENDAR[8] la redime aunque no se cuente como evento.
+  assert.equal(fuera.deterioro.alerts, 1);
+  assert.equal(fuera.deterioro.falseAlarmRate, 0);
   assert.ok(fuera.forwardMarginPairs < dentro.forwardMarginPairs);
+});
+
+test("an alert emitted before the window counts if its event falls inside", () => {
+  const alerta = (mes: string): Alert[] => [{ tipo: "deterioro", desdeMes: mes }];
+  const rows = series("c", D, { 6: alerta(CALENDAR[5]), 7: alerta(CALENDAR[5]) });
+  const r = backtest(rows, { months: [CALENDAR[8], CALENDAR[17]] }); // emisión 2 meses antes
+  assert.equal(r.deterioro.events, 1); // evento en CALENDAR[8], primer mes de la ventana
+  assert.equal(r.deterioro.alerts, 1);
+  assert.equal(r.deterioro.matched, 1);
+  assert.equal(r.deterioro.falseAlarmRate, 0);
+  assert.equal(r.deterioro.leadMedian, 3);
+});
+
+test("an alert emitted before the window with no event is a false alarm", () => {
+  const rows = series("c", Array<boolean>(12).fill(false), {
+    2: [{ tipo: "deterioro", desdeMes: CALENDAR[2] }],
+  });
+  const r = backtest(rows, { months: [CALENDAR[8], CALENDAR[11]] });
+  assert.equal(r.deterioro.events, 0);
+  assert.equal(r.deterioro.alerts, 1); // CALENDAR[2] + 6 == CALENDAR[8]: solapa la ventana
+  assert.equal(r.deterioro.falseAlarmRate, 1);
+});
+
+test("an alert whose follow-up ends before the window is not eligible", () => {
+  const rows = series("c", Array<boolean>(12).fill(false), {
+    1: [{ tipo: "deterioro", desdeMes: CALENDAR[1] }],
+  });
+  const r = backtest(rows, { months: [CALENDAR[8], CALENDAR[11]] });
+  assert.equal(r.deterioro.alerts, 0); // CALENDAR[1] + 6 < CALENDAR[8]
+  assert.equal(r.deterioro.falseAlarmRate, null);
+});
+
+test("an alert emitted in the last six months of the series is censored", () => {
+  const rows = series("c", Array<boolean>(12).fill(false), {
+    7: [{ tipo: "deterioro", desdeMes: CALENDAR[7] }],
+  });
+  const r = backtest(rows);
+  assert.equal(r.deterioro.alerts, 0); // CALENDAR[7] + 6 > CALENDAR[11], último de la serie
+  assert.equal(r.deterioro.falseAlarmRate, null);
 });

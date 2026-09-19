@@ -34,7 +34,7 @@ const categoriesCsv = (() => {
   return existsSync(file) ? file : null;
 })();
 /** Ventana de validación del backtest (§13). */
-const BACKTEST_MONTHS: [string, string] = ["2026-03", "2026-08"];
+const BACKTEST_MONTHS: [string, string] = ["2025-09", "2026-08"];
 /** Último mes de ajuste: los percentiles solo ven muestras ≤ 2026-02 (§11). */
 const FIT_CUTOFF = "2026-02";
 const command = process.argv[2];
