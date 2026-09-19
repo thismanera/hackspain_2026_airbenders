@@ -3,6 +3,7 @@
 import {
   Bell,
   Building2,
+  CirclePlay,
   FlaskConical,
   Layers,
   Network,
@@ -181,6 +182,14 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="La introducción, otra vez" render={<Link href="/intro" />}>
+              <CirclePlay aria-hidden className="size-4" />
+              <span>Qué es Embat Flow</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <p className="text-muted-foreground px-2 py-1 text-xs leading-relaxed">
           Datos de demostración sobre metadatos reales del dataset. Parámetros{" "}
           <span className="font-mono">v1</span>.
