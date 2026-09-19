@@ -21,13 +21,17 @@ export type ForecastBacktest = {
   leadTime: { conPrevision: number | null; sinPrevision: number | null };
   reduccionesPreventivas: number;
   falsasReduccionesPreventivas: number;
+  /** falsas / preventivas (§9); `null` si no hubo ninguna reducción preventiva. */
+  ratioFalsasPreventivas: number | null;
 };
 
 /**
  * forecast-engine §9 sobre las filas que se le pasan (el script filtra validación). `ventanas[h]`
  * acota el mes `t` de la previsión (ambos inclusive); solo cuentan pares con fila real en `t + h`.
  * Las decisiones con y sin previsión sirven para el lead time (decision §14) y para contar las
- * reducciones preventivas: `reducir` con previsión donde sin ella no se reducía ni cerraba.
+ * reducciones preventivas: `reducir` con previsión donde sin ella no se reducía ni cerraba. De
+ * ellas, `falsas` son las que no van seguidas de un deterioro en `ventanaEvento` meses, y
+ * `ratioFalsasPreventivas` es su proporción (§9 pide subir `reducir_prev_meses` si pasa del 40 %).
  */
 export function backtestForecast(
   scores: ScoreRow[],
@@ -49,6 +53,7 @@ export function backtestForecast(
     for (const f of forecasts) {
       if (f.month < desde || f.month > hasta) continue;
       const t = monthIndex(f.month);
+      if (t < 0) continue;
       const real = byKey.get(`${f.company}|${CALENDAR[t + h]}`);
       const ahora = byKey.get(`${f.company}|${f.month}`);
       if (!real || !ahora) continue;
@@ -100,5 +105,6 @@ export function backtestForecast(
     },
     reduccionesPreventivas: preventivas,
     falsasReduccionesPreventivas: falsas,
+    ratioFalsasPreventivas: preventivas ? falsas / preventivas : null,
   };
 }

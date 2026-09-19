@@ -11,7 +11,7 @@ import { forecastGroup } from "../lib/features/forecast/engine";
 import { fitForecast } from "../lib/features/forecast/fit";
 import type { ForecastParameters, Horizonte } from "../lib/features/forecast/params";
 import type { ForecastGroupInput, ForecastRow, MonthlyFlow } from "../lib/features/forecast/types";
-import { prepareGroup, variablesAt } from "../lib/features/scoring/engine";
+import { type Prepared, prepareGroup, variablesAt } from "../lib/features/scoring/engine";
 import type { Sample } from "../lib/features/scoring/fit";
 import { VARIABLES } from "../lib/features/scoring/params";
 import type { ScoreRow } from "../lib/features/scoring/types";
@@ -50,12 +50,8 @@ async function scoresByGroup(run: string): Promise<Map<string, ScoreRow[]>> {
   }
   return byGroup;
 }
-/** Flujos mensuales mínimos por empresa desde las particiones (misma preparación que scoring). */
-async function flowsOf(
-  groupId: string,
-  m: Awaited<ReturnType<typeof meta>>,
-): Promise<Map<string, (MonthlyFlow | undefined)[]>> {
-  const prepared = prepareGroup(await groupInput(groupId, m));
+/** Flujos mensuales mínimos por empresa a partir de un grupo ya preparado (misma preparación que scoring). */
+function flowsFrom(prepared: Map<string, Prepared>): Map<string, (MonthlyFlow | undefined)[]> {
   return new Map(
     [...prepared].map(([id, p]) => [
       id,
@@ -64,6 +60,13 @@ async function flowsOf(
       ),
     ]),
   );
+}
+/** Atajo para quien aún no tiene el grupo preparado (`run`, `backtest`). */
+async function flowsOf(
+  groupId: string,
+  m: Awaited<ReturnType<typeof meta>>,
+): Promise<Map<string, (MonthlyFlow | undefined)[]>> {
+  return flowsFrom(prepareGroup(await groupInput(groupId, m)));
 }
 
 async function doFit() {
@@ -84,7 +87,7 @@ async function doFit() {
         const { vars } = variablesAt(p, t);
         for (const id of VARIABLES) samples.push({ id, raw: vars[id].raw, conf: vars[id].conf });
       }
-    grupos.push({ groupId: g, rows, flows: await flowsOf(g, m) });
+    grupos.push({ groupId: g, rows, flows: flowsFrom(prepared) });
   }
   const fp = fitForecast({
     samples,
@@ -108,10 +111,12 @@ async function doFit() {
 async function doRun() {
   const m = await meta();
   const params = await scoringParams();
+  if (!existsSync(forecastParameterPath())) throw new Error("run forecast:fit first");
   const fp = await forecastParams();
   if (fp.versionScoring !== params.version)
     throw new Error("forecast parameters were fitted on another scoring version; run forecast:fit");
   const run = runDir(params, m.fingerprint);
+  if (!existsSync(path.join(run, "scores.jsonl"))) throw new Error("run scoring:score first");
   const byGroup = await scoresByGroup(run);
   const output = createWriteStream(path.join(run, "forecasts.jsonl"));
   let count = 0;

@@ -47,5 +47,6 @@ test("preventive reductions are those present with forecast and absent without, 
   const r = backtestForecast(c.rows, forecasts, con, sin, ventanas);
   assert.equal(r.reduccionesPreventivas, 1);
   assert.equal(r.falsasReduccionesPreventivas, 1); // el fixture no tiene déficits ⇒ sin evento
+  assert.equal(r.ratioFalsasPreventivas, 1);
   assert.equal(r.leadTime.conPrevision, null);
 });
