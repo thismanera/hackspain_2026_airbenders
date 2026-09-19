@@ -68,7 +68,9 @@ export function rowsFromSeries(
       }),
     ) as VariableSet;
     const rachaB2 = opts.rachaB2?.[m] ?? (vars.B2.raw ?? 0);
-    const rachaB2Prev = [1, 2, 3].map((k) => opts.rachaB2?.[m - k] ?? 0);
+    const rachaB2Prev = [1, 2, 3].map(
+      (k) => opts.rachaB2?.[m - k] ?? (m - k >= 0 ? (serie.B2?.[m - k] ?? 0) : 0),
+    );
     const agg = aggregate(vars, { rachaB2Prev }, FIXTURE_PERCENTILES);
     const g = opts.grupo?.(m) ?? { D1: 1, D2: null, D3: null, D5: 0, confD: 0 };
     const aval = avalGrupo(agg.scoreSolo, g.D2, g.D3, g.D5);

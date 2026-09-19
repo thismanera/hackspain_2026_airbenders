@@ -71,3 +71,28 @@ test("clip bounds the projection to the fitted range", () => {
   const p = proyectarEmpresa(ctx(r, 5), 6, clip);
   assert.equal(p.vars.A4.raw, 0.35); // 0,3 + 0,05 · 4,5 = 0,525 → clip
 });
+
+test("cash already in deficit at t chains the real racha with the projected months", () => {
+  // cobros 100 k → 70 k (−6 k/mes), pagos 80 k: caja(t) = −10 k y todos los meses previstos negativos
+  const r = rowsFromSeries(
+    "c",
+    "g",
+    { A1: [0.15, 0.15, 0.15, 0.15, 0.15, 0.15] },
+    { flows: flowsLineal(6, 100_000, 70_000, 80_000), rachaDeficit: [0, 0, 0, 0, 1, 2] },
+  );
+  const p = proyectarEmpresa(ctx(r, 5), 3, paramsFixture().clip);
+  assert.equal(p.rachaDeficitPred, 3 + 2); // h meses previstos + la racha real de la fila
+});
+
+test("without observed cash at t, A2 and racha_deficit keep the row values", () => {
+  const r = rowsFromSeries(
+    "c",
+    "g",
+    { A2: [0, 0, 0, 0, 0.2, 0.4] },
+    { flows: [], rachaDeficit: [0, 0, 0, 0, 1, 2] },
+  );
+  const p = proyectarEmpresa(ctx(r, 5), 3, paramsFixture().clip);
+  const a2 = r.rows[5].variables.find((c) => c.id === "A2");
+  assert.equal(p.vars.A2.raw, a2?.raw);
+  assert.equal(p.rachaDeficitPred, r.rows[5].rachaDeficit);
+});

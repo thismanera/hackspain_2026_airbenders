@@ -1,8 +1,13 @@
 import { type Clip, FORECAST_PARAMS as P } from "@/lib/features/forecast/params";
 import { acumulada, proyectar, tendencia } from "@/lib/features/forecast/trend";
 import type { MonthlyFlow } from "@/lib/features/forecast/types";
-import { VARIABLES, type VariableId } from "@/lib/features/scoring/params";
-import type { ScoreRow, VariableSet, VariableValue } from "@/lib/features/scoring/types";
+import { PARAMS, VARIABLES, type VariableId } from "@/lib/features/scoring/params";
+import type {
+  Contribution,
+  ScoreRow,
+  VariableSet,
+  VariableValue,
+} from "@/lib/features/scoring/types";
 
 export type CompanyCtx = {
   /** Filas de la empresa indexadas por `CALENDAR` (`undefined` = sin fila ese mes). */
@@ -29,6 +34,24 @@ function rawAt(ctx: CompanyCtx, m: number, id: VariableId): number | null {
   return ctx.rows[m]?.variables.find((c) => c.id === id)?.raw ?? null;
 }
 
+/** La fila de `t` debe traer las 14 variables: que falte una es un fallo de contrato, no un NA. */
+function actualDe(
+  actual: Map<Contribution["id"], Contribution>,
+  id: VariableId,
+  t: number,
+): Contribution {
+  const c = actual.get(id);
+  if (!c) throw new Error(`proyectarEmpresa: falta ${id} en t=${t}`);
+  return c;
+}
+
+/** Proyección ya calculada de `id`; falla si una variable se quedó sin regla (§3.2). */
+function proyectada(vars: Partial<VariableSet>, id: VariableId): VariableValue {
+  const v = vars[id];
+  if (!v) throw new Error(`proyectarEmpresa: sin proyección para ${id}`);
+  return v;
+}
+
 function serie(ctx: CompanyCtx, pick: (m: number) => number | null): (number | null)[] {
   const out: (number | null)[] = [];
   for (let m = ctx.t - P.ventanaTendencia + 1; m <= ctx.t; m++) out.push(m >= 0 ? pick(m) : null);
@@ -44,7 +67,9 @@ export function cajaProyectada(ctx: CompanyCtx): CajaPred {
   const cobros = tendencia(
     serie(ctx, (m) => (ctx.flows[m]?.observed ? ctx.flows[m]!.cobrosOp : null)),
   );
-  const pagos = tendencia(serie(ctx, (m) => (ctx.flows[m]?.observed ? ctx.flows[m]!.pagosOp : null)));
+  const pagos = tendencia(
+    serie(ctx, (m) => (ctx.flows[m]?.observed ? ctx.flows[m]!.pagosOp : null)),
+  );
   return {
     disponible: true,
     caja: (i) =>
@@ -52,11 +77,14 @@ export function cajaProyectada(ctx: CompanyCtx): CajaPred {
   };
 }
 
-/** A2 a `t+h`: déficits en la ventana de 6 meses que termina en `t+h`, reales observados + proyectados. */
+/**
+ * A2 a `t+h`: déficits / meses observados en la ventana corta de scoring (§4/§5, `ventanaCorta`),
+ * la que termina en `t+h`; mezcla los meses reales observados con los proyectados.
+ */
 function a2Pred(ctx: CompanyCtx, h: number, caja: CajaPred): number | null {
   let deficits = 0;
   let n = 0;
-  for (let m = ctx.t + h - (P.ventanaTendencia - 1); m <= ctx.t + h; m++) {
+  for (let m = ctx.t + h - (PARAMS.ventanaCorta - 1); m <= ctx.t + h; m++) {
     if (m > ctx.t) {
       n++;
       if (caja.caja(m - ctx.t) < 0) deficits++;
@@ -80,10 +108,10 @@ export function proyectarEmpresa(ctx: CompanyCtx, h: number, clip: Clip): Proyec
   const row = ctx.rows[ctx.t];
   if (!row) throw new Error(`proyectarEmpresa: sin fila en t=${ctx.t}`);
   const actual = new Map(row.variables.map((c) => [c.id, c]));
-  const vars = {} as VariableSet;
+  const vars: Partial<VariableSet> = {};
   const sinTendencia: VariableId[] = [];
   for (const id of CON_TENDENCIA) {
-    const c = actual.get(id)!;
+    const c = actualDe(actual, id, ctx.t);
     const { tendencia: tend, sinTendencia: sin } = tendencia(serie(ctx, (m) => rawAt(ctx, m, id)));
     if (sin) sinTendencia.push(id);
     // NA en t sigue NA (subnota 50); conf constante: no se inventa confianza futura.
@@ -92,18 +120,18 @@ export function proyectarEmpresa(ctx: CompanyCtx, h: number, clip: Clip): Proyec
         ? { raw: null, conf: c.conf }
         : { raw: proyectar(c.raw, tend, h, clip[id]), conf: c.conf };
   }
-  const c5 = actual.get("C5")!;
+  const c5 = actualDe(actual, "C5", ctx.t);
   vars.C5 = { raw: c5.raw, conf: c5.conf };
 
   const caja = cajaProyectada(ctx);
-  const a2 = actual.get("A2")!;
+  const a2 = actualDe(actual, "A2", ctx.t);
   vars.A2 = caja.disponible
     ? { raw: a2Pred(ctx, h, caja) ?? a2.raw, conf: a2.conf }
     : { raw: a2.raw, conf: a2.conf };
   const rachaDeficit = caja.disponible ? rachaDeficitPred(row, h, caja) : row.rachaDeficit;
 
-  const b2 = actual.get("B2")!;
-  const b1 = vars.B1.raw;
+  const b2 = actualDe(actual, "B2", ctx.t);
+  const b1 = proyectada(vars, "B1").raw;
   const rachaB2Pred = row.rachaB2 + (b1 !== null && b1 < P.b1UmbralRacha ? 1 : 0);
   vars.B2 =
     b2.raw === null
@@ -114,5 +142,13 @@ export function proyectarEmpresa(ctx: CompanyCtx, h: number, clip: Clip): Proyec
     h - k >= 1 ? rachaB2Pred : (ctx.rows[ctx.t + h - k]?.rachaB2 ?? 0),
   );
 
-  return { vars, rachaB2Prev, rachaB2Pred, rachaDeficitPred: rachaDeficit, sinTendencia };
+  // Toda variable de VARIABLES tiene regla: una entrada nueva en `sinTendenciaGeneral` falla aquí.
+  for (const id of VARIABLES) proyectada(vars, id);
+  return {
+    vars: vars as VariableSet,
+    rachaB2Prev,
+    rachaB2Pred,
+    rachaDeficitPred: rachaDeficit,
+    sinTendencia,
+  };
 }
