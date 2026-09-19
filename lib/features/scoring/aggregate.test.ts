@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FIXTURE_PERCENTILES } from "@/lib/features/scoring/__fixtures__/percentiles";
-import { aggregate, estado, subnota, subnotaB2 } from "@/lib/features/scoring/aggregate";
+import { aggregate, estadoSolo, subnota, subnotaB2 } from "@/lib/features/scoring/aggregate";
 import { PARAMS } from "@/lib/features/scoring/params";
 import type { Percentiles, VariableSet } from "@/lib/features/scoring/types";
 
@@ -51,14 +51,16 @@ test("aggregate: weighted blocks make up score_solo, NA pulls to 50", () => {
   const sumA = r.contributions
     .filter((c) => c.id.startsWith("A"))
     .reduce((a, c) => a + c.aportacion, 0);
-  assert.ok(Math.abs(r.subscores.A - (62.5 + 100 + 71.428571 + 90 + 50) / 5) < 1e-4);
+  const expectedA =
+    (0.1 * 62.5 + 0.1 * 100 + 0.1 * 71.42857142857143 + 0.08 * 90 + 0.07 * 50) / 0.45;
+  assert.ok(Math.abs(r.subscores.A - expectedA) < 1e-4);
   assert.ok(Math.abs(sumA - 0.45 * r.subscores.A) < 1e-9);
   const esperado =
     PARAMS.pesos.A * r.subscores.A +
     PARAMS.pesos.B * r.subscores.B +
     PARAMS.pesos.C * r.subscores.C;
   assert.ok(Math.abs(r.scoreSolo - esperado) < 1e-9);
-  assert.ok(Math.abs(r.confs.A - (1 + 1 + 1 + 1 + 0.3) / 5) < 1e-9);
+  assert.ok(Math.abs(r.confs.A - (0.1 + 0.1 + 0.1 + 0.08 + 0.07 * 0.3) / 0.45) < 1e-9);
   const a1 = r.contributions.find((c) => c.id === "A1")!;
   assert.equal(a1.umbralSano, 0.1);
   assert.equal(a1.sano, true);
@@ -84,10 +86,18 @@ test("aggregate reads the B2 streak from its raw value", () => {
 });
 
 test("estado thresholds", () => {
-  assert.equal(estado(80, 0.9, 0), "sana");
-  assert.equal(estado(80, 0.4, 0), "vigilar");
-  assert.equal(estado(60, 0.9, 0), "vigilar");
-  assert.equal(estado(40, 0.9, 0), "riesgo");
-  assert.equal(estado(80, 0.9, 2), "riesgo");
-  assert.equal(estado(80, 0.2, 0), "sin_datos");
+  const vars = Object.fromEntries(
+    [...PARAMS.bloques.A, ...PARAMS.bloques.B, ...PARAMS.bloques.C].map((id) => [
+      id,
+      { raw: 1, conf: 1 },
+    ]),
+  ) as VariableSet;
+  vars.A1 = { raw: 0.2, conf: 1 };
+  vars.C4 = { raw: 0.1, conf: 1 };
+  assert.equal(estadoSolo(80, 0.9, 0, vars), "sana");
+  assert.equal(estadoSolo(80, 0.4, 0, vars), "vigilar");
+  assert.equal(estadoSolo(60, 0.9, 0, vars), "vigilar");
+  assert.equal(estadoSolo(40, 0.9, 0, vars), "riesgo");
+  assert.equal(estadoSolo(80, 0.9, 2, vars), "riesgo");
+  assert.equal(estadoSolo(80, 0.2, 0, vars), "sin_datos");
 });

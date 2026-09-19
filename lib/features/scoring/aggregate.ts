@@ -1,12 +1,20 @@
 import { PARAMS, type Bloque, type VariableId } from "@/lib/features/scoring/params";
-import type { Contribution, Estado, Percentiles, VariableSet } from "@/lib/features/scoring/types";
+import type {
+  Contribution,
+  Estado,
+  Extras,
+  Percentiles,
+  VariableSet,
+} from "@/lib/features/scoring/types";
 import { clamp } from "@/lib/features/scoring/windows";
+
+type Coverage = Extras["cobertura"];
 
 export function subnota(id: VariableId, raw: number | null, percentiles: Percentiles): number {
   if (raw === null || !Number.isFinite(raw)) return 50;
-  const { p5, p95 } = percentiles[id];
-  if (p5 === null || p95 === null || !(p95 > p5)) return 50;
-  const u = clamp((raw - p5) / (p95 - p5));
+  const scale = percentiles[id];
+  if (!scale || scale.p5 === null || scale.p95 === null || !(scale.p95 > scale.p5)) return 50;
+  const u = clamp((raw - scale.p5) / (scale.p95 - scale.p5));
   return 100 * (PARAMS.mejor[id] === "alto" ? u : 1 - u);
 }
 
@@ -42,46 +50,116 @@ export type Aggregated = {
   confianza: number;
 };
 
+function activeWeight(id: VariableId, noDebt: boolean): number {
+  if (noDebt && id in PARAMS.pesosVariablesSinDeuda)
+    return PARAMS.pesosVariablesSinDeuda[id as "A1" | "A2"];
+  if (noDebt && id.startsWith("A")) return 0;
+  return PARAMS.pesosVariables[id];
+}
+
+/** Agrega A-C. La aportación de grupo se calcula por separado en el orquestador. */
 export function aggregate(
   vars: VariableSet,
   racha: { rachaB2Prev: number[] },
   percentiles: Percentiles,
+  cobertura?: Pick<Coverage, "tieneCuotas" | "tieneLineaCredito">,
 ): Aggregated {
   const contributions: Contribution[] = [];
   const subscores = { A: 0, B: 0, C: 0 };
   const confs = { A: 0, B: 0, C: 0 };
+  const noDebt = cobertura !== undefined && !cobertura.tieneCuotas && !cobertura.tieneLineaCredito;
   for (const bloque of ["A", "B", "C"] as const) {
     const ids = PARAMS.bloques[bloque];
+    const active = ids.filter((id) => activeWeight(id, noDebt) > 0);
     for (const id of ids) {
       const v = vars[id];
-      const s =
+      const weight = activeWeight(id, noDebt);
+      const aplicable = weight > 0;
+      const rawSub =
         id === "B2"
           ? v.raw === null
             ? 50
             : subnotaB2(v.raw, racha.rachaB2Prev)
           : subnota(id, v.raw, percentiles);
-      const notaEf = 50 + v.conf * (s - 50);
-      const aportacion = (PARAMS.pesos[bloque] / ids.length) * notaEf;
+      const s = aplicable ? rawSub : null;
+      const notaEf = s === null ? 50 : 50 + v.conf * (s - 50);
+      const aportacion = aplicable ? weight * notaEf : 0;
+      const health = aplicable ? sano(id, v.raw) : { umbralSano: null, sano: null };
       contributions.push({
         id,
         raw: v.raw,
         subnota: s,
-        conf: v.conf,
+        conf: aplicable ? v.conf : 1,
+        peso: weight,
+        pesoEfectivo: weight,
         aportacion,
-        ...sano(id, v.raw),
+        aplicable,
+        ...health,
       });
-      subscores[bloque] += notaEf / ids.length;
-      confs[bloque] += v.conf / ids.length;
+      subscores[bloque] += aportacion;
+      confs[bloque] += aplicable ? weight * v.conf : 0;
     }
+    const activeWeightTotal = active.reduce((total, id) => total + activeWeight(id, noDebt), 0);
+    if (activeWeightTotal > 0) {
+      subscores[bloque] /= activeWeightTotal;
+      confs[bloque] /= activeWeightTotal;
+    }
+    if (bloque === "A" && noDebt) confs.A = (vars.A1.conf + vars.A2.conf) / 2;
   }
   const scoreSolo = contributions.reduce((a, c) => a + c.aportacion, 0);
   const confianza = PARAMS.pesos.A * confs.A + PARAMS.pesos.B * confs.B + PARAMS.pesos.C * confs.C;
   return { contributions, subscores, confs, scoreSolo, confianza };
 }
 
-export function estado(score: number, confianza: number, rachaB2: number): Estado {
+export function estadoSolo(
+  scoreSolo: number,
+  confianza: number,
+  rachaB2: number,
+  vars: VariableSet,
+): Estado {
   if (confianza < PARAMS.confSinDatos) return "sin_datos";
-  if (score < PARAMS.scoreRiesgo || rachaB2 >= 2) return "riesgo";
-  if (score >= PARAMS.scoreSana && confianza >= PARAMS.confSana) return "sana";
+  const A1 = vars.A1.raw;
+  const C4 = vars.C4.raw;
+  if (scoreSolo < PARAMS.scoreRiesgo || rachaB2 >= 2 || (C4 !== null && C4 > 0.4)) return "riesgo";
+  if (
+    scoreSolo >= PARAMS.scoreSana &&
+    confianza >= PARAMS.confSana &&
+    A1 !== null &&
+    A1 >= 0.1 &&
+    rachaB2 === 0 &&
+    vars.B2.raw !== null &&
+    C4 !== null &&
+    C4 <= 0.2
+  )
+    return "sana";
+  return "vigilar";
+}
+
+export function estadoConGrupo(
+  solo: Estado,
+  scoreGrupo: number,
+  confianza: number,
+  perfil: "filial_subvencionada" | "drenaje_tesoreria" | "estandar",
+  ajuste: number,
+  rachaB2 = 0,
+  vars?: VariableSet,
+): Estado {
+  if (solo === "sin_datos") return "sin_datos";
+  if (solo === "riesgo")
+    return ajuste > 0 && perfil === "filial_subvencionada" ? "vigilar" : "riesgo";
+  const A1 = vars?.A1.raw ?? null;
+  const C4 = vars?.C4.raw ?? null;
+  if (scoreGrupo < PARAMS.scoreRiesgo || rachaB2 >= 2 || (C4 !== null && C4 > 0.4)) return "riesgo";
+  if (
+    scoreGrupo >= PARAMS.scoreSana &&
+    confianza >= PARAMS.confSana &&
+    A1 !== null &&
+    A1 >= 0.1 &&
+    rachaB2 === 0 &&
+    vars?.B2.raw != null &&
+    C4 !== null &&
+    C4 <= 0.2
+  )
+    return "sana";
   return "vigilar";
 }

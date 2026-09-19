@@ -39,3 +39,14 @@ test("version tracks the percentiles, not just the inputs metadata", () => {
   const b = fitPercentiles([{ id: "A1", raw: 2, conf: 1 }], ["g1"], ["g2"], "fp");
   assert.notEqual(a.version, b.version);
 });
+
+test("fit freezes the C5 p80 threshold for chronic instability", () => {
+  const samples = Array.from({ length: 10 }, (_, i) => ({
+    id: "C5" as const,
+    raw: i / 10,
+    conf: 1,
+  }));
+  const p = fitPercentiles(samples, ["g1"], [], "fp");
+  assert.equal(typeof p.c5P80, "number");
+  assert.ok((p.c5P80 ?? 0) > 0.6);
+});

@@ -28,7 +28,7 @@ test("legacy decision reproduces band A limit and opens on first month", () => {
 });
 
 test("hard close on band D, three deficits or overdue > 40 %", () => {
-  assert.equal(decideLegacy([row(CALENDAR[0], { score: 40 })])[0].accion, "cerrar");
+  assert.equal(decideLegacy([row(CALENDAR[0], { scoreSolo: 40 })])[0].accion, "cerrar");
   assert.equal(decideLegacy([row(CALENDAR[0], { rachaDeficit: 3 })])[0].accion, "cerrar");
   assert.equal(decideLegacy([row(CALENDAR[0], { C4: 0.5 })])[0].accion, "cerrar");
   assert.equal(decideLegacy([row(CALENDAR[0], { confianza: 0.2 })])[0].accion, "mantener");
@@ -42,11 +42,11 @@ test("the operating limit binds when receipts are small", () => {
 });
 
 test("bands B and C scale the limit and set their price", () => {
-  const b = decideLegacy([row(CALENDAR[0], { score: 65 })])[0];
+  const b = decideLegacy([row(CALENDAR[0], { scoreSolo: 65 })])[0];
   assert.equal(b.banda, "B");
   assert.equal(b.precio, 0.07);
   assert.equal(b.limiteRecomendado, redondeado(LIMITE_CAP * 0.7));
-  const c = decideLegacy([row(CALENDAR[0], { score: 50 })])[0];
+  const c = decideLegacy([row(CALENDAR[0], { scoreSolo: 50 })])[0];
   assert.equal(c.banda, "C");
   assert.equal(c.precio, 0.1);
   assert.equal(c.limiteRecomendado, redondeado(LIMITE_CAP * 0.4));
@@ -90,10 +90,10 @@ test("motivo names the action and the two largest contribution moves", () => {
     row(CALENDAR[0], {
       deltaContrib: [
         { id: "A1", delta: -3.21 },
-        { id: "grupo", delta: 1.54 },
+        { id: "A2", delta: 1.54 },
         { id: "C5", delta: 0.1 },
       ],
     }),
   ])[0];
-  assert.equal(d.motivo, "abrir: A1 -3.2, grupo +1.5");
+  assert.equal(d.motivo, "abrir: A1 -3.2, A2 +1.5");
 });

@@ -112,7 +112,7 @@ export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): Backt
         if (eventAt(list, i, kind)) events.push({ company, month: list[i].month, index: i, kind });
       if (!enVentana(list[i].month)) continue;
       if (i + 3 < list.length && list[i + 3].margenMes !== null)
-        pairs.push([list[i].score, list[i + 3].margenMes!]);
+        pairs.push([list[i].scoreSolo, list[i + 3].margenMes!]);
     }
   }
   const empty = (): BacktestKind => ({

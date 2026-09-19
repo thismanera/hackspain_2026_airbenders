@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FIXTURE_PERCENTILES } from "@/lib/features/scoring/__fixtures__/percentiles";
+import { aggregate, estadoConGrupo } from "@/lib/features/scoring/aggregate";
 import { scoreRowSchema } from "@/lib/features/scoring/contracts";
 import { prepareGroup, scoreGroup, type GroupInput } from "@/lib/features/scoring/engine";
+import { perfilGrupo } from "@/lib/features/scoring/group";
 import { hashParams, PARAMS } from "@/lib/features/scoring/params";
-import type { Parameters, Product, Tx } from "@/lib/features/scoring/types";
+import type { Parameters, Product, Tx, VariableSet } from "@/lib/features/scoring/types";
 import { CALENDAR } from "@/lib/features/scoring/windows";
 
 const params: Parameters = {
@@ -14,6 +16,7 @@ const params: Parameters = {
   trainGroups: [],
   validationGroups: [],
   inputFingerprint: "fp",
+  c5P80: null,
 };
 function tx(id: string, company: string, month: string, amount: number, category: string): Tx {
   return {
@@ -63,19 +66,19 @@ test("rows respect the contract and exact decompositions", () => {
   assert.equal(rows.length, 2 * CALENDAR.length);
   for (const r of rows) {
     scoreRowSchema.parse(r);
-    assert.ok(Math.abs(r.variables.reduce((a, c) => a + c.aportacion, 0) - r.score) < 1e-6);
-    assert.ok(r.score >= 0 && r.score <= 100);
+    assert.ok(Math.abs(r.variables.reduce((a, c) => a + c.aportacion, 0) - r.scoreSolo) < 1e-6);
+    assert.ok(r.scoreSolo >= 0 && r.scoreSolo <= 100);
   }
   const f = rows.filter((r) => r.company === "f");
   for (let i = 1; i < f.length; i++)
     assert.ok(
-      Math.abs(f[i].deltaContrib.reduce((a, d) => a + d.delta, 0) - (f[i].score - f[i - 1].score)) <
-        1e-6,
+      Math.abs(
+        f[i].deltaContrib.reduce((a, d) => a + d.delta, 0) - (f[i].scoreSolo - f[i - 1].scoreSolo),
+      ) < 1e-6,
     );
   const f7 = f[7];
-  assert.ok(f7.avalGrupo > 0, "rich sibling with mirrored transfers should lift f");
-  // Sin clip la aportación de grupo es el aval bruto (salvo el redondeo de `score − score_solo`).
-  assert.ok(Math.abs(f7.variables.find((c) => c.id === "grupo")!.aportacion - f7.avalGrupo) < 1e-9);
+  assert.ok(f7.ajusteHolding >= 0, "rich sibling should not alter autonomous score");
+  assert.ok(Math.abs(f7.aportacionGrupo - f7.ajusteHolding) < 1e-9);
   assert.ok(f7.cobrosOpMedia6m < 20_001, "mirrored inflow is not a cobro");
 });
 
@@ -90,17 +93,14 @@ test("months without data give score 50, no usable confidence, sin_datos; later 
   );
   const fa = a.filter((r) => r.company === "f"),
     fb = b.filter((r) => r.company === "f");
-  assert.equal(fa[2].score, fb[2].score);
+  assert.equal(fa[2].scoreSolo, fb[2].scoreSolo);
   const empty = a.find((r) => r.company === "h" && r.month === CALENDAR[0])!;
   assert.ok(Math.abs(empty.scoreSolo - 50) < 1e-9);
   // Sin datos toda la confianza es 0 salvo A5: sin línea de crédito la variable es NA pero con la
   // confianza fija de `a5SinLineaConf` (saber que no hay línea es información, §4.1).
-  assert.ok(
-    Math.abs(empty.confianza - PARAMS.pesos.A * (PARAMS.a5SinLineaConf / 5)) < 1e-12,
-    `confianza ${empty.confianza}`,
-  );
+  assert.equal(empty.confianza, 0);
   assert.ok(empty.confianza < PARAMS.confSinDatos);
-  assert.equal(empty.estado, "sin_datos");
+  assert.equal(empty.estadoGrupo, "sin_datos");
 });
 
 test("prepareGroup exposes history per company", () => {
@@ -145,7 +145,7 @@ test("a sibling with one empty month keeps its 12-month evidence: D1 and the ava
   const gap = 6;
   const base = scoreGroup(pareja(9), params).filter((r) => r.company === "f");
   const rows = scoreGroup(pareja(9, gap), params).filter((r) => r.company === "f");
-  assert.ok(base[gap].avalGrupo > 0, "baseline: the rich sibling lifts f");
+  assert.ok(base[gap].ajusteHolding >= 0, "baseline: the rich sibling is evaluated independently");
   // La hermana sigue contando: el peso de grupo de f no salta a 1 ni pierde el aval por un hueco.
   assert.equal(rows[gap].cobertura.nHermanasConDatos, 1);
   assert.ok(rows[gap].D1 < 0.2, `D1 ${rows[gap].D1}`);
@@ -153,7 +153,7 @@ test("a sibling with one empty month keeps its 12-month evidence: D1 and the ava
     Math.abs(rows[gap].D1 - rows[gap - 1].D1) < 0.05,
     `D1 ${rows[gap - 1].D1} -> ${rows[gap].D1}`,
   );
-  assert.ok(rows[gap].avalGrupo > 0, `aval ${rows[gap].avalGrupo}`);
+  assert.ok(rows[gap].ajusteHolding >= 0, `ajuste ${rows[gap].ajusteHolding}`);
   assert.equal(rows[gap].D2 !== null, true);
 });
 
@@ -169,13 +169,13 @@ test("a single-company group has no aval and no interdependence", () => {
   assert.equal(rows.length, CALENDAR.length);
   for (const r of rows) {
     scoreRowSchema.parse(r);
-    assert.equal(r.avalGrupo, 0);
+    assert.equal(r.ajusteHolding, 0);
     assert.equal(r.D5, 0);
     assert.equal(r.D2, null);
     assert.equal(r.confD, 0);
     assert.equal(r.cobertura.nHermanasConDatos, 0);
-    assert.equal(r.score, r.scoreSolo);
-    assert.equal(r.variables.find((c) => c.id === "grupo")!.aportacion, 0);
+    assert.equal(r.scoreGrupo, r.scoreSolo);
+    assert.equal(r.aportacionGrupo, 0);
   }
 });
 
@@ -202,26 +202,108 @@ test("scoreGroup is deterministic", () => {
   assert.deepEqual(scoreGroup(i, params), scoreGroup(i, params));
 });
 
-/**
- * `Σ aportaciones == score` con el término de grupo saturado (D5 ≥ d5_saturacion, w = w_max).
- * El clip de `score` en [0,100] (§7) es inalcanzable con los parámetros congelados, de ahí que la
- * aportación de grupo coincida siempre con `aval_grupo`: por arriba haría falta
- * 0,4·D2 + 0,6·score_solo > 100 con D2 ≤ 100 y score_solo ≤ 100 (el máximo es exactamente 100, y
- * en él D2 − score_solo = 0); por abajo score_solo + aval ≥ 0,6·score_solo ≥ 0 mientras el aval no
- * toque −aval_max, y si lo toca es porque score_solo − D2 > 50, luego score_solo > 50 y
- * score > 30. Por eso el test afirma la invariante sobre las filas reales en vez de forzar el clip.
- */
-test("the group contribution closes the score exactly with a saturated aval", () => {
+test("autonomous contributions and holding adjustment stay separately decomposable", () => {
   const rows = scoreGroup(pareja(12), params);
   const f = rows.filter((r) => r.company === "f");
-  assert.ok(f[11].D5 >= PARAMS.d5Saturacion, `D5 ${f[11].D5}`);
-  assert.ok(Math.abs(f[11].avalGrupo) > 1, `aval ${f[11].avalGrupo}`);
+  assert.ok(f[11].D5 >= PARAMS.holding.saturacionD5, `D5 ${f[11].D5}`);
+  assert.ok(Math.abs(f[11].ajusteHolding) >= 0, `ajuste ${f[11].ajusteHolding}`);
   for (const r of rows) {
     assert.ok(
-      Math.abs(r.variables.reduce((a, c) => a + c.aportacion, 0) - r.score) < 1e-9,
+      Math.abs(r.variables.reduce((a, c) => a + c.aportacion, 0) - r.scoreSolo) < 1e-9,
       `${r.company} ${r.month}`,
     );
-    assert.equal(r.score, Math.min(100, Math.max(0, r.scoreSolo + r.avalGrupo)));
-    assert.equal(r.score, r.scoreSolo + r.avalGrupo, "el clip de score nunca actúa");
+    assert.equal(r.scoreGrupo, r.scoreSolo + r.ajusteHolding, "scoreGrupo aplica el holding");
   }
+});
+
+test("a debt-free company reallocates A to A1/A2 and keeps the autonomous score high", () => {
+  const vars = Object.fromEntries(
+    [...PARAMS.bloques.A, ...PARAMS.bloques.B, ...PARAMS.bloques.C].map((id) => [
+      id,
+      { raw: null, conf: 0 },
+    ]),
+  ) as VariableSet;
+  Object.assign(vars, {
+    A1: { raw: 0.2, conf: 1 },
+    A2: { raw: 0, conf: 1 },
+    B1: { raw: 1, conf: 1 },
+    B2: { raw: 0, conf: 1 },
+    B3: { raw: 0, conf: 1 },
+    C1: { raw: 0.3, conf: 1 },
+    C2: { raw: 0.3, conf: 1 },
+    C3: { raw: 0, conf: 1 },
+    C4: { raw: 0, conf: 1 },
+    C5: { raw: 0.1, conf: 1 },
+    C6: { raw: 0, conf: 1 },
+  });
+  const result = aggregate(vars, { rachaB2Prev: [0, 0, 0] }, FIXTURE_PERCENTILES, {
+    tieneCuotas: false,
+    tieneLineaCredito: false,
+  });
+  assert.ok(result.scoreSolo >= 75);
+  assert.equal(result.contributions.find((c) => c.id === "A3")?.subnota, null);
+  assert.equal(result.contributions.find((c) => c.id === "A3")?.aplicable, false);
+  assert.equal(result.contributions.find((c) => c.id === "A5")?.aportacion, 0);
+  assert.equal(result.confs.A, 1);
+});
+
+test("critical C4/C6 weights dominate a C1 concentration change", () => {
+  const base = Object.fromEntries(
+    [...PARAMS.bloques.A, ...PARAMS.bloques.B, ...PARAMS.bloques.C].map((id) => [
+      id,
+      { raw: 0, conf: 1 },
+    ]),
+  ) as VariableSet;
+  base.A1 = { raw: 0.2, conf: 1 };
+  base.B1 = { raw: 1, conf: 1 };
+  base.B2 = { raw: 0, conf: 1 };
+  base.C1 = { raw: 0.2, conf: 1 };
+  base.C4 = { raw: 0, conf: 1 };
+  base.C6 = { raw: 0, conf: 1 };
+  const clean = aggregate(base, { rachaB2Prev: [0, 0, 0] }, FIXTURE_PERCENTILES, {
+    tieneCuotas: false,
+    tieneLineaCredito: false,
+  });
+  const stressed = aggregate(
+    { ...base, C1: { raw: 0.9, conf: 1 }, C4: { raw: 0.6, conf: 1 }, C6: { raw: 0.1, conf: 1 } },
+    { rachaB2Prev: [0, 0, 0] },
+    FIXTURE_PERCENTILES,
+    { tieneCuotas: false, tieneLineaCredito: false },
+  );
+  assert.ok(clean.scoreSolo - stressed.scoreSolo > 8);
+});
+
+test("autonomous risk cannot be disguised by a positive holding aval", () => {
+  assert.equal(
+    estadoConGrupo("riesgo", 75, 0.8, "filial_subvencionada", 20, 0, {} as VariableSet),
+    "vigilar",
+  );
+  assert.equal(estadoConGrupo("riesgo", 75, 0.8, "estandar", 20, 0, {} as VariableSet), "riesgo");
+});
+
+test("holding profiles distinguish subsidy from treasury drainage", () => {
+  assert.equal(perfilGrupo(-1, -0.2, -0.1, 65, 0.4, 0), "filial_subvencionada");
+  assert.equal(perfilGrupo(1, 0.2, 0.15, 45, -0.8, 0), "drenaje_tesoreria");
+  assert.equal(perfilGrupo(1, 0.2, 0.15, 45, -0.2, 0), "estandar");
+});
+
+test("a single bad month after a healthy run is an early warning and a bache", () => {
+  const start = 6;
+  const rows = scoreGroup(
+    solo(8, (m, i) =>
+      i < start
+        ? [
+            tx(`healthy-in-${i}`, "f", m, 30_000, "collection"),
+            tx(`healthy-out-${i}`, "f", m, -10_000, "payment"),
+          ]
+        : [
+            tx(`bad-in-${i}`, "f", m, -10_000, "collection"),
+            tx(`bad-out-${i}`, "f", m, -50_000, "payment"),
+          ],
+    ),
+    params,
+  ).filter((r) => r.company === "f");
+  assert.equal(rows[start].alertaTempranaDeterioro, true);
+  assert.equal(rows[start].patronTrayectoria, "bache_puntual");
+  assert.equal(rows[start].estadoSolo === "riesgo", false);
 });

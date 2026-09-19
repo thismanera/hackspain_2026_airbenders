@@ -36,6 +36,7 @@ export function fitPercentiles(
   inputFingerprint: string,
 ): Parameters {
   const percentiles = {} as Percentiles;
+  let c5P80: number | null = null;
   for (const id of VARIABLES) {
     const xs = samples
       .filter(
@@ -43,6 +44,7 @@ export function fitPercentiles(
       )
       .map((s) => s.raw as number);
     percentiles[id] = { p5: percentile(xs, 0.05), p95: percentile(xs, 0.95) };
+    if (id === "C5") c5P80 = percentile(xs, PARAMS.volatilidadPercentil);
   }
   const core = {
     paramsHash: hashParams(PARAMS),
@@ -50,6 +52,7 @@ export function fitPercentiles(
     trainGroups: train,
     validationGroups: validation,
     inputFingerprint,
+    c5P80,
   };
   return { ...core, version: createHash("sha256").update(JSON.stringify(core)).digest("hex") };
 }

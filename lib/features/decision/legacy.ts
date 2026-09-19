@@ -44,7 +44,7 @@ export function decideLegacy(rows: ScoreRow[]): DecisionRow[] {
     const r = rows[t],
       prev = out[t - 1],
       prev2 = out[t - 2];
-    let b = band(r.score);
+    let b = band(r.scoreSolo);
     if (r.direccion === "deterioro" && r.naturaleza === "estructural") b = lower(b);
     const dues = r.servicioDeudaMedia6m + r.amortCreditoMedia6m;
     const capacidadBase = Math.max(

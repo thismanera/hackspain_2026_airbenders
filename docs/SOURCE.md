@@ -1,7 +1,12 @@
 # SOURCE — Embat Flow (Embat · X-Ray)
 
 Source of truth. Corto a propósito. `☐` = pendiente de validar con Pablo; `✅` validado; `⏳` aplazado. Justificaciones en §4.
-Detalle técnico ampliado en [`scoring-engine.md`](./scoring-engine.md) (score) y [`decision-engine.md`](./decision-engine.md) (decisión).
+Detalle técnico ampliado en [`scoring-engine.md`](./scoring-engine.md) (`scoreSolo`/holding) y [`decision-engine.md`](./decision-engine.md) (decisión).
+
+Contrato vigente (19-09-2026): `scoreSolo` es la única nota autónoma persistida mediante
+`@map("score")`; `scoreGrupo = clamp(scoreSolo + ajusteHolding, 0, 100)`. El estado autónomo
+se publica como `estadoSolo` y el ajustado como `estadoGrupo`. Las ejecuciones incompatibles
+se rechazan con 409 y el selector por defecto ignora ejecuciones antiguas incompatibles.
 
 **Producto:** financiación de circulante (anticipar cobros / estirar pagos)
 con límite que se recalcula solo mes a mes. El score dice cuánto, a qué
@@ -15,39 +20,39 @@ precio y cuándo cerrar el grifo.
 
 ### 1.0 Reglas comunes
 
-| Regla | Valor |
-| --- | --- |
-| Corte | Mes completo `2024-09 … 2026-08`. Fila `t` solo usa eventos ≤ fin(t). Nada de la foto final (`balances`, `outstanding`, `pending_amount`, `status`) para `t < 2026-09`. |
-| Movimientos | `status = booked`; cuentas `checking/saving/wallet` |
-| Divisas ✅ | Score siempre en €. Dos pasos: (1) `importe_empresa = amount / exchange_rate` (`exchange_rate` = unidades de la moneda del producto o factura por 1 unidad de la moneda de la empresa; verificado: USD→EUR 1,16, GBP→EUR 0,86, NOK→EUR 11; misma moneda → 1). (2) `importe_eur = importe_empresa × tasa(moneda_empresa → EUR, mes)`, tabla mensual construida con la mediana de las tasas del propio dataset en pares con EUR; sin dato en el mes → tasa fija versionada en el repo. `exchange_rate` vacío o 0 (0,4 % de facturas) → mediana del par en ese mes; sin par → excluir y bajar confianza. |
-| Sin clasificar ✅ | Se usa la reclasificación de #12 (`analysis/08_categories.py`, `transaction_categories.parquet`) cuando `category_confidence ≥ 0,95`; el resto (`unknown`) → cobertura, nunca ingreso/gasto. `debt_drawdown` → financiación (como `disp_credito`); `balance_adjustment` → neutral. |
-| Traspasos ✅ | Espejos emparejados **sobre todas las categorías**, no solo `transfer`: mismo importe al céntimo, signo opuesto, misma fecha, uno a uno. Misma empresa → neutral. Otra empresa del mismo grupo → intragrupo (D4/D5), fuera de cobros y pagos. |
-| Crédito | Movimientos sobre productos `lineofcredit` → financiación, fuera de operativo |
-| Confianza | Cada variable lleva `conf ∈ [0,1]` = ventana observada × cobertura. Sin dato → nota 50, conf 0. Confianza se muestra aparte del score. |
-| Escalas | Percentiles p5/p95 fijados en empresas de ajuste (split por `group_id`), versionados, no se recalculan en test. |
+| Regla             | Valor                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Corte             | Mes completo `2024-09 … 2026-08`. Fila `t` solo usa eventos ≤ fin(t). Nada de la foto final (`balances`, `outstanding`, `pending_amount`, `status`) para `t < 2026-09`.                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Movimientos       | `status = booked`; cuentas `checking/saving/wallet`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Divisas ✅        | Score siempre en €. Dos pasos: (1) `importe_empresa = amount / exchange_rate` (`exchange_rate` = unidades de la moneda del producto o factura por 1 unidad de la moneda de la empresa; verificado: USD→EUR 1,16, GBP→EUR 0,86, NOK→EUR 11; misma moneda → 1). (2) `importe_eur = importe_empresa × tasa(moneda_empresa → EUR, mes)`, tabla mensual construida con la mediana de las tasas del propio dataset en pares con EUR; sin dato en el mes → tasa fija versionada en el repo. `exchange_rate` vacío o 0 (0,4 % de facturas) → mediana del par en ese mes; sin par → excluir y bajar confianza. |
+| Sin clasificar ✅ | Se usa la reclasificación de #12 (`analysis/08_categories.py`, `transaction_categories.parquet`) cuando `category_confidence ≥ 0,95`; el resto (`unknown`) → cobertura, nunca ingreso/gasto. `debt_drawdown` → financiación (como `disp_credito`); `balance_adjustment` → neutral.                                                                                                                                                                                                                                                                                                                    |
+| Traspasos ✅      | Espejos emparejados **sobre todas las categorías**, no solo `transfer`: mismo importe al céntimo, signo opuesto, misma fecha, uno a uno. Misma empresa → neutral. Otra empresa del mismo grupo → intragrupo (D4/D5), fuera de cobros y pagos.                                                                                                                                                                                                                                                                                                                                                         |
+| Crédito           | Movimientos sobre productos `lineofcredit` → financiación, fuera de operativo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Confianza         | Cada variable lleva `conf ∈ [0,1]` = ventana observada × cobertura. Sin dato → nota 50, conf 0. Confianza se muestra aparte del score.                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Escalas           | Percentiles p5/p95 fijados en empresas de ajuste (split por `group_id`), versionados, no se recalculan en test.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 ### 1.1 Flujos base mensuales (de `transactions`)
 
-| Flujo | Categorías |
-| --- | --- |
-| `cobros_op` | `collection`, `bulk_collection`, `pos_settlement`, `cash_settlement(s)` |
-| `pagos_op` | `payment`, `bulk_payment`, `utility`, `salary`, `social_security`, `tax`, `fee` |
-| `servicio_deuda` | `debt_repayment` + `interest_charge` |
-| `disp_credito` / `amort_credito` | `+` / `−` sobre productos `lineofcredit` |
-| `obligaciones_rec` | `debt_repayment`, `tax`, `social_security`, `salary` (pagos recurrentes esperables) |
-| `recibos_devueltos` | `collection_refund` (−): recibos domiciliados a clientes devueltos ("Impagado recibos domicil. SEPA devolución recibo"). `payment_refund` (+) es heterogéneo (devolución Hacienda, devolución compra, retrocesión comisiones) → neutral, fuera de `cobros_op` ✅ |
+| Flujo                            | Categorías                                                                                                                                                                                                                                                       |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cobros_op`                      | `collection`, `bulk_collection`, `pos_settlement`, `cash_settlement(s)`                                                                                                                                                                                          |
+| `pagos_op`                       | `payment`, `bulk_payment`, `utility`, `salary`, `social_security`, `tax`, `fee`                                                                                                                                                                                  |
+| `servicio_deuda`                 | `debt_repayment` + `interest_charge`                                                                                                                                                                                                                             |
+| `disp_credito` / `amort_credito` | `+` / `−` sobre productos `lineofcredit`                                                                                                                                                                                                                         |
+| `obligaciones_rec`               | `debt_repayment`, `tax`, `social_security`, `salary` (pagos recurrentes esperables)                                                                                                                                                                              |
+| `recibos_devueltos`              | `collection_refund` (−): recibos domiciliados a clientes devueltos ("Impagado recibos domicil. SEPA devolución recibo"). `payment_refund` (+) es heterogéneo (devolución Hacienda, devolución compra, retrocesión comisiones) → neutral, fuera de `cobros_op` ✅ |
 
 `caja_op = cobros_op − pagos_op`. Ventana por defecto: 6 meses móviles.
 
 ### 1.2 Bloque A — Capacidad de deuda · peso 45 ✅
 
-| Id | Variable | Negocio | Técnica | Mejor | Cobertura |
-| --- | --- | --- | --- | --- | --- |
-| A1 | Margen de caja | ¿Queda caja tras pagar la operación? | `Σ6m caja_op / Σ6m cobros_op` | alto | todas |
-| A2 | Meses en déficit | ¿Es habitual gastar más de lo que cobra? | `#meses(cobros_op < pagos_op) / meses obs.` | bajo | todas |
-| A3 | Cobertura de deuda | ¿La caja cubre las cuotas? | `Σ6m caja_op / Σ6m servicio_deuda`; sin cuotas → no disponible | alto | 524 emp. |
-| A4 | Carga de deuda existente | ¿Cuánto de lo cobrado ya está comprometido? | `Σ6m (servicio_deuda + amort_credito) / Σ6m cobros_op` | bajo | 524 + línea |
-| A5 | Dependencia de crédito | ¿Vive de tirar de la línea? | `Σ6m disp_credito / Σ6m cobros_op` | bajo | emp. con línea |
+| Id  | Variable                 | Negocio                                     | Técnica                                                        | Mejor | Cobertura      |
+| --- | ------------------------ | ------------------------------------------- | -------------------------------------------------------------- | ----- | -------------- |
+| A1  | Margen de caja           | ¿Queda caja tras pagar la operación?        | `Σ6m caja_op / Σ6m cobros_op`                                  | alto  | todas          |
+| A2  | Meses en déficit         | ¿Es habitual gastar más de lo que cobra?    | `#meses(cobros_op < pagos_op) / meses obs.`                    | bajo  | todas          |
+| A3  | Cobertura de deuda       | ¿La caja cubre las cuotas?                  | `Σ6m caja_op / Σ6m servicio_deuda`; sin cuotas → no disponible | alto  | 524 emp.       |
+| A4  | Carga de deuda existente | ¿Cuánto de lo cobrado ya está comprometido? | `Σ6m (servicio_deuda + amort_credito) / Σ6m cobros_op`         | bajo  | 524 + línea    |
+| A5  | Dependencia de crédito   | ¿Vive de tirar de la línea?                 | `Σ6m disp_credito / Σ6m cobros_op`                             | bajo  | emp. con línea |
 
 `outstanding` de `debt_products` solo sirve para `t = 2026-08` (foto). Deuda
 existente mes a mes = A4 (proxy por cuotas).
@@ -61,11 +66,11 @@ Obligación recurrente = pago con categoría en `obligaciones_rec` que aparece
 ≥ 3 de los últimos 6 meses. Importe esperado = mediana de esos pagos (si hay
 cuadro en `debt_schedule_config`, se usa el cuadro).
 
-| Id | Variable | Negocio | Técnica | Mejor | Cobertura |
-| --- | --- | --- | --- | --- | --- |
-| B1 | Cumplimiento acumulado | ¿Paga lo que debe, aunque sea tarde? | `Σ pagado hasta t / Σ esperado hasta t`, últimos 6 m, cap 1 | alto | 1.157 (tax/SS) · 817 (nómina) · 524 (deuda) |
-| B2 | Racha de retraso | ¿Cuántos meses seguidos lleva sin pagar una obligación esperada? | streak actual de meses con esperado > 0 y pagado = 0 | bajo | idem |
-| B3 | Puntualidad con proveedores | ¿Paga facturas a tiempo? | mediana `payment_date − due_date`, facturas proveedor (`amount < 0`) `paid` en 6 m | bajo | ≤ 1.093 |
+| Id  | Variable                    | Negocio                                                          | Técnica                                                                            | Mejor | Cobertura                                   |
+| --- | --------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----- | ------------------------------------------- |
+| B1  | Cumplimiento acumulado      | ¿Paga lo que debe, aunque sea tarde?                             | `Σ pagado hasta t / Σ esperado hasta t`, últimos 6 m, cap 1                        | alto  | 1.157 (tax/SS) · 817 (nómina) · 524 (deuda) |
+| B2  | Racha de retraso            | ¿Cuántos meses seguidos lleva sin pagar una obligación esperada? | streak actual de meses con esperado > 0 y pagado = 0                               | bajo  | idem                                        |
+| B3  | Puntualidad con proveedores | ¿Paga facturas a tiempo?                                         | mediana `payment_date − due_date`, facturas proveedor (`amount < 0`) `paid` en 6 m | bajo  | ≤ 1.093                                     |
 
 **Edge case (salta un mes, paga dos juntos):** B1 vuelve a 1 al mes
 siguiente → sin penalización de importe. B2 registra racha 1 → penalización
@@ -74,14 +79,14 @@ adelanto convierten a la empresa en morosa; dos seguidos sí. ✅
 
 ### 1.4 Bloque C — Dependencia clientes/proveedores · peso 25 ✅
 
-| Id | Variable | Negocio | Técnica | Mejor | Cobertura |
-| --- | --- | --- | --- | --- | --- |
-| C1 | Concentración clientes | ¿Depende de pocos clientes? | top-3 `counterparty_id` en `cobros_op` / cobros identificados, 12 m | bajo | contrapartes con id |
-| C2 | Concentración proveedores | ¿Depende de pocos proveedores? | top-3 en `pagos_op` / pagos identificados, 12 m | bajo | idem |
-| C3 | Retraso de cobro | ¿Sus clientes pagan tarde? | mediana `payment_date − due_date`, facturas cliente (`amount > 0`) `paid` en 6 m | bajo | ≤ 1.093 |
-| C4 | Vencido sin cobrar | ¿Acumula facturas vencidas? | importe cliente con `due_date ≤ fin(t)` sin pago a fin(t) / vencido en 6 m | bajo | ≤ 1.093 |
-| C5 | Volatilidad de cobros | ¿Es predecible la entrada? | `MAD / mediana` de `cobros_op` mensual, 6-12 m | bajo | todas |
-| C6 | Recibos devueltos por clientes | ¿Sus clientes le devuelven recibos? | `Σ6m collection_refund / Σ6m cobros_op` ✅ | bajo | 427 emp. |
+| Id  | Variable                       | Negocio                             | Técnica                                                                          | Mejor | Cobertura           |
+| --- | ------------------------------ | ----------------------------------- | -------------------------------------------------------------------------------- | ----- | ------------------- |
+| C1  | Concentración clientes         | ¿Depende de pocos clientes?         | top-3 `counterparty_id` en `cobros_op` / cobros identificados, 12 m              | bajo  | contrapartes con id |
+| C2  | Concentración proveedores      | ¿Depende de pocos proveedores?      | top-3 en `pagos_op` / pagos identificados, 12 m                                  | bajo  | idem                |
+| C3  | Retraso de cobro               | ¿Sus clientes pagan tarde?          | mediana `payment_date − due_date`, facturas cliente (`amount > 0`) `paid` en 6 m | bajo  | ≤ 1.093             |
+| C4  | Vencido sin cobrar             | ¿Acumula facturas vencidas?         | importe cliente con `due_date ≤ fin(t)` sin pago a fin(t) / vencido en 6 m       | bajo  | ≤ 1.093             |
+| C5  | Volatilidad de cobros          | ¿Es predecible la entrada?          | `MAD / mediana` de `cobros_op` mensual, 6-12 m                                   | bajo  | todas               |
+| C6  | Recibos devueltos por clientes | ¿Sus clientes le devuelven recibos? | `Σ6m collection_refund / Σ6m cobros_op` ✅                                       | bajo  | 427 emp.            |
 
 Facturas: solo `document_type = invoice`; pago real solo si `status = paid`
 (en 96 % de no pagadas `payment_date == due_date`, no es un pago).
@@ -101,23 +106,23 @@ score       = score_solo + aval_grupo                        (§1.7)
 confianza   = misma media ponderada sobre conf_v
 ```
 
-| Estado | Regla ✅ |
-| --- | --- |
-| Sana | `score ≥ 70` y `confianza ≥ 0,5` |
-| Vigilar | `45 ≤ score < 70` |
-| Riesgo | `score < 45` o racha B2 ≥ 2 |
-| Sin datos | `confianza < 0,3` → no se opina |
+| Estado    | Regla ✅                         |
+| --------- | -------------------------------- |
+| Sana      | `score ≥ 70` y `confianza ≥ 0,5` |
+| Vigilar   | `45 ≤ score < 70`                |
+| Riesgo    | `score < 45` o racha B2 ≥ 2      |
+| Sin datos | `confianza < 0,3` → no se opina  |
 
 ### 1.6 Métricas de evolución (input de la decisión)
 
-| Métrica | Definición |
-| --- | --- |
-| `tend_score_3m` | `score(t) − score(t−3)` |
-| `tend_A/B/C_3m` | idem por bloque |
-| `direccion` | mejora si `tend ≥ +6`, deterioro si `≤ −6`, si no estable ✅ |
-| `naturaleza` | estructural si dirección igual 2 meses seguidos **y** ≥ 2 variables mueven en el mismo sentido **y** alguna de A1-A3 entre ellas; si no, temporal |
-| `racha_deficit` | meses seguidos con `caja_op < 0` |
-| `delta_contrib` | `score(t) − score(t−1)` descompuesto exacto por variable |
+| Métrica         | Definición                                                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tend_score_3m` | `score(t) − score(t−3)`                                                                                                                           |
+| `tend_A/B/C_3m` | idem por bloque                                                                                                                                   |
+| `direccion`     | mejora si `tend ≥ +6`, deterioro si `≤ −6`, si no estable ✅                                                                                      |
+| `naturaleza`    | estructural si dirección igual 2 meses seguidos **y** ≥ 2 variables mueven en el mismo sentido **y** alguna de A1-A3 entre ellas; si no, temporal |
+| `racha_deficit` | meses seguidos con `caja_op < 0`                                                                                                                  |
+| `delta_contrib` | `score(t) − score(t−1)` descompuesto exacto por variable                                                                                          |
 
 ### 1.7 Bloque D — Riesgo de grupo (aval y contagio)
 
@@ -132,13 +137,13 @@ empresa-grupo, mismo importe, signo opuesto, mismo día): 8.839 pares, 420 M€,
 299 empresas · préstamos `custom` (`Other (customer-defined)`: 171
 préstamos intragrupo/socios en 33 empresas).
 
-| Id | Variable | Negocio | Técnica | Cobertura |
-| --- | --- | --- | --- | --- |
-| D1 | Peso en el grupo | ¿Es la filial grande o pequeña dentro del grupo? | `cobros_op empresa / Σ cobros_op grupo`, 12 m | grupos ≥ 2 |
-| D2 | Score del resto del grupo | ¿Cómo está "el padre"? | media de `score_solo` de las demás empresas, ponderada por `cobros_op` | idem |
-| D3 | Capacidad de aval | ¿El padre tiene dinero para cubrir a la filial? | `Σ capacidad_cuota_adversa del resto / (servicio_deuda + obligaciones_rec) media 6 m de la empresa` | idem |
-| D4 | Soporte observado | ¿Ya le inyectan caja? | entradas intragrupo netas (traspasos emparejados + préstamos `custom`) / `cobros_op`, 12 m. Negativo = sostiene al grupo | 299 emp. |
-| D5 | Interdependencia | ¿Cuánto está enganchada al grupo? | traspasos intragrupo brutos ambos sentidos / (`cobros_op + pagos_op`), 12 m | idem |
+| Id  | Variable                  | Negocio                                          | Técnica                                                                                                                  | Cobertura  |
+| --- | ------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| D1  | Peso en el grupo          | ¿Es la filial grande o pequeña dentro del grupo? | `cobros_op empresa / Σ cobros_op grupo`, 12 m                                                                            | grupos ≥ 2 |
+| D2  | Score del resto del grupo | ¿Cómo está "el padre"?                           | media de `score_solo` de las demás empresas, ponderada por `cobros_op`                                                   | idem       |
+| D3  | Capacidad de aval         | ¿El padre tiene dinero para cubrir a la filial?  | `Σ capacidad_cuota_adversa del resto / (servicio_deuda + obligaciones_rec) media 6 m de la empresa`                      | idem       |
+| D4  | Soporte observado         | ¿Ya le inyectan caja?                            | entradas intragrupo netas (traspasos emparejados + préstamos `custom`) / `cobros_op`, 12 m. Negativo = sostiene al grupo | 299 emp.   |
+| D5  | Interdependencia          | ¿Cuánto está enganchada al grupo?                | traspasos intragrupo brutos ambos sentidos / (`cobros_op + pagos_op`), 12 m                                              | idem       |
 
 ```text
 w          = w_max × min(1, D5 / 0,2)                  ✅ w_max = 0,4 ; grupo de 1 → w = 0
@@ -173,14 +178,14 @@ Dependencia: región factible (cantidad, plazo) + precio función de ambas → �
 
 Puertas duras, todas deben pasar. La primera que falla es el `motivo`.
 
-| Puerta | Regla | Por qué |
-| --- | --- | --- |
-| Historia | `confianza ≥ 0,5` (≈ 6 meses con movimientos) | Sin historia no hay opinión |
-| Estado | `score ≥ 45` | Estado riesgo (5) |
-| Fiabilidad | racha B2 < 2 | Dos meses sin pagar = impago real (7) |
-| Caja | `racha_deficit < 3` y `capacidad_cuota_adv > 0` | La caja estresada debe cubrir las cuotas actuales con margen |
-| Clientes | C4 vencido sin cobrar ≤ 40 % | Cobros futuros comprometidos (12) |
-| Grupo | sin cross-default activo | Si cae quien sostiene el grupo, el aval no vale (17) |
+| Puerta     | Regla                                           | Por qué                                                      |
+| ---------- | ----------------------------------------------- | ------------------------------------------------------------ |
+| Historia   | `confianza ≥ 0,5` (≈ 6 meses con movimientos)   | Sin historia no hay opinión                                  |
+| Estado     | `score ≥ 45`                                    | Estado riesgo (5)                                            |
+| Fiabilidad | racha B2 < 2                                    | Dos meses sin pagar = impago real (7)                        |
+| Caja       | `racha_deficit < 3` y `capacidad_cuota_adv > 0` | La caja estresada debe cubrir las cuotas actuales con margen |
+| Clientes   | C4 vencido sin cobrar ≤ 40 %                    | Cobros futuros comprometidos (12)                            |
+| Grupo      | sin cross-default activo                        | Si cae quien sostiene el grupo, el aval no vale (17)         |
 
 ### 2.1 Cantidad: límite L ✅
 
@@ -191,12 +196,12 @@ limite_op           = 0,8 × media3m(cobros_op) × 3
 L                   = min(limite_cap, limite_op) × factor_banda × min(1, confianza / 0,6)
 ```
 
-| Banda | score | factor_banda | base_TAE |
-| --- | --- | --- | --- |
-| A | ≥ 75 | 1,0 | 5 % |
-| B | 60-75 | 0,7 | 7 % |
-| C | 45-60 | 0,4 | 10 % |
-| D | < 45 | 0 | no presta |
+| Banda | score | factor_banda | base_TAE  |
+| ----- | ----- | ------------ | --------- |
+| A     | ≥ 75  | 1,0          | 5 %       |
+| B     | 60-75 | 0,7          | 7 %       |
+| C     | 45-60 | 0,4          | 10 %      |
+| D     | < 45  | 0            | no presta |
 
 Deterioro estructural baja una banda. Grupo: `Σ L del grupo ≤ L sobre
 flujos consolidados` (el aval no se cuenta dos veces).
@@ -204,10 +209,10 @@ flujos consolidados` (el aval no se cuenta dos veces).
 ### 2.2 Plazo: T_max por banda y tendencia ✅
 
 | Banda | Estable / mejora | Deterioro temporal | Deterioro estructural |
-| --- | --- | --- | --- |
-| A | 180 d | 120 d | 60 d |
-| B | 120 d | 90 d | 30 d |
-| C | 60 d | 30 d | no presta |
+| ----- | ---------------- | ------------------ | --------------------- |
+| A     | 180 d            | 120 d              | 60 d                  |
+| B     | 120 d            | 90 d               | 30 d                  |
+| C     | 60 d             | 30 d               | no presta             |
 
 Por qué: peor score → menos exposición al futuro y más rotación, es decir
 más veces que re-evaluamos antes de que algo se rompa.
@@ -233,12 +238,12 @@ plazo    ≤ T_max                                   (paso 2)
 Plazo corto → cantidad pequeña. Plazo largo → cantidad se acerca a L pero
 el interés sube. El producto enseña el menú, la empresa elige el punto:
 
-| Plazo | Cantidad máx | TAE |
-| --- | --- | --- |
-| 30 d | `min(L, cap_adv × 1)` | base |
-| 60 d | `min(L, cap_adv × 2)` | base + 0,5 |
-| 90 d | `min(L, cap_adv × 3)` | base + 1,0 |
-| … hasta T_max | | |
+| Plazo         | Cantidad máx          | TAE        |
+| ------------- | --------------------- | ---------- |
+| 30 d          | `min(L, cap_adv × 1)` | base       |
+| 60 d          | `min(L, cap_adv × 2)` | base + 0,5 |
+| 90 d          | `min(L, cap_adv × 3)` | base + 1,0 |
+| … hasta T_max |                       |            |
 
 ### 2.5 Un solo límite, dos usos ✅
 
@@ -249,13 +254,13 @@ no distingue usos.
 
 ### 2.6 Revisión mensual: acción, histéresis, reapertura ✅
 
-| Acción | Regla |
-| --- | --- |
-| `abrir` | `L_prev = 0`, elegible, `L > 0` |
-| `ampliar` | `L > 1,15 · L_prev` y dirección ≠ deterioro |
-| `reducir` | `L < 0,85 · L_prev` dos meses seguidos, o deterioro estructural (inmediato) |
-| `cerrar` | no elegible (§2.0) |
-| `mantener` | resto |
+| Acción     | Regla                                                                       |
+| ---------- | --------------------------------------------------------------------------- |
+| `abrir`    | `L_prev = 0`, elegible, `L > 0`                                             |
+| `ampliar`  | `L > 1,15 · L_prev` y dirección ≠ deterioro                                 |
+| `reducir`  | `L < 0,85 · L_prev` dos meses seguidos, o deterioro estructural (inmediato) |
+| `cerrar`   | no elegible (§2.0)                                                          |
+| `mantener` | resto                                                                       |
 
 - Cambio de `L` acotado a ±25 %/mes salvo `cerrar`: el grifo no oscila con
   un mes ruidoso.
@@ -277,12 +282,12 @@ cartera. Vista pyme solo si sobra tiempo.
 
 ### 3.1 Pantallas ✅ (cuatro, no más)
 
-| Pantalla | Qué enseña | Lee |
-| --- | --- | --- |
-| Cartera | Tabla de empresas: score, estado, dirección, límite vigente, acción del mes, alertas. Filtros por estado / acción / grupo. Totales: exposición, nº en riesgo. Feed de alertas con `desde_mes`. | `company_month_score` + `company_month_decision` |
-| Ficha empresa | Score y confianza · cascada "por qué" (14 variables + grupo) · evolución 24 meses · menú (plazo, cantidad máx, TAE, desglose) · acción y motivo · alertas · bloque grupo (aval/contagio, hermanas) | idem |
-| Grupo | Hermanas con D1 y score, score consolidado, techo de grupo, cross-default | idem |
-| Backtest | Lead time, recall, falsas alarmas, exposición evitada, simetría en recuperación | métricas scoring §13 y decision §14 |
+| Pantalla      | Qué enseña                                                                                                                                                                                         | Lee                                              |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Cartera       | Tabla de empresas: score, estado, dirección, límite vigente, acción del mes, alertas. Filtros por estado / acción / grupo. Totales: exposición, nº en riesgo. Feed de alertas con `desde_mes`.     | `company_month_score` + `company_month_decision` |
+| Ficha empresa | Score y confianza · cascada "por qué" (14 variables + grupo) · evolución 24 meses · menú (plazo, cantidad máx, TAE, desglose) · acción y motivo · alertas · bloque grupo (aval/contagio, hermanas) | idem                                             |
+| Grupo         | Hermanas con D1 y score, score consolidado, techo de grupo, cross-default                                                                                                                          | idem                                             |
+| Backtest      | Lead time, recall, falsas alarmas, exposición evitada, simetría en recuperación                                                                                                                    | métricas scoring §13 y decision §14              |
 
 Sin simulador "qué pasa si pido X": el menú ya lo es. La UI no calcula
 nada: pinta las dos tablas.
@@ -339,25 +344,25 @@ Estado: ✅ validado (Pablo, fecha) · ⏳ aplazado · ☐ pendiente. La
 justificación se escribe siempre, validada o no: es lo que defendemos ante
 el jurado.
 
-| # | Decisión | Justificación | Estado |
-| --- | --- | --- | --- |
-| 1 | Divisas: todo a € con la regla de §1.0 | Score comparable entre empresas y grupos; `exchange_rate` verificado en datos (USD→EUR 1,16, GBP→EUR 0,86, NOK→EUR 11) como unidades de moneda del producto por unidad de moneda de la empresa. | ✅ 18-09 |
-| 2 | Categoría `-`: usar reclasificación de #12 con `category_confidence ≥ 0,95`; resto sin clasificar | #12 recupera el 50,5 % del volumen sin categoría con solo el 15,7 % de las filas, a 95 % de precisión contra etiquetas originales, y guarda confianza por transacción. Lo ambiguo queda `unknown` y baja la confianza del score en vez de contaminarlo. Sin esto, muchas empresas caen bajo `confianza < 0,5` y el producto no tiene a quién prestar. Excepción (decisión de diseño a revisitar): `debt_drawdown` y `balance_adjustment` se aceptan con confianza 0,90 porque #12 les asigna ese valor fijo sin precisión estimada; revisar cuando haya etiquetas para medirla. | ✅ 19-09 · ⏳ revisitar excepción |
-| 3 | Pesos de bloque A 45 / B 30 / C 25 | Producto de crédito: primero si la caja aguanta más cuota, segundo si paga lo que ya debe, tercero si el negocio depende de pocos clientes. Juicio de negocio, no estadístico; se revisa en backtest. | ✅ 19-09 |
-| 4 | Pesos intra-bloque iguales | Fácil de explicar y defender; sin datos de impago no hay base para diferenciarlos. Cambiar solo con evidencia del backtest. | ✅ 19-09 |
-| 5 | Umbrales sanos A1-A5 y estados sana ≥ 70 / vigilar 45-70 / riesgo < 45 | Permite decir en la ficha "14 %, sano (umbral 10 %)". Números de sentido común bancario (cobertura 1,3 es estándar de DSCR); se calibran en backtest para que ~20 % de la cartera caiga en riesgo. | ✅ 19-09 |
-| 6 | Fiabilidad sobre deuda + impuestos + SS + nómina | Solo 524 empresas tienen cuotas visibles (70 con un solo mes); impuestos/SS en 1.157. Sin ampliar, media cartera sin dato. Dejar de pagar la SS es señal de estrés más fuerte que una cuota. | ✅ 19-09 |
-| 7 | Edge case: importe acumulado sin castigo si recupera; racha 1 leve y decae en 3 m; racha ≥ 2 fuerte | Separa retraso administrativo de impago real. Un mes suelto que se recupera no es morosidad; dos seguidos sí. | ✅ 19-09 |
-| 8 | `collection_refund` (−) = recibo devuelto por cliente → C6; `payment_refund` (+) → neutral; B3 "devoluciones propias" eliminada | Sondeo de descripciones: `collection_refund` es en 90 % "Impagado recibos domicil. SEPA devolución recibo" (el cliente no paga). `payment_refund` mezcla devolución de Hacienda, devolución de compras y retrocesión de comisiones: no es señal de impago propio, y contarlo como cobro inflaría ingresos. No hay dato de pagos propios devueltos; B se queda con B1, B2, B3. | ✅ 19-09 |
-| 9 | `amount > 0` = factura a cliente; `< 0` = de proveedor | Cruce contraparte factura ↔ banco: 8.260 de 9.154 contrapartes con facturas positivas cobran por `collection` (90 %); 11.325 de 12.247 con negativas se pagan por `payment` (92 %). Umbral de aceptación era 80 %. | ✅ 19-09 |
-| 10 | Dirección ±6 puntos y regla temporal/estructural | ±6 calibrado para ~15 % de empresa-mes en cada cola. Estructural exige persistencia 2 meses + ≥ 2 variables + una de nivel (A1-A3): evita alertas por un mes ruidoso. | ✅ 19-09 |
-| 11 | Límite: cobertura 1,3 · estrés −20 %/+10 % · anticipo 80 % × 3 m | Cobertura y estrés siguen la guía EBA de análisis bajo escenario adverso. El anticipo ata el límite al circulante real: no se presta más de lo que la empresa cobra. | ✅ 19-09 |
-| 12 | Bandas A/B/C/D, precios 5/7/10 %, cierres duros, histéresis ±25 % | Precios ilustrativos para la demo. Histéresis evita que el grifo oscile con un mes ruidoso. Cierres duros: 3 meses de déficit, racha ≥ 2, vencido > 40 %. | ✅ 19-09 |
-| 13 | Comprador y usuario | Embat tiene la conexión bancaria y ERP; el límite mensual es producto sobre datos que ya cobra. Partner financiero paga por límite vivo monitorizado. | ✅ 19-09 |
-| 14 | Grupo como ajuste sobre `score_solo`, no cuarto bloque | Founder Embat: riesgo de filial y grupo son interdependientes. El aval es propiedad de la relación, no de la empresa; como ajuste se ve en la cascada y se puede apagar. 94 % de la cartera está en grupos. | ✅ 19-09 |
-| 15 | `w_max = 0,4` · saturación 20 % · tope ±20 puntos | El grupo puede mover el score pero nunca sustituirlo: una filial mala con padre rico sigue siendo vigilada. | ✅ 19-09 |
-| 16 | Aval exige capacidad (D3); contagio no | El padre solo avala si tiene dinero. Un grupo débil arrastra siempre: hace barridos de caja. Asimetría deliberada. | ✅ 19-09 |
-| 17 | Techo de grupo y cross-default al 30 % | El aval no se cuenta dos veces entre filiales. Si cae quien sostiene el grupo, el aval desaparece. | ✅ 19-09 |
+| #   | Decisión                                                                                                                        | Justificación                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Estado                            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| 1   | Divisas: todo a € con la regla de §1.0                                                                                          | Score comparable entre empresas y grupos; `exchange_rate` verificado en datos (USD→EUR 1,16, GBP→EUR 0,86, NOK→EUR 11) como unidades de moneda del producto por unidad de moneda de la empresa.                                                                                                                                                                                                                                                                                                                                                                                 | ✅ 18-09                          |
+| 2   | Categoría `-`: usar reclasificación de #12 con `category_confidence ≥ 0,95`; resto sin clasificar                               | #12 recupera el 50,5 % del volumen sin categoría con solo el 15,7 % de las filas, a 95 % de precisión contra etiquetas originales, y guarda confianza por transacción. Lo ambiguo queda `unknown` y baja la confianza del score en vez de contaminarlo. Sin esto, muchas empresas caen bajo `confianza < 0,5` y el producto no tiene a quién prestar. Excepción (decisión de diseño a revisitar): `debt_drawdown` y `balance_adjustment` se aceptan con confianza 0,90 porque #12 les asigna ese valor fijo sin precisión estimada; revisar cuando haya etiquetas para medirla. | ✅ 19-09 · ⏳ revisitar excepción |
+| 3   | Pesos de bloque A 45 / B 30 / C 25                                                                                              | Producto de crédito: primero si la caja aguanta más cuota, segundo si paga lo que ya debe, tercero si el negocio depende de pocos clientes. Juicio de negocio, no estadístico; se revisa en backtest.                                                                                                                                                                                                                                                                                                                                                                           | ✅ 19-09                          |
+| 4   | Pesos intra-bloque iguales                                                                                                      | Fácil de explicar y defender; sin datos de impago no hay base para diferenciarlos. Cambiar solo con evidencia del backtest.                                                                                                                                                                                                                                                                                                                                                                                                                                                     | ✅ 19-09                          |
+| 5   | Umbrales sanos A1-A5 y estados sana ≥ 70 / vigilar 45-70 / riesgo < 45                                                          | Permite decir en la ficha "14 %, sano (umbral 10 %)". Números de sentido común bancario (cobertura 1,3 es estándar de DSCR); se calibran en backtest para que ~20 % de la cartera caiga en riesgo.                                                                                                                                                                                                                                                                                                                                                                              | ✅ 19-09                          |
+| 6   | Fiabilidad sobre deuda + impuestos + SS + nómina                                                                                | Solo 524 empresas tienen cuotas visibles (70 con un solo mes); impuestos/SS en 1.157. Sin ampliar, media cartera sin dato. Dejar de pagar la SS es señal de estrés más fuerte que una cuota.                                                                                                                                                                                                                                                                                                                                                                                    | ✅ 19-09                          |
+| 7   | Edge case: importe acumulado sin castigo si recupera; racha 1 leve y decae en 3 m; racha ≥ 2 fuerte                             | Separa retraso administrativo de impago real. Un mes suelto que se recupera no es morosidad; dos seguidos sí.                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | ✅ 19-09                          |
+| 8   | `collection_refund` (−) = recibo devuelto por cliente → C6; `payment_refund` (+) → neutral; B3 "devoluciones propias" eliminada | Sondeo de descripciones: `collection_refund` es en 90 % "Impagado recibos domicil. SEPA devolución recibo" (el cliente no paga). `payment_refund` mezcla devolución de Hacienda, devolución de compras y retrocesión de comisiones: no es señal de impago propio, y contarlo como cobro inflaría ingresos. No hay dato de pagos propios devueltos; B se queda con B1, B2, B3.                                                                                                                                                                                                   | ✅ 19-09                          |
+| 9   | `amount > 0` = factura a cliente; `< 0` = de proveedor                                                                          | Cruce contraparte factura ↔ banco: 8.260 de 9.154 contrapartes con facturas positivas cobran por `collection` (90 %); 11.325 de 12.247 con negativas se pagan por `payment` (92 %). Umbral de aceptación era 80 %.                                                                                                                                                                                                                                                                                                                                                              | ✅ 19-09                          |
+| 10  | Dirección ±6 puntos y regla temporal/estructural                                                                                | ±6 calibrado para ~15 % de empresa-mes en cada cola. Estructural exige persistencia 2 meses + ≥ 2 variables + una de nivel (A1-A3): evita alertas por un mes ruidoso.                                                                                                                                                                                                                                                                                                                                                                                                           | ✅ 19-09                          |
+| 11  | Límite: cobertura 1,3 · estrés −20 %/+10 % · anticipo 80 % × 3 m                                                                | Cobertura y estrés siguen la guía EBA de análisis bajo escenario adverso. El anticipo ata el límite al circulante real: no se presta más de lo que la empresa cobra.                                                                                                                                                                                                                                                                                                                                                                                                            | ✅ 19-09                          |
+| 12  | Bandas A/B/C/D, precios 5/7/10 %, cierres duros, histéresis ±25 %                                                               | Precios ilustrativos para la demo. Histéresis evita que el grifo oscile con un mes ruidoso. Cierres duros: 3 meses de déficit, racha ≥ 2, vencido > 40 %.                                                                                                                                                                                                                                                                                                                                                                                                                       | ✅ 19-09                          |
+| 13  | Comprador y usuario                                                                                                             | Embat tiene la conexión bancaria y ERP; el límite mensual es producto sobre datos que ya cobra. Partner financiero paga por límite vivo monitorizado.                                                                                                                                                                                                                                                                                                                                                                                                                           | ✅ 19-09                          |
+| 14  | Grupo como ajuste sobre `score_solo`, no cuarto bloque                                                                          | Founder Embat: riesgo de filial y grupo son interdependientes. El aval es propiedad de la relación, no de la empresa; como ajuste se ve en la cascada y se puede apagar. 94 % de la cartera está en grupos.                                                                                                                                                                                                                                                                                                                                                                     | ✅ 19-09                          |
+| 15  | `w_max = 0,4` · saturación 20 % · tope ±20 puntos                                                                               | El grupo puede mover el score pero nunca sustituirlo: una filial mala con padre rico sigue siendo vigilada.                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | ✅ 19-09                          |
+| 16  | Aval exige capacidad (D3); contagio no                                                                                          | El padre solo avala si tiene dinero. Un grupo débil arrastra siempre: hace barridos de caja. Asimetría deliberada.                                                                                                                                                                                                                                                                                                                                                                                                                                                              | ✅ 19-09                          |
+| 17  | Techo de grupo y cross-default al 30 %                                                                                          | El aval no se cuenta dos veces entre filiales. Si cae quien sostiene el grupo, el aval desaparece.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | ✅ 19-09                          |
 
 | 18 | Elegibilidad = 6 puertas duras, primera que falla es el motivo | Sí/no antes de cuánto: sin historia, en riesgo, con impago real, sin caja estresada, con clientes que no pagan o con el grupo cayendo, no se presta. Reglas explícitas y explicables, sin umbral de score compuesto. | ✅ 19-09 |
 | 19 | Región factible: `cantidad ≤ L` y `cantidad ≤ capacidad_cuota_adv × plazo_meses` | La empresa debe poder devolver lo prestado con caja estresada dentro del plazo. Es la dependencia central entre cantidad y plazo: corto → poco, largo → más pero más caro. | ✅ 19-09 |

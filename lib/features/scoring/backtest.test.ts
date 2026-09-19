@@ -15,7 +15,7 @@ function series(
     scoreRowFixture({
       company,
       month: CALENDAR[offset + i],
-      score: 60,
+      scoreSolo: 60,
       deficitMes: d,
       margenMes: d ? -0.1 : 0.1,
       alertas: alertas[i] ?? [],

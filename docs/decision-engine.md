@@ -1,5 +1,10 @@
 # Motor de decisión — especificación para desarrollo v1.0
 
+La entrada autónoma se llama `scoreSolo`; no existe un campo numérico `score`
+en la fila TypeScript. La columna física conserva ese nombre mediante
+`@map("score")`. `scoreGrupo` y `estadoGrupo` describen el holding; las bandas
+y decisiones consumen `scoreSolo` y `estadoSolo`.
+
 > Implementa §2 de [`SOURCE.md`](./SOURCE.md) (decisiones 11, 12, 17-23,
 > validadas 19-09-2026). Sustituye a §8 de `scoring-engine.md`. Si algo
 > aquí contradice a `SOURCE.md`, manda `SOURCE.md` y se corrige esto.
@@ -24,22 +29,22 @@ fija el plazo natural (§6).
 Del contrato de `company_month_score` (scoring-engine §1). Campos que usa el
 motor de decisión, nada más:
 
-| Campo | Tipo | Origen |
-| --- | --- | --- |
-| `company_id`, `mes` | id, `YYYY-MM` | clave |
-| `group_id` | id | `companies.csv` |
-| `score` | 0-100 | con `aval_grupo` incluido |
-| `confianza` | 0-1 | |
-| `direccion` | `mejora \| estable \| deterioro` | §1.6 SOURCE |
-| `naturaleza` | `temporal \| estructural \| sin_cambio` | §1.6 SOURCE |
-| `racha_B2` | entero ≥ 0 | meses seguidos sin pagar obligación esperada |
-| `racha_deficit` | entero ≥ 0 | meses seguidos con `caja_op < 0` |
-| `C4` | 0-1 | vencido sin cobrar / vencido en 6 m |
-| `C3_dias` | entero o null | mediana días hasta cobro de clientes |
-| `cobros_op_media3m`, `cobros_op_media6m`, `pagos_op_media6m` | € | flujos §1.1 |
-| `servicio_deuda_media6m` | € | `debt_repayment + interest_charge` |
-| `D1` | 0-1 | peso de la empresa en el grupo |
-| `cobros_op_grupo_media6m`, `pagos_op_grupo_media6m`, `servicio_deuda_grupo_media6m` | € | flujos consolidados del grupo, sin traspasos intragrupo |
+| Campo                                                                               | Tipo                                    | Origen                                                  |
+| ----------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------- |
+| `company_id`, `mes`                                                                 | id, `YYYY-MM`                           | clave                                                   |
+| `group_id`                                                                          | id                                      | `companies.csv`                                         |
+| `score`                                                                             | 0-100                                   | con `aval_grupo` incluido                               |
+| `confianza`                                                                         | 0-1                                     |                                                         |
+| `direccion`                                                                         | `mejora \| estable \| deterioro`        | §1.6 SOURCE                                             |
+| `naturaleza`                                                                        | `temporal \| estructural \| sin_cambio` | §1.6 SOURCE                                             |
+| `racha_B2`                                                                          | entero ≥ 0                              | meses seguidos sin pagar obligación esperada            |
+| `racha_deficit`                                                                     | entero ≥ 0                              | meses seguidos con `caja_op < 0`                        |
+| `C4`                                                                                | 0-1                                     | vencido sin cobrar / vencido en 6 m                     |
+| `C3_dias`                                                                           | entero o null                           | mediana días hasta cobro de clientes                    |
+| `cobros_op_media3m`, `cobros_op_media6m`, `pagos_op_media6m`                        | €                                       | flujos §1.1                                             |
+| `servicio_deuda_media6m`                                                            | €                                       | `debt_repayment + interest_charge`                      |
+| `D1`                                                                                | 0-1                                     | peso de la empresa en el grupo                          |
+| `cobros_op_grupo_media6m`, `pagos_op_grupo_media6m`, `servicio_deuda_grupo_media6m` | €                                       | flujos consolidados del grupo, sin traspasos intragrupo |
 
 Y del propio motor, mes anterior (§8 estado): `L_prev`, `accion_prev`,
 `meses_elegible_seguidos`, `meses_reduccion_seguidos`, `cerrado_desde`.
@@ -49,35 +54,35 @@ Y del propio motor, mes anterior (§8 estado): `L_prev`, `accion_prev`,
 Todos los números del algoritmo viven en una tabla de parámetros con
 `version_parametros`. Ningún número suelto en código.
 
-| Grupo | Parámetro | Valor | Decisión |
-| --- | --- | --- | --- |
-| Elegibilidad | `conf_min` | 0,5 | 18 |
-| | `score_min` | 45 | 5, 18 |
-| | `racha_B2_max` | 1 | 7, 18 |
-| | `racha_deficit_max` | 2 | 12, 18 |
-| | `C4_max` | 0,40 | 12, 18 |
-| Capacidad | `estres_cobros` | 0,80 | 11 |
-| | `estres_pagos` | 1,10 | 11 |
-| | `cobertura_min` | 1,3 | 11 |
-| | `meses_limite_cap` | 12 | 11 |
-| | `anticipo_pct` | 0,80 | 11 |
-| | `anticipo_meses` | 3 | 11 |
-| | `conf_ref` | 0,6 | 12 |
-| Bandas | `banda_A_min` / `banda_B_min` / `banda_C_min` | 75 / 60 / 45 | 12 |
-| | `factor_banda` | A 1,0 · B 0,7 · C 0,4 · D 0 | 12 |
-| | `base_TAE` | A 0,05 · B 0,07 · C 0,10 | 12, 21 |
-| Plazo | `T_max` (d) | ver §5 | 20 |
-| | `plazos_menu` (d) | 30, 60, 90, 120, 180 | 19 |
-| Interés | `prima_plazo_pp_30d` | 0,005 | 21 |
-| | `prima_confianza_pp` | 0,01 si `confianza < 0,7` | 21 |
-| | `ajuste_mejora_pp` / `ajuste_deterioro_pp` | −0,005 / +0,01 | 21 |
-| | `base_dias` | 360 | 21 |
-| Revisión | `ampliar_ratio` / `reducir_ratio` | 1,15 / 0,85 | 12 |
-| | `reducir_meses` | 2 | 12 |
-| | `histeresis_pct` | 0,25 | 12 |
-| | `reapertura_meses` | 2 | 23 |
-| | `redondeo_L` | 1.000 € | 12 |
-| Grupo | `D1_cross_default` | 0,30 | 17 |
+| Grupo        | Parámetro                                     | Valor                       | Decisión |
+| ------------ | --------------------------------------------- | --------------------------- | -------- |
+| Elegibilidad | `conf_min`                                    | 0,5                         | 18       |
+|              | `score_min`                                   | 45                          | 5, 18    |
+|              | `racha_B2_max`                                | 1                           | 7, 18    |
+|              | `racha_deficit_max`                           | 2                           | 12, 18   |
+|              | `C4_max`                                      | 0,40                        | 12, 18   |
+| Capacidad    | `estres_cobros`                               | 0,80                        | 11       |
+|              | `estres_pagos`                                | 1,10                        | 11       |
+|              | `cobertura_min`                               | 1,3                         | 11       |
+|              | `meses_limite_cap`                            | 12                          | 11       |
+|              | `anticipo_pct`                                | 0,80                        | 11       |
+|              | `anticipo_meses`                              | 3                           | 11       |
+|              | `conf_ref`                                    | 0,6                         | 12       |
+| Bandas       | `banda_A_min` / `banda_B_min` / `banda_C_min` | 75 / 60 / 45                | 12       |
+|              | `factor_banda`                                | A 1,0 · B 0,7 · C 0,4 · D 0 | 12       |
+|              | `base_TAE`                                    | A 0,05 · B 0,07 · C 0,10    | 12, 21   |
+| Plazo        | `T_max` (d)                                   | ver §5                      | 20       |
+|              | `plazos_menu` (d)                             | 30, 60, 90, 120, 180        | 19       |
+| Interés      | `prima_plazo_pp_30d`                          | 0,005                       | 21       |
+|              | `prima_confianza_pp`                          | 0,01 si `confianza < 0,7`   | 21       |
+|              | `ajuste_mejora_pp` / `ajuste_deterioro_pp`    | −0,005 / +0,01              | 21       |
+|              | `base_dias`                                   | 360                         | 21       |
+| Revisión     | `ampliar_ratio` / `reducir_ratio`             | 1,15 / 0,85                 | 12       |
+|              | `reducir_meses`                               | 2                           | 12       |
+|              | `histeresis_pct`                              | 0,25                        | 12       |
+|              | `reapertura_meses`                            | 2                           | 23       |
+|              | `redondeo_L`                                  | 1.000 €                     | 12       |
+| Grupo        | `D1_cross_default`                            | 0,30                        | 17       |
 
 ## 3. Paso 0 — Elegibilidad
 
@@ -104,14 +109,14 @@ function elegibilidad(fila, estado_prev, P):
 
 Motivos en texto (plantilla, sin LLM):
 
-| Puerta | Texto |
-| --- | --- |
-| historia | "Historial insuficiente: confianza {conf} < 0,5" |
-| estado | "Score {score} por debajo de 45" |
-| fiabilidad | "{racha} meses seguidos sin pagar obligaciones" |
-| caja | "Caja estresada no cubre cuotas actuales" / "{racha} meses seguidos en déficit" |
-| clientes | "{C4} % de facturas vencidas sin cobrar" |
-| grupo | "Cierre de {empresa} ({D1} % del grupo)" |
+| Puerta     | Texto                                                                           |
+| ---------- | ------------------------------------------------------------------------------- |
+| historia   | "Historial insuficiente: confianza {conf} < 0,5"                                |
+| estado     | "Score {score} por debajo de 45"                                                |
+| fiabilidad | "{racha} meses seguidos sin pagar obligaciones"                                 |
+| caja       | "Caja estresada no cubre cuotas actuales" / "{racha} meses seguidos en déficit" |
+| clientes   | "{C4} % de facturas vencidas sin cobrar"                                        |
+| grupo      | "Cierre de {empresa} ({D1} % del grupo)"                                        |
 
 ## 4. Paso 1 — Cantidad: límite L
 
@@ -192,10 +197,10 @@ ajuste_tendencia}`. La ficha la enseña tal cual.
 **Plazo natural por uso** (no cambia la fórmula, solo sugiere la fila del
 menú a resaltar):
 
-| Uso | Plazo natural |
-| --- | --- |
+| Uso              | Plazo natural                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------- |
 | Anticipar cobros | `C3_dias` (mediana días hasta cobro) redondeado arriba al plazo del menú; sin dato → 60 d |
-| Aplazar pagos | plazo elegido por la empresa, ≤ `T_max` |
+| Aplazar pagos    | plazo elegido por la empresa, ≤ `T_max`                                                   |
 
 ## 7. Paso 4 — Región factible y menú
 
@@ -333,13 +338,13 @@ vigente 100 k (subida limitada al 25 %)".
 
 ## 11. Plantillas de `motivo_accion`
 
-| Acción | Texto |
-| --- | --- |
-| abrir | "Elegible: score {score} (banda {b}), límite {L} € hasta {T_max} d" |
-| ampliar | "Límite sube de {Lp} a {L_vigente} €: {top1 delta_contrib}" |
-| reducir | "Límite baja de {Lp} a {L_vigente} €: {motivo = estructural \| 2 meses por debajo}, {top1 delta_contrib}" |
-| cerrar | "{motivo de §3}" |
-| mantener | "Sin cambios: score {score}, límite {Lp} €" / "Reapertura en {n} meses" / "Pendiente confirmar bajada" |
+| Acción   | Texto                                                                                                     |
+| -------- | --------------------------------------------------------------------------------------------------------- |
+| abrir    | "Elegible: score {score} (banda {b}), límite {L} € hasta {T_max} d"                                       |
+| ampliar  | "Límite sube de {Lp} a {L_vigente} €: {top1 delta_contrib}"                                               |
+| reducir  | "Límite baja de {Lp} a {L_vigente} €: {motivo = estructural \| 2 meses por debajo}, {top1 delta_contrib}" |
+| cerrar   | "{motivo de §3}"                                                                                          |
+| mantener | "Sin cambios: score {score}, límite {Lp} €" / "Reapertura en {n} meses" / "Pendiente confirmar bajada"    |
 
 `top1 delta_contrib` viene de la fila del score (variable con mayor
 `|delta_aportacion|`).
@@ -362,14 +367,14 @@ Mes 1 (`2024-09` o primer mes con score): `L_prev = 0`, sin cierre previo →
 Cinco empresas sintéticas con filas de score a mano, 6 meses cada una.
 Resultado esperado por mes escrito en el fixture, no calculado.
 
-| Fixture | Perfil | Debe dar |
-| --- | --- | --- |
-| `sana` | score 82, conf 0,9, estable, cap 10 k/mes, cobros 100 k/mes | A · L = min(120 k, 240 k) = 120 k · T_max 180 · menú 30 d → 10 k, 60 d → 20 k … 180 d → 60 k · TAE 5 % → 7,5 % |
-| `mejora` | score 62→74 en 3 m, dirección mejora | B · `ampliar` cuando L > 1,15·Lp · TAE con −0,5 pp |
-| `deterioro_estructural` | score 70→58, estructural desde mes 4 | mes 4: banda C efectiva, `reducir` inmediato, T_max 30 · mes 5: si sigue, C estructural → T_max 0 → cerrar |
-| `bache_temporal` | un mes con score −8 y vuelve | `mantener` (histéresis y 2 meses de confirmación), nunca `reducir` |
-| `historial_corto` | conf 0,3 | no elegible, motivo "historia", L = 0 pero `limite_cap` calculado |
-| `grupo_caida` | 3 empresas, una con D1 0,5 cierra en mes 3 | mes 3: hermanas bajan una banda · mes 4: puerta grupo falla → cerrar · techo aplicado si Σ L > L_grupo |
+| Fixture                 | Perfil                                                      | Debe dar                                                                                                       |
+| ----------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `sana`                  | score 82, conf 0,9, estable, cap 10 k/mes, cobros 100 k/mes | A · L = min(120 k, 240 k) = 120 k · T_max 180 · menú 30 d → 10 k, 60 d → 20 k … 180 d → 60 k · TAE 5 % → 7,5 % |
+| `mejora`                | score 62→74 en 3 m, dirección mejora                        | B · `ampliar` cuando L > 1,15·Lp · TAE con −0,5 pp                                                             |
+| `deterioro_estructural` | score 70→58, estructural desde mes 4                        | mes 4: banda C efectiva, `reducir` inmediato, T_max 30 · mes 5: si sigue, C estructural → T_max 0 → cerrar     |
+| `bache_temporal`        | un mes con score −8 y vuelve                                | `mantener` (histéresis y 2 meses de confirmación), nunca `reducir`                                             |
+| `historial_corto`       | conf 0,3                                                    | no elegible, motivo "historia", L = 0 pero `limite_cap` calculado                                              |
+| `grupo_caida`           | 3 empresas, una con D1 0,5 cierra en mes 3                  | mes 3: hermanas bajan una banda · mes 4: puerta grupo falla → cerrar · techo aplicado si Σ L > L_grupo         |
 
 Tests de propiedades (sobre todas las filas del dataset):
 
@@ -382,13 +387,13 @@ Tests de propiedades (sobre todas las filas del dataset):
 
 ## 14. Métricas para el jurado (backtest, sobre validación)
 
-| Métrica | Definición |
-| --- | --- |
-| Exposición evitada | Σ `L_vigente(t−k)` de empresas que entran en `evento_deterioro` en `t`, con `k` = meses de antelación con que el motor cerró o redujo. Comparar contra un motor sin anticipación (solo banda por score sin dirección). |
-| Ingresos simulados | Σ `coste` asumiendo uso del 60 % del `L_vigente` al plazo natural. Supuesto explícito. |
-| Oscilación | % de empresa-mes con acción ≠ `mantener`. Objetivo < 20 %. |
-| Cierres falsos | cierres sin `evento_deterioro` en 6 meses / cierres. |
-| Lead time de cierre | mediana de meses entre primer `reducir` y `evento_deterioro`. |
+| Métrica             | Definición                                                                                                                                                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Exposición evitada  | Σ `L_vigente(t−k)` de empresas que entran en `evento_deterioro` en `t`, con `k` = meses de antelación con que el motor cerró o redujo. Comparar contra un motor sin anticipación (solo banda por score sin dirección). |
+| Ingresos simulados  | Σ `coste` asumiendo uso del 60 % del `L_vigente` al plazo natural. Supuesto explícito.                                                                                                                                 |
+| Oscilación          | % de empresa-mes con acción ≠ `mantener`. Objetivo < 20 %.                                                                                                                                                             |
+| Cierres falsos      | cierres sin `evento_deterioro` en 6 meses / cierres.                                                                                                                                                                   |
+| Lead time de cierre | mediana de meses entre primer `reducir` y `evento_deterioro`.                                                                                                                                                          |
 
 ## 15. Fuera de alcance v1
 

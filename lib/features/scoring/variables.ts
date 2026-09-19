@@ -117,7 +117,7 @@ export function invoiceWindow(t: number, invoices: Invoice[]): InvoiceWindow {
   return { end, start6, eligible: invoices.filter((i) => i.issued <= end) };
 }
 
-function blockA(ctx: Ctx, hasLine: boolean): Block {
+function blockA(ctx: Ctx, hasLine: boolean, scheduleMonthly: number): Block {
   const { w3, w6, w12, cTx, nCal6 } = ctx;
   const cobros6 = s(w6, "cobrosOp"),
     pagos6 = s(w6, "pagosOp");
@@ -177,7 +177,7 @@ function blockA(ctx: Ctx, hasLine: boolean): Block {
         ? divide(current.cobrosOp - current.pagosOp, current.cobrosOp)
         : null,
     },
-    cobertura: { tieneCuotas: servicio6 > 0 },
+    cobertura: { tieneCuotas: servicio6 > 0 || scheduleMonthly > 0 },
   };
 }
 
@@ -277,7 +277,7 @@ export function computeVariables(input: VariableInput): { vars: VariableSet; ext
     cTx: (obs6 / 6) * cobertura6,
   };
   const inv = invoiceWindow(t, input.invoices);
-  const a = blockA(ctx, input.hasLine);
+  const a = blockA(ctx, input.hasLine, input.scheduleMonthly);
   const b = blockB(ctx, inv, input.scheduleMonthly);
   const c = blockC(ctx, inv, a.extras.cobrosOp12m!, a.extras.pagosOp12m!);
   const vars: VariableSet = {

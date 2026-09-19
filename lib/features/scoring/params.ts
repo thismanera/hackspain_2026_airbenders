@@ -20,11 +20,32 @@ export type VariableId = (typeof VARIABLES)[number];
 export type Bloque = "A" | "B" | "C";
 
 export const PARAMS = {
+  contratoVersion: "scoreSolo-holding-v2",
   mesInicio: "2024-09",
   mesFin: "2026-08",
   ventanaCorta: 6,
   ventanaLarga: 12,
   pesos: { A: 0.45, B: 0.3, C: 0.25 } as Readonly<Record<Bloque, number>>,
+  pesosVariables: {
+    A1: 0.1,
+    A2: 0.1,
+    A3: 0.1,
+    A4: 0.08,
+    A5: 0.07,
+    B1: 0.12,
+    B2: 0.12,
+    B3: 0.06,
+    C1: 0.015,
+    C2: 0.015,
+    C3: 0.04,
+    C4: 0.08,
+    C5: 0.03,
+    C6: 0.07,
+  } as Readonly<Record<VariableId, number>>,
+  pesosVariablesSinDeuda: {
+    A1: 0.25,
+    A2: 0.2,
+  } as const,
   bloques: {
     A: ["A1", "A2", "A3", "A4", "A5"],
     B: ["B1", "B2", "B3"],
@@ -65,10 +86,13 @@ export const PARAMS = {
   persistenciaEstructural: 2,
   minVariablesEstructural: 2,
   deltaAportacionMin: 1,
-  wMax: 0.4,
-  d5Saturacion: 0.2,
-  avalMax: 20,
-  d3Ref: 2,
+  holding: {
+    drenajeMax: 30,
+    respaldoMax: 20,
+    saturacionD5: 0.15,
+    factorAtenuacionDrenaje: 0.8,
+    factorAtenuacionRespaldo: 0.7,
+  },
   estresCobros: 0.8,
   estresPagos: 1.1,
   coberturaMin: 1.3,
@@ -81,6 +105,7 @@ export const PARAMS = {
   minObsVolatilidad: 6,
   alertaContagio: -10,
   vencidoAlto: 0.4,
+  volatilidadPercentil: 0.8,
 } as const;
 export type Params = typeof PARAMS;
 

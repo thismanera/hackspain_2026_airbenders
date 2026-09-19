@@ -1,10 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { computeAlerts, deltas, direccion, naturaleza } from "@/lib/features/scoring/evolution";
+import {
+  computeAlerts,
+  deltas,
+  detectarInflexion,
+  diagnosticoMejora,
+  direccion,
+  naturaleza,
+} from "@/lib/features/scoring/evolution";
 import type { Contribution, Senales } from "@/lib/features/scoring/types";
 
 function c(id: Contribution["id"], aportacion: number): Contribution {
-  return { id, raw: null, subnota: 50, conf: 1, aportacion, umbralSano: null, sano: null };
+  return {
+    id,
+    raw: null,
+    subnota: 50,
+    conf: 1,
+    peso: 0,
+    pesoEfectivo: 0,
+    aportacion,
+    umbralSano: null,
+    sano: null,
+    aplicable: true,
+  };
 }
 const flags = (p: Partial<Senales>): Senales => ({
   deterioro: false,
@@ -15,6 +33,7 @@ const flags = (p: Partial<Senales>): Senales => ({
   vencidoAlto: false,
   contagio: false,
   datosInsuficientes: false,
+  alertaTempranaDeterioro: false,
   ...p,
 });
 
@@ -23,6 +42,7 @@ test("direction needs a 6-point move over 3 months", () => {
   assert.equal(direccion(66, 60), "mejora");
   assert.equal(direccion(63, 60), "estable");
   assert.equal(direccion(63, null), "estable");
+  assert.equal(direccion(70, 60, 80), "estable"); // 3m and 6m disagree
 });
 
 test("naturaleza: structural needs persistence, two variables and a level variable", () => {
@@ -46,14 +66,14 @@ test("naturaleza: structural needs persistence, two variables and a level variab
 });
 
 test("deltas decompose exactly and are zero without a previous month", () => {
-  const d = deltas([c("A1", 5), c("grupo", 2)], [c("A1", 8), c("grupo", -1)]);
+  const d = deltas([c("A1", 5), c("C1", 2)], [c("A1", 8), c("C1", -1)]);
   assert.deepEqual(d, [
     { id: "A1", delta: -3 },
-    { id: "grupo", delta: 3 },
+    { id: "C1", delta: 3 },
   ]);
-  assert.deepEqual(deltas([c("A1", 5), c("grupo", 2)], null), [
+  assert.deepEqual(deltas([c("A1", 5), c("C1", 2)], null), [
     { id: "A1", delta: 0 },
-    { id: "grupo", delta: 0 },
+    { id: "C1", delta: 0 },
   ]);
 });
 
@@ -92,4 +112,58 @@ test("a broken run restarts the onset month", () => {
     a.find((x) => x.tipo === "deterioro"),
     { tipo: "deterioro", desdeMes: "2025-03" },
   );
+});
+
+function evolutionRow(month: string, scoreSolo: number, scoreGrupo = scoreSolo, a1 = 50) {
+  return {
+    month,
+    scoreSolo,
+    scoreGrupo,
+    aportacionGrupo: scoreGrupo - scoreSolo,
+    variables: [c("A1", a1)],
+  };
+}
+
+test("bidirectional inflection needs two strict monthly moves and names the initial trigger", () => {
+  const down = detectarInflexion(
+    [
+      evolutionRow("2025-01", 80, 82, 60),
+      evolutionRow("2025-02", 76, 77, 56),
+      evolutionRow("2025-03", 72, 70, 55),
+    ],
+    false,
+  );
+  assert.equal(down.tipo, "pico_bajista");
+  assert.equal(down.mesInflexion, "2025-01");
+  assert.equal(down.variableDetonante, "A1");
+  const up = detectarInflexion(
+    [
+      evolutionRow("2025-01", 40, 40, 20),
+      evolutionRow("2025-02", 44, 48, 24),
+      evolutionRow("2025-03", 48, 55, 25),
+    ],
+    true,
+  );
+  assert.equal(up.tipo, "suelo_alcista");
+  assert.equal(up.mesInflexion, "2025-01");
+  assert.equal(up.scoreInflexion, 40);
+  assert.equal(
+    detectarInflexion([evolutionRow("2025-01", 80), evolutionRow("2025-03", 70)], false)
+      .hayInflexion,
+    false,
+  );
+});
+
+test("confirmed improvement requires monotonic monthly score and A1/A2 contribution growth", () => {
+  const current = { scoreSolo: 72, tendScore3m: 8, variables: [c("A1", 12), c("A2", 10)] };
+  const previous = { scoreSolo: 70, variables: [c("A1", 11), c("A2", 9)] };
+  const three = { variables: [c("A1", 8), c("A2", 9)] };
+  assert.deepEqual(
+    diagnosticoMejora(current, previous, three, [{ scoreSolo: 68 }, { scoreSolo: 70 }, current]),
+    {
+      confirmada: true,
+      motor: "A1",
+    },
+  );
+  assert.equal(diagnosticoMejora(current, { ...previous, scoreSolo: 73 }, three).confirmada, false);
 });

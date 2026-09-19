@@ -13,8 +13,8 @@ Por cada empresa y cierre de mes:
 
 1. Convierte el dataset en flujos mensuales en € (§3-4).
 2. Calcula 14 variables en tres bloques, cada una con su confianza (§5).
-3. Las normaliza y agrega en `score_solo` 0-100 y `confianza` 0-1 (§6).
-4. Ajusta por grupo: `aval_grupo` → `score` (§7).
+3. Las normaliza y agrega en `scoreSolo` 0-100 y `confianza` 0-1 (§6).
+4. Conserva `scoreSolo` como única capacidad autónoma y calcula `scoreGrupo` con `ajusteHolding` (§7).
 5. Deriva evolución: tendencia, dirección, temporal/estructural, rachas,
    descomposición exacta del cambio (§8).
 6. Emite alertas de señal (§9) y una fila de salida con todo lo anterior (§10).
@@ -43,29 +43,29 @@ texto libre.
 Todos los números viven en la tabla de parámetros con `version_parametros`
 (hash). Los percentiles p5/p95 por variable forman parte de la versión.
 
-| Grupo                            | Parámetro                                                        | Valor                 | Decisión |
-| -------------------------------- | ---------------------------------------------------------------- | --------------------- | -------- |
-| Tiempo                           | `mes_inicio` / `mes_fin`                                         | `2024-09` / `2026-08` | 1.0      |
-|                                  | `ventana_corta` / `ventana_larga` (meses)                        | 6 / 12                | 1.1      |
-| Espejos                          | misma fecha, importe al céntimo, signo opuesto                   |                       | 24       |
-| Categorías                       | `category_confidence_min`                                        | 0,95                  | 2        |
-| Pesos                            | `peso_A` / `peso_B` / `peso_C`                                   | 0,45 / 0,30 / 0,25    | 3        |
-|                                  | pesos intra-bloque                                               | iguales               | 4        |
-| Confianza                        | `n_facturas_ref`                                                 | 5                     | 1.0      |
-|                                  | `conf_sin_datos`                                                 | 0,3                   | 5        |
-|                                  | `conf_sana`                                                      | 0,5                   | 5        |
-| Estados                          | `score_sana` / `score_riesgo`                                    | 70 / 45               | 5        |
-| Umbrales sanos A                 | A1 ≥ 0,10 · A2 ≤ 1/6 · A3 ≥ 1,3 · A4 ≤ 0,25 · A5 ≤ 0,20          |                       | 5        |
-| Fiabilidad                       | `recurrencia_min` (meses presentes de 6)                         | 3                     | 6        |
-|                                  | `subnota_racha_1` / `decaimiento_meses`                          | 70 / 3                | 7        |
-| Evolución                        | `umbral_direccion` (puntos en 3 m)                               | 6                     | 10       |
-|                                  | `persistencia_estructural` (meses)                               | 2                     | 10       |
-|                                  | `min_variables_estructural`                                      | 2                     | 10       |
-|                                  | `delta_aportacion_min` (puntos)                                  | 1                     | 10       |
-| Grupo                            | `w_max` / `D5_saturacion` / `aval_max` / `D3_ref`                | 0,4 / 0,2 / 20 / 2    | 15, 16   |
-| Estrés (compartido con decisión) | `estres_cobros` / `estres_pagos` / `cobertura_min`               | 0,8 / 1,1 / 1,3       | 11       |
-| Escalas                          | `p5[v]`, `p95[v]` por variable                                   | calibrados §11        | 1.0      |
-| Divisas                          | tabla mensual `tasa[moneda][mes]` → EUR + tabla fija de respaldo | calibrada §3.2        | 1        |
+| Grupo                            | Parámetro                                                        | Valor                                        | Decisión |
+| -------------------------------- | ---------------------------------------------------------------- | -------------------------------------------- | -------- |
+| Tiempo                           | `mes_inicio` / `mes_fin`                                         | `2024-09` / `2026-08`                        | 1.0      |
+|                                  | `ventana_corta` / `ventana_larga` (meses)                        | 6 / 12                                       | 1.1      |
+| Espejos                          | misma fecha, importe al céntimo, signo opuesto                   |                                              | 24       |
+| Categorías                       | `category_confidence_min`                                        | 0,95                                         | 2        |
+| Pesos                            | `peso_A` / `peso_B` / `peso_C`                                   | 0,45 / 0,30 / 0,25                           | 3        |
+|                                  | pesos intra-bloque                                               | A 10/10/10/8/7; B 12/12/6; C 1,5/1,5/4/8/3/7 | 4        |
+| Confianza                        | `n_facturas_ref`                                                 | 5                                            | 1.0      |
+|                                  | `conf_sin_datos`                                                 | 0,3                                          | 5        |
+|                                  | `conf_sana`                                                      | 0,5                                          | 5        |
+| Estados                          | `score_sana` / `score_riesgo`                                    | 70 / 45                                      | 5        |
+| Umbrales sanos A                 | A1 ≥ 0,10 · A2 ≤ 1/6 · A3 ≥ 1,3 · A4 ≤ 0,25 · A5 ≤ 0,20          |                                              | 5        |
+| Fiabilidad                       | `recurrencia_min` (meses presentes de 6)                         | 3                                            | 6        |
+|                                  | `subnota_racha_1` / `decaimiento_meses`                          | 70 / 3                                       | 7        |
+| Evolución                        | `umbral_direccion` (puntos en 3 m)                               | 6                                            | 10       |
+|                                  | `persistencia_estructural` (meses)                               | 2                                            | 10       |
+|                                  | `min_variables_estructural`                                      | 2                                            | 10       |
+|                                  | `delta_aportacion_min` (puntos)                                  | 1                                            | 10       |
+| Grupo                            | `w_max` / `D5_saturacion` / `aval_max` / `D3_ref`                | 0,4 / 0,2 / 20 / 2                           | 15, 16   |
+| Estrés (compartido con decisión) | `estres_cobros` / `estres_pagos` / `cobertura_min`               | 0,8 / 1,1 / 1,3                              | 11       |
+| Escalas                          | `p5[v]`, `p95[v]` por variable                                   | calibrados §11                               | 1.0      |
+| Divisas                          | tabla mensual `tasa[moneda][mes]` → EUR + tabla fija de respaldo | calibrada §3.2                               | 1        |
 
 ## 3. Etapa A — Carga y normalización
 
@@ -217,7 +217,7 @@ c_cobertura = media de pct_clasificado en la ventana         (variables de trans
 c_dato      = 0 si NA, 1 si calculable
 ```
 
-### 5.1 Bloque A — Capacidad de deuda (peso 0,45; cinco variables × 0,09)
+### 5.1 Bloque A — Capacidad de deuda (peso 0,45)
 
 ```text
 A1 margen_caja        = Σ6m caja_op / Σ6m cobros_op                         ; NA si Σ6m cobros_op == 0       ; mejor alto
@@ -227,13 +227,14 @@ A4 carga_deuda        = Σ6m (servicio_deuda + amort_credito) / Σ6m cobros_op ;
 A5 dependencia_credito= Σ6m disp_credito / Σ6m cobros_op                     ; sin producto lineofcredit → NA con conf 0,3 y subnota 50 ; mejor bajo
 ```
 
-A5 sin línea: no se premia (no sabemos si no la necesita o no se la dan);
-se deja neutral con confianza baja.
+A3, A4 y A5 son no aplicables cuando no existen cuotas ni línea de crédito:
+se excluyen del bloque y A1/A2 reciben respectivamente 25 % y 20 % del score total.
+Con deuda o línea, las cinco variables pesan 9 % cada una.
 
 Umbrales sanos (solo para la ficha, no entran en el score):
 A1 ≥ 10 % · A2 ≤ 1/6 · A3 ≥ 1,3 · A4 ≤ 25 % · A5 ≤ 20 %.
 
-### 5.2 Bloque B — Fiabilidad (peso 0,30; tres variables × 0,10)
+### 5.2 Bloque B — Fiabilidad (peso 0,30; B1 12 %, B2 12 %, B3 6 %)
 
 Obligaciones recurrentes, por empresa y categoría `k ∈ {tax, social_security, salary, debt_repayment}`:
 
@@ -287,7 +288,7 @@ Riesgo conocido: categorías pagadas trimestralmente (IVA) aparecen ≤ 2 de
 mensual/trimestral pueden generar rachas falsas de 1 mes; el decaimiento
 las amortigua. Se mide en backtest (§13, falsas alarmas).
 
-### 5.3 Bloque C — Dependencia (peso 0,25; seis variables × 0,25/6)
+### 5.3 Bloque C — Dependencia (peso 0,25; C1 1,5 %, C2 1,5 %, C3 4 %, C4 8 %, C5 3 %, C6 7 %)
 
 ```text
 C1 conc_clientes   = Σ top-3 cobros_por_contraparte (12 m) / Σ cobros con id (12 m)  ; NA si Σ cobros con id == 0 ; mejor bajo
@@ -310,9 +311,9 @@ Con `G` = empresas del grupo con evidencia de 12 meses en `t` (§14),
 
 ```text
 D1 peso_grupo   = Σ12m cobros_op / Σ12m cobros_op_grupo                          ; grupo de 1 → 1
-D2 score_resto  = Σ_{h∈H} score_solo_h × Σ12m cobros_op_h / Σ_{h∈H} Σ12m cobros_op_h ; NA si H vacío
+D2 score_resto  = Σ_{h∈H} scoreSolo_h × Σ12m cobros_op_h / Σ_{h∈H} Σ12m cobros_op_h ; NA si H vacío
 D3 capacidad_aval = Σ_{h∈H} capacidad_cuota_adv_h / media6m(servicio_deuda + Σ_k obligaciones_rec[k]) ; NA si H vacío; denominador 0 → +∞ (cap en D3_ref)
-D4 soporte      = Σ12m (intragrupo_in − intragrupo_out) / Σ12m cobros_op         ; informativo, no entra en aval_grupo
+D4 soporte      = Σ12m (intragrupo_in − intragrupo_out) / Σ12m cobros_op         ; informativo, no entra en ajusteHolding
 D5 interdependencia = Σ12m (intragrupo_in + intragrupo_out) / Σ12m (cobros_op + pagos_op) ; grupo de 1 → 0
 capacidad_cuota_adv = max(0, (estres_cobros × media6m cobros_op − estres_pagos × media6m pagos_op) / cobertura_min − media6m servicio_deuda)
 conf_D          = media de confianza_h ponderada por cobros, h ∈ H
@@ -334,54 +335,54 @@ function subnota(v, x, P):
     # excepción: B2 usa la regla directa de §5.2
 
 nota_ef_v  = 50 + conf_v × (subnota_v − 50)
-subscore_X = Σ_{v∈X} nota_ef_v / |X|            conf_X = Σ_{v∈X} conf_v / |X|
-score_solo = 0,45·subscore_A + 0,30·subscore_B + 0,25·subscore_C
+subscore_X = Σ_{v∈X} peso_v·nota_ef_v / peso_X   conf_X = Σ_{v∈X} peso_v·conf_v / peso_X
+    scoreSolo = 0,45·subscore_A + 0,30·subscore_B + 0,25·subscore_C
 confianza  = 0,45·conf_A + 0,30·conf_B + 0,25·conf_C
-aportacion_v = peso_bloque(v) / |X| × nota_ef_v            → Σ_v aportacion_v == score_solo
+aportacion_v = peso_v × nota_ef_v                        → Σ_v aportacion_v == scoreSolo
 ```
+
+Cuando A no tiene cuotas ni línea, `peso_A1 = 0,25`, `peso_A2 = 0,20` y el
+resto de pesos A es cero; `confs_A` es la media de las confianzas A1 y A2.
 
 Estado (para la ficha; decisión usa las puertas de su §3, no este campo):
 
-| Estado      | Regla                            |
-| ----------- | -------------------------------- |
-| `sin_datos` | `confianza < 0,3`                |
-| `riesgo`    | `score < 45` o `B2 ≥ 2`          |
-| `sana`      | `score ≥ 70` y `confianza ≥ 0,5` |
-| `vigilar`   | resto                            |
+| Estado      | Regla                                                              |
+| ----------- | ------------------------------------------------------------------ |
+| `sin_datos` | `confianza < 0,3`                                                  |
+| `riesgo`    | `scoreSolo < 45`, `B2 ≥ 2` o `C4 > 0,40`                           |
+| `sana`      | `scoreSolo ≥ 70`, `confianza ≥ 0,5`, A1 ≥ 0,10, B2 = 0 y C4 ≤ 0,20 |
+| `vigilar`   | resto                                                              |
 
 ## 7. Etapa E — Ajuste de grupo
 
 ```text
-function aval_grupo(score_solo, D2, D3, D5, P):
-    if D2 is NA: return 0
-    w = P.w_max × min(1, D5 / P.D5_saturacion)
-    if D2 > score_solo:  a = w × min(1, D3 / P.D3_ref) × (D2 − score_solo)     # aval: exige capacidad
-    else:                a = w × (D2 − score_solo)                              # contagio: siempre
-    return clip(a, −P.aval_max, +P.aval_max)
-
-score = clip(score_solo + aval_grupo, 0, 100)
+Ci = cobrosOpMedia6m − pagosOpMedia6m − servicioDeudaMedia6m
+S = Σ max(Ci, 0); D = Σ max(-Ci, 0)
+factorD5 = clip(D5 / 0,15, 0, 1)
+donante  = -min(30, min(1,D/S) × (scoreSolo-D2) × 0,8 × factorD5)
+receptora = +min(20, min(1,S/D) × (D2-scoreSolo) × 0,7 × factorD5)
+scoreGrupo = clip(scoreSolo + ajusteHolding, 0, 100)
 ```
 
-El grupo entra en `contribuciones` como una fila más (`variable = "grupo"`)
-con `aportacion_grupo = score − score_solo`, es decir el aval **efectivamente
-aplicado tras el clip**, de modo que `Σ aportaciones == score` sea exacto
-también cuando el clip recorta. El campo `aval_grupo` del contrato conserva el
-valor bruto que devuelve la función.
+`scoreSolo` siempre es autónomo. La aportación y el delta del holding se publican
+en campos separados; las contribuciones A-C explican solo `scoreSolo`.
 
-`score_grupo`: se calcula pasando `group_month_flows` por §5.1-5.3 (sin B3,
-C3, C4, C6 si no hay facturas agregadas; sin bloque D). Informativo para la
-cartera y para el techo del motor de decisión.
+`scoreGrupo` reconoce apoyo y contagio del holding, pero las bandas y límites
+siguen consumiendo `scoreSolo` autónomo.
 
 ## 8. Etapa F — Evolución
 
 ```text
-tend_score_3m = score(t) − score(t−3)            ; null si no existe fila t−3
+tend_score_3m = scoreSolo(t) − scoreSolo(t−3)    ; null si no existe fila t−3
+tend_score_6m = scoreSolo(t) − scoreSolo(t−6)    ; null si no existe fila t−6
+tend_score_12m = scoreSolo(t) − scoreSolo(t−12)  ; null si no existe fila t−12
 tend_X_3m     = subscore_X(t) − subscore_X(t−3)  ; X ∈ {A, B, C}
-direccion     = "mejora"    si tend_score_3m ≥ +6
+direccion     = "estable"   si las tendencias de 3m y 6m tienen signos opuestos
+              = "mejora"    si tend_score_3m ≥ +6
               = "deterioro" si tend_score_3m ≤ −6
               = "estable"   en otro caso (o null → "estable")
 
-delta_contrib = [{variable, aportacion(t) − aportacion(t−1)}]   ; Σ == score(t) − score(t−1)
+delta_contrib = [{variable, aportacion(t) − aportacion(t−1)}]   ; Σ == scoreSolo(t) − scoreSolo(t−1)
 delta_3m      = [{variable, aportacion(t) − aportacion(t−3)}]
 
 naturaleza    = "sin_cambio" si direccion == "estable"
@@ -396,16 +397,17 @@ racha_B2      = B2(t)
 
 ## 9. Alertas de señal
 
-| Tipo                    | Regla                                   | Persistencia     |
-| ----------------------- | --------------------------------------- | ---------------- |
-| `deterioro`             | `direccion == deterioro`                | 2 meses seguidos |
-| `deterioro_estructural` | `naturaleza == estructural` y deterioro | inmediata        |
-| `recuperacion`          | `direccion == mejora`                   | 2 meses seguidos |
-| `deficit_persistente`   | `caja_op < 0`                           | 3 meses seguidos |
-| `impago_obligaciones`   | `B2 ≥ 2`                                | inmediata        |
-| `vencido_alto`          | `C4 > 0,40`                             | 1 mes            |
-| `contagio_grupo`        | `aval_grupo ≤ −10`                      | 1 mes            |
-| `datos_insuficientes`   | `confianza < 0,3`                       | 1 mes            |
+| Tipo                        | Regla                                                                                | Persistencia     |
+| --------------------------- | ------------------------------------------------------------------------------------ | ---------------- |
+| `deterioro`                 | `direccion == deterioro`                                                             | 2 meses seguidos |
+| `deterioro_estructural`     | `naturaleza == estructural` y deterioro                                              | inmediata        |
+| `recuperacion`              | `direccion == mejora`                                                                | 2 meses seguidos |
+| `deficit_persistente`       | `caja_op < 0`                                                                        | 3 meses seguidos |
+| `impago_obligaciones`       | `B2 ≥ 2`                                                                             | inmediata        |
+| `vencido_alto`              | `C4 > 0,40`                                                                          | 1 mes            |
+| `contagio_grupo`            | `ajusteHolding ≤ −10`                                                                | 1 mes            |
+| `datos_insuficientes`       | `confianza < 0,3`                                                                    | 1 mes            |
+| `alerta_temprana_deterioro` | caída autónoma ≤ −4, primer déficit tras 4 meses positivos, salto C4 > 0,15 o C6 > 0 | inmediata        |
 
 Cada alerta guarda `desde_mes` (primer mes en que la regla se cumple sin
 interrupción). Las alertas de **acción** (abrir, reducir, cerrar) no son de
@@ -419,20 +421,22 @@ explicabilidad y producto.
 
 ```text
 ▶ company_id, mes, group_id, version_parametros
-▶ score, score_solo, aval_grupo, confianza
+▶ scoreSolo, scoreGrupo, ajusteHolding, aportacionGrupo, deltaGrupo, confianza
   subscore_A, subscore_B, subscore_C, conf_A, conf_B, conf_C
-  estado                         sana | vigilar | riesgo | sin_datos
-  variables[15]                  {id, valor_bruto, subnota, conf, aportacion, umbral_sano, sano?}   (A1..C6 + grupo)
-  delta_contrib[15]              {id, delta}   Σ == score(t) − score(t−1)
-▶ direccion, naturaleza
-  tend_score_3m, tend_A_3m, tend_B_3m, tend_C_3m
+  estadoSolo, estadoGrupo        sana | vigilar | riesgo | sin_datos
+  perfil_grupo                   filial_subvencionada | drenaje_tesoreria | estandar
+  variables[14]                  {id, valor_bruto, subnota, conf, peso, aportacion, umbral_sano, sano?, aplicable} (A1..C6)
+  delta_contrib[14]              {id, delta}   Σ == scoreSolo(t) − scoreSolo(t−1)
+▶ direccion, naturaleza, patron_trayectoria
+  tend_score_3m, tend_score_6m, tend_score_12m, tend_A_3m, tend_B_3m, tend_C_3m
+  alerta_temprana_deterioro, diagnosticoMejora, factor_determinante, factor_determinante_grupo, canario_en_mina, inflexion, inflexionGrupo
 ▶ racha_B2, racha_deficit
 ▶ C3_dias, C4
 ▶ cobros_op_media3m, cobros_op_media6m, pagos_op_media6m, servicio_deuda_media6m
   obligaciones_rec_media6m
 ▶ capacidad_cuota_adv
 ▶ D1, D2, D3, D4, D5, conf_D, tiene_prestamo_intragrupo
-▶ cobros_op_grupo_media6m, pagos_op_grupo_media6m, servicio_deuda_grupo_media6m, score_grupo
+▶ cobros_op_grupo_media6m, pagos_op_grupo_media6m, servicio_deuda_grupo_media6m, scoreGrupo
   alertas[]                      {tipo, desde_mes}
   cobertura                      {meses_obs_6m, meses_obs_12m, pct_clasificado_6m, n_facturas_cli_6m, n_facturas_prov_6m,
                                   tiene_linea_credito, tiene_cuotas, n_hermanas_con_datos, C4_estimado, importes_excluidos_eur}
@@ -449,7 +453,7 @@ percentiles: p5/p95 de cada variable sobre empresa-mes de ajuste con mes ≤ 202
              → congelados en version_parametros
 tasas €:    §3.2, sobre todo el dataset (no hay fuga: son precios de mercado)
 validación: empresas de validación (out-of-sample por grupo), meses 2025-09 … 2026-08 (§13.1: 2025-09..2026-02 es in-sample en el tiempo)
-test (60-80 empresas nuevas): mismo pipeline, version_parametros congelada; sin hermanas conocidas → D2 NA → aval_grupo 0
+test (60-80 empresas nuevas): mismo pipeline, version_parametros congelada; sin hermanas conocidas → D2 NA → ajusteHolding 0
 ```
 
 Cambiar un peso, un umbral o un percentil cambia `version_parametros`; las
@@ -473,14 +477,14 @@ C2 [0,2; 0,9] · C3 [−5; 60] · C4 [0; 0,6] · C5 [0,05; 0,8] · C6 [0; 0,10].
 | `deterioro_estructural` | cobros bajan 100 k → 70 k linealmente desde mes 4, pagos fijos 85 k                                                                           | mes 6: A1 < 0, A2 ≥ 0,5, racha_deficit ≥ 2 · `tend_score_3m ≤ −6` · con mes 7 igual: `naturaleza = estructural` (A1, A2 mueven, persistencia 2)                                                                          |
 | `bache`                 | como `sana`, mes 5 cobros 40 k, mes 6 vuelve a 100 k                                                                                          | mes 5 direccion puede ser `deterioro`; mes 6 `naturaleza = temporal` (no persiste) · nunca `estructural`                                                                                                                 |
 | `historial_corto`       | solo 2 meses de datos                                                                                                                         | conf_A ≈ 0,33 · `confianza < 0,5` · estado `sin_datos` si < 0,3                                                                                                                                                          |
-| `grupo_aval`            | filial: cobros 20 k, pagos 21 k (score_solo ≈ 35) · hermana: cobros 500 k, pagos 350 k, servicio 20 k · traspasos hermana→filial 5 k/mes      | D5 ≈ 0,12 → w = 0,24 · D3 ≫ 2 → factor 1 · D2 ≈ 80 → aval = 0,24 × 45 = +10,8 · score ≈ 46                                                                                                                               |
-| `grupo_contagio`        | invertido: filial sana (score_solo ≈ 78), hermana en déficit (score_solo ≈ 30), traspasos filial→hermana 15 k/mes sobre 100 k cobros          | D5 ≈ 0,08 → w = 0,16 · contagio = 0,16 × (30 − 78) = −7,7 · score ≈ 70 · sin filtro de capacidad                                                                                                                         |
+| `filial_subvencionada`  | filial con Ci < 0, D4 > 0,30, B2 observado = 0 y D2 ≥ 60                                                                                      | perfil descriptivo; puede permitir `estadoGrupo = vigilar` con ajuste positivo, sin alterar `scoreSolo`                                                                                                                  |
+| `drenaje_tesoreria`     | empresa con Ci > 0 y D4 < −0,40                                                                                                               | perfil descriptivo; el ajuste ya recoge el reparto monetario del holding                                                                                                                                                 |
 
 Tests de propiedades (sobre todas las filas del dataset real):
 
-1. Cada `subnota`, `nota_ef`, `subscore`, `score` ∈ [0, 100]; cada `conf` ∈ [0, 1].
-2. `Σ aportacion_v == score` y `Σ delta_contrib == score(t) − score(t−1)` (tolerancia 1e-6).
-3. `|aval_grupo| ≤ 20`; grupo de una empresa ⇒ `aval_grupo == 0`.
+1. Cada `subnota`, `nota_ef`, `subscore`, `scoreSolo`, `scoreGrupo` ∈ [0, 100]; cada `conf` ∈ [0, 1].
+2. `Σ aportacion_v == scoreSolo` y `Σ delta_contrib == scoreSolo(t) − scoreSolo(t−1)` (tolerancia 1e-6).
+3. `−30 ≤ ajusteHolding ≤ 20`; grupo de una empresa ⇒ `ajusteHolding == 0`.
 4. `NA ⇒ subnota == 50 y conf == 0` (salvo A5 sin línea: conf 0,3).
 5. **No fuga**: recalcular `t = 2026-02` con los CSV truncados a `2026-02-28` ⇒ filas idénticas.
 6. Espejos emparejados no aparecen en `cobros_op` ni `pagos_op` sea cual sea su categoría; movimientos sobre `lineofcredit` tampoco.
@@ -526,7 +530,7 @@ pura".
 | `recall`                | eventos con alerta previa en ≤ 6 meses / eventos                                                                  |
 | `falsas_alarmas`        | alertas `deterioro` elegibles sin evento en los 6 meses siguientes / alertas elegibles                            |
 | simetría                | las tres anteriores para `recuperacion`                                                                           |
-| `precision_nivel`       | Spearman entre `score(t)` y `margen_caja(t+3)`                                                                    |
+| `precision_nivel`       | Spearman entre `scoreSolo(t)` y `margen_caja(t+3)`                                                                |
 | `estructural_precision` | % de `naturaleza = estructural` seguidos de evento en 6 m, frente a `temporal`                                    |
 
 Cómo interactúa cada métrica con la ventana (implementado en
@@ -553,9 +557,8 @@ Cómo interactúa cada métrica con la ventana (implementado en
 3. invoices → company_month_invoices
 4. group_month_flows
 5. para cada mes t en orden:
-     variables A, B, C por empresa → subnotas → score_solo, confianza, capacidad_cuota_adv
-     D1..D5 (necesita score_solo de las hermanas en t) → aval_grupo → score
-     score_grupo
+     variables A, B, C por empresa → subnotas → scoreSolo, confianza, capacidad_cuota_adv
+     D1..D5 (necesita scoreSolo de las hermanas en t) → ajusteHolding → scoreGrupo
      evolución (necesita filas t−1, t−3) → alertas
      persistir company_month_score[t]
 ```

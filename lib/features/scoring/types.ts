@@ -100,13 +100,16 @@ export type Extras = {
 };
 
 export type Contribution = {
-  id: VariableId | "grupo";
+  id: VariableId;
   raw: number | null;
-  subnota: number;
+  subnota: number | null;
   conf: number;
+  peso: number;
+  pesoEfectivo: number;
   aportacion: number;
   umbralSano: number | null;
   sano: boolean | null;
+  aplicable: boolean;
 };
 
 export type AlertTipo =
@@ -117,11 +120,28 @@ export type AlertTipo =
   | "impago_obligaciones"
   | "vencido_alto"
   | "contagio_grupo"
-  | "datos_insuficientes";
+  | "datos_insuficientes"
+  | "alerta_temprana_deterioro";
 export type Alert = { tipo: AlertTipo; desdeMes: string };
 export type Direccion = "mejora" | "estable" | "deterioro";
 export type Naturaleza = "temporal" | "estructural" | "sin_cambio";
+export type PatronTrayectoria =
+  "bache_puntual" | "caida_estructural" | "inestabilidad_cronica" | "estable" | "mejora";
 export type Estado = "sana" | "vigilar" | "riesgo" | "sin_datos";
+export type PerfilGrupo = "filial_subvencionada" | "drenaje_tesoreria" | "estandar";
+export type FactorDeterminante = { id: string; delta: number; descripcion: string };
+export type CanalDesencadenante = "comercial" | "operativo" | "financiero" | "holding" | "ninguno";
+export type InflexionResult = {
+  hayInflexion: boolean;
+  tipo: "pico_bajista" | "suelo_alcista" | "sin_inflexion";
+  mesInflexion: string | null;
+  antelacionMeses: number;
+  scoreInflexion: number | null;
+  canalDesencadenante: CanalDesencadenante;
+  variableDetonante: string | null;
+  explicacion: string;
+};
+export type DiagnosticoMejora = { confirmada: boolean; motor: string | null };
 
 /** p5/p95 congelados por variable; null cuando no hubo muestras fiables (subnota neutral 50). */
 export type Percentiles = Record<VariableId, { p5: number | null; p95: number | null }>;
@@ -132,6 +152,8 @@ export type Parameters = {
   trainGroups: string[];
   validationGroups: string[];
   inputFingerprint: string;
+  /** Percentil congelado de C5 para clasificar inestabilidad crónica. */
+  c5P80: number | null;
 };
 
 export type Senales = {
@@ -143,6 +165,7 @@ export type Senales = {
   vencidoAlto: boolean;
   contagio: boolean;
   datosInsuficientes: boolean;
+  alertaTempranaDeterioro: boolean;
 };
 
 /** Contrato scoring-engine §10. */
@@ -151,19 +174,32 @@ export type ScoreRow = {
   month: string;
   groupId: string;
   versionParametros: string;
-  score: number;
   scoreSolo: number;
-  avalGrupo: number;
+  ajusteHolding: number;
+  aportacionGrupo: number;
+  deltaGrupo: number;
   confianza: number;
   subscores: Record<"A" | "B" | "C", number>;
   confs: Record<"A" | "B" | "C", number>;
-  estado: Estado;
+  estadoSolo: Estado;
+  estadoGrupo: Estado;
+  perfilGrupo: PerfilGrupo;
   variables: Contribution[];
-  deltaContrib: { id: VariableId | "grupo"; delta: number }[];
+  deltaContrib: { id: VariableId; delta: number }[];
   direccion: Direccion;
   naturaleza: Naturaleza;
+  patronTrayectoria: PatronTrayectoria;
   tendScore3m: number | null;
+  tendScore6m: number | null;
+  tendScore12m: number | null;
   tend3m: Record<"A" | "B" | "C", number | null>;
+  alertaTempranaDeterioro: boolean;
+  factorDeterminante: FactorDeterminante;
+  factorDeterminanteGrupo: FactorDeterminante;
+  canarioEnMina: { detectado: boolean; id: string | null; mensaje: string | null };
+  diagnosticoMejora: DiagnosticoMejora;
+  inflexion: InflexionResult;
+  inflexionGrupo: InflexionResult;
   rachaB2: number;
   rachaDeficit: number;
   C3dias: number | null;
@@ -185,7 +221,8 @@ export type ScoreRow = {
   cobrosOpGrupoMedia6m: number;
   pagosOpGrupoMedia6m: number;
   servicioDeudaGrupoMedia6m: number;
-  scoreGrupo: number | null;
+  /** Nota autónoma ajustada por apoyo/contagio del holding. */
+  scoreGrupo: number;
   deficitMes: boolean | null;
   margenMes: number | null;
   senales: Senales;

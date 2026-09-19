@@ -10,7 +10,11 @@ import { decisionRowSchema, type DecisionRowDTO } from "../lib/features/decision
 import { decideLegacy } from "../lib/features/decision/legacy";
 import type { DecisionRow } from "../lib/features/decision/types";
 import { backtest } from "../lib/features/scoring/backtest";
-import { scoreRowSchema, type ScoreRowDTO } from "../lib/features/scoring/contracts";
+import {
+  parametersSchema,
+  scoreRowSchema,
+  type ScoreRowDTO,
+} from "../lib/features/scoring/contracts";
 import {
   prepareGroup,
   scoreGroup,
@@ -126,7 +130,7 @@ async function doFit() {
 
 async function doScore() {
   const m = await meta().catch(() => ingest(dataset, dir, categoriesCsv));
-  const params = JSON.parse(await readFile(parameterPath(), "utf8")) as Parameters;
+  const params = parametersSchema.parse(JSON.parse(await readFile(parameterPath(), "utf8")));
   if (params.inputFingerprint !== m.fingerprint)
     throw new Error("parameters were fitted on a different dataset; run scoring:fit");
   await mkdir(runDir(params, m.fingerprint), { recursive: true });
@@ -158,7 +162,7 @@ async function doScore() {
 
 async function doDecide() {
   const m = await meta();
-  const params = JSON.parse(await readFile(parameterPath(), "utf8")) as Parameters;
+  const params = parametersSchema.parse(JSON.parse(await readFile(parameterPath(), "utf8")));
   const byCompany = new Map<string, ScoreRow[]>();
   for await (const row of lines<ScoreRow>(
     path.join(runDir(params, m.fingerprint), "scores.jsonl"),
@@ -183,7 +187,7 @@ async function doDecide() {
 
 async function doBacktest() {
   const m = await meta();
-  const params = JSON.parse(await readFile(parameterPath(), "utf8")) as Parameters;
+  const params = parametersSchema.parse(JSON.parse(await readFile(parameterPath(), "utf8")));
   const validation = new Set(params.validationGroups);
   const rows: ScoreRow[] = [];
   for await (const row of lines<ScoreRow>(path.join(runDir(params, m.fingerprint), "scores.jsonl")))
@@ -204,7 +208,7 @@ async function doBacktest() {
 async function doImport() {
   const { prisma } = await import("../lib/core/db");
   const m = await meta();
-  const params = JSON.parse(await readFile(parameterPath(), "utf8")) as Parameters;
+  const params = parametersSchema.parse(JSON.parse(await readFile(parameterPath(), "utf8")));
   const run = runDir(params, m.fingerprint);
   // Antes de borrar nada: sin las dos salidas la importación dejaría la ejecución a medias.
   if (!existsSync(path.join(run, "scores.jsonl")) || !existsSync(path.join(run, "decisions.jsonl")))
@@ -244,9 +248,9 @@ async function doImport() {
         runId: manifest.runId,
         companyId: r.company,
         month: r.month,
-        score: r.score,
+        scoreSolo: r.scoreSolo,
         confidence: r.confianza,
-        estado: r.estado,
+        estadoGrupo: r.estadoGrupo,
         direction: r.direccion,
         data: r as never,
       })),
