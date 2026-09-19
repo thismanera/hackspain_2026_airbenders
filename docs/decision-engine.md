@@ -54,7 +54,10 @@ De `company_month_forecast` (forecast-engine §8), mismo mes. La previsión es
 
 Y del propio motor, mes anterior (§8 estado): `L_prev`, `accion_prev`,
 `meses_elegible_seguidos`, `meses_reduccion_seguidos`,
-`meses_pred_peor_seguidos`, `cerrado_desde`.
+`meses_pred_peor_seguidos`, `cerrado_desde`, `meses_puerta_blanda_seguidos`.
+
+La `capacidad_cuota_adv` **no** se lee de la fila del score: la calcula este
+motor a partir de los flujos de arriba con su propio estrés (§4, decisión 40).
 
 ## 2. Parámetros (versionados, un solo fichero)
 
@@ -63,14 +66,16 @@ Todos los números del algoritmo viven en una tabla de parámetros con
 
 | Grupo | Parámetro | Valor | Decisión |
 | --- | --- | --- | --- |
-| Elegibilidad | `conf_min` | 0,5 | 18 |
+| Elegibilidad | `conf_min` | 0,4 | 18, 39 |
 | | `score_min` | 45 | 5, 18 |
 | | `racha_B2_max` | 1 | 7, 18 |
 | | `racha_deficit_max` | 2 | 12, 18 |
 | | `C4_max` | 0,40 | 12, 18 |
-| Capacidad | `estres_cobros` | 0,80 | 11 |
-| | `estres_pagos` | 1,10 | 11 |
-| | `cobertura_min` | 1,3 | 11 |
+| | `cierre_confirmado_meses` | 2 | 42 |
+| | `puertas_blandas` | `historia`, `caja` (solo capacidad) | 42 |
+| Capacidad | `estres_cobros` | 0,90 | 11, 40 |
+| | `estres_pagos` | 1,05 | 11, 40 |
+| | `cobertura_min` | 1,3 | 11, 40 |
 | | `meses_limite_cap` | 12 | 11 |
 | | `anticipo_pct` | 0,80 | 11 |
 | | `anticipo_meses` | 3 | 11 |
@@ -93,7 +98,15 @@ Todos los números del algoritmo viven en una tabla de parámetros con
 | | `reducir_prev_meses` | 2 | 37 |
 | | `redondeo_L` | 1.000 € | 12 |
 | Grupo | `D1_cross_default` | 0,30 | 17 |
+| | `techo_cero_baja_banda` | sí | 41 |
 | Métricas | `uso_simulado` | 0,6 del `L_vigente` | §14 |
+
+**El estrés de capacidad es propio del motor de decisión** (decisión 40). Scoring
+mantiene el suyo (−20 %/+10 %) para `D3` del aval de grupo: mide si el padre
+**puede avalar**. El de aquí (−10 %/+5 %) mide **cuánto se puede prestar** sobre
+cobros que ya vienen infravalorados. Los dos conviven a propósito y no deben
+confundirse: `ScoreRow.capacidad_cuota_adv` no entra en ninguna cuenta de este
+documento.
 
 ## 3. Paso 0 — Elegibilidad
 
@@ -117,12 +130,49 @@ function elegibilidad(fila, estado_prev, P):
 - `C4 is null` (empresa sin facturas) no bloquea: la puerta solo actúa
   cuando hay dato. La falta de dato ya está en `confianza`.
 - `cross_default_activo` viene del estado de grupo del mes anterior (§7).
+- `capacidad_cuota_adv` es la de §4, calculada **aquí** con el estrés del motor
+  de decisión (decisión 40), no la que trae `ScoreRow`.
+- **`conf_min = 0,4`** (decisión 39). La mediana de confianza de la cartera en
+  2026-08 es 0,44: el tramo 0,4-0,5 son cinco meses de historia con cobertura
+  buena, no "sin datos" (eso es 0,3). La confianza sigue descontando por encima
+  de la puerta —límite `× min(1, conf/0,6)` y precio `+1 pp` por debajo de 0,7—,
+  así que la puerta solo decide **si opinamos**, no cuánto.
+
+**Puertas blandas y duras** (decisión 42). `historia` y la mitad de capacidad de
+`caja` son **blandas**: no cierran el primer mes. Con línea viva (`L_prev > 0`),
+un fallo blando exige `cierre_confirmado_meses` (2) meses **seguidos** antes de
+cerrar:
+
+```text
+if not elegible:
+    blando = todas las puertas fallidas estan en P.puertas_blandas
+             and (caja no ha fallado or caja_solo_capacidad)
+    if blando and estado_prev.L_prev > 0
+       and estado_prev.meses_puerta_blanda_seguidos + 1 < P.cierre_confirmado_meses:
+        return accion "mantener", L = 0, L_vigente = L_prev, cierre_pendiente = true
+    return accion "cerrar", L = 0, L_vigente = 0
+estado.meses_puerta_blanda_seguidos = blando ? prev + 1 : 0
+```
+
+- El mes de gracia **no** es elegible (`elegible = false`, `motivo` = el de la
+  puerta) y no cuenta como mes elegible para la reapertura; `motivo_accion` sale
+  como "Pendiente confirmar cierre: {motivo}" y el menú se calcula sobre
+  `L_vigente` (vacío si la capacidad ya no da para ningún plazo).
+- `estado`, `fiabilidad`, `clientes`, `grupo` y `racha_deficit > 2` cierran el
+  mismo mes: son hechos, no umbrales que tiritan.
+- `caja_solo_capacidad` distingue las dos mitades de la puerta: solo es blanda
+  cuando `racha_deficit ≤ racha_deficit_max` y lo único que falla es la
+  capacidad.
+- Sin línea viva (`L_prev = 0`) no hay nada que conservar: cierre inmediato.
+- Coste: un mes más de exposición, acotado por el límite operativo. A cambio,
+  334 de 1.098 empresa-mes que pasaban las puertas venían justo después de un mes
+  cerrado (parpadeo en el umbral).
 
 Motivos en texto (plantilla, sin LLM):
 
 | Puerta | Texto |
 | --- | --- |
-| historia | "Historial insuficiente: confianza {conf} < 0,5" |
+| historia | "Historial insuficiente: confianza {conf} < 0,4" |
 | estado | "Score {score} por debajo de 45" |
 | fiabilidad | "{racha} meses seguidos sin pagar obligaciones" |
 | caja | "Caja estresada no cubre cuotas actuales" / "{racha} meses seguidos en déficit" |
@@ -157,6 +207,17 @@ function limite(fila, P):
     L_bruto  = min(lim_cap, lim_op) * P.factor_banda[b] * factor_c
     return redondear_abajo(L_bruto, P.redondeo_L), b, cap, lim_cap, lim_op
 ```
+
+**Decisión 40 — el estrés es de este motor.** `estres_cobros = 0,90` y
+`estres_pagos = 1,05`: un escenario adverso moderado **sobre datos que ya son
+conservadores**. Los cobros están infravalorados de partida (el 25 % de los
+movimientos no se clasifica), así que el −20 % de scoring penalizaba dos veces
+lo mismo. La cobertura se queda intacta en 1,3 (DSCR estándar): el escenario se
+suaviza en los flujos, no en el colchón de servicio de deuda. `capacidad_cuota_adv`
+se calcula aquí y es la que usan el límite (§4), la puerta `caja` (§3), la región
+factible del menú (§7), el techo consolidado (§9) y la columna del contrato (§10);
+la de `ScoreRow` se queda para `D3` del aval de grupo y **no** se usa en este
+documento.
 
 Si no elegible → `L = 0`, pero se calculan y guardan `cap`, `lim_cap`,
 `lim_op` igualmente (la ficha enseña "si fueras elegible tendrías X").
@@ -325,7 +386,11 @@ function grupo(filas_grupo, decisiones, P):
     fila_g = flujos consolidados del grupo (cobros/pagos/servicio_deuda _grupo_media6m, score = media ponderada por cobros)
     L_grupo = limite(fila_g, P).L
     suma = Σ decisiones[i].L_vigente
-    if suma > L_grupo:
+    if L_grupo == 0 and algun miembro tiene L_vigente > 0:      # decisión 41
+        # sin prorrateo: los miembros vivos bajan una banda y se recalcula
+        afectadas_techo = [i for i in decisiones si accion != "cerrar"]
+        motivo_grupo = "Grupo sin capacidad consolidada: banda −1"
+    elif suma > L_grupo:
         for i: decisiones[i].L_vigente = redondear_abajo(decisiones[i].L_vigente * L_grupo / suma, P.redondeo_L)
         marcar motivo_grupo = "Techo de grupo: {L_grupo} €"
 
@@ -359,14 +424,24 @@ function grupo(filas_grupo, decisiones, P):
   (`meses_con_cross_default`). Si la causante no tiene fila ese mes, la bandera
   se levanta (fail-open). Al levantarse, la empresa vuelve por el camino normal
   de reapertura.
-- **A revisitar** ⏳ (run 2026-09-19): de 30.137 cierres, `caja` (capacidad
-  estresada ≤ 0) aparece en 24.944 y `historia` (confianza < 0,5) en 22.801; el
-  techo de grupo solo en 371 (1,2 %). Solo 46 de 1.286 empresas llegan a tener
-  línea. La calibración pendiente está en scoring (cobertura/confianza y
-  capacidad), no en el techo; el techo a 0 sigue siendo a revisitar como opción
-  (i) aplicar techo solo si `L_grupo > 0`, y con capacidad consolidada 0 bajar
-  una banda en vez de cerrar, o (ii) consolidar solo hermanas con
-  `confianza ≥ 0,5`.
+- El techo consolidado usa el mismo estrés que §4 (decisión 40: 0,90 / 1,05 /
+  1,3). El techo y el límite individual tienen que medirse con la misma vara.
+- **Techo con capacidad consolidada 0** (decisión 41). Si `L_grupo = 0` y algún
+  miembro tiene línea, **no se prorratea**: el prorrateo a cero cerraría al único
+  miembro solvente del grupo. En su lugar todos los miembros no cerrados bajan
+  **una banda** (`escalones_extra += 1`, acumulables con el de cross-default hasta
+  2) y la ficha dice `motivo_grupo = "Grupo sin capacidad consolidada: banda −1"`.
+  El techo cero **no** deriva ningún `cerrar`.
+
+  Por qué: las hermanas sin datos aportan pagos clasificados y pocos cobros
+  clasificados, así que la caja consolidada estresada se va a negativo por falta
+  de dato, no por riesgo. En el run de 2026-09-19 el techo cerraba a 34 de las 79
+  empresas que pasaban las puertas en 2026-08 (637 de 1.098 empresa-mes sobre 24
+  meses). El grupo sigue penalizado —una banda son −30 % de límite y +2 pp— y se
+  dice en la ficha. Es la única opción coherente con el aval: una filial puede
+  recibir +10 puntos de aval del padre y no puede a la vez quedar cerrada por el
+  techo de ese mismo padre. El prorrateo se mantiene íntegro siempre que
+  `L_grupo > 0`.
 
 ## 10. Salida: contrato
 
@@ -377,6 +452,7 @@ company_id, mes, version_parametros
 elegible              bool  (seis puertas + T_max > 0 + menú no vacío)
 motivo                texto (null si y solo si elegible)
 puertas_fallidas      [str]
+cierre_pendiente      bool  (decisión 42: mes de gracia de una puerta blanda)
 banda                 A|B|C|D            (sin recorte)
 banda_efectiva        A|B|C|D            (con recorte estructural / cross-default)
 capacidad_cuota_adv   €/mes
@@ -392,11 +468,16 @@ motivo_grupo          texto o null
 banda_pred_3m_usada   A|B|C|D (null si previsión desconectada)
 estado                {L_prev, accion_prev, meses_elegible_seguidos, meses_reduccion_seguidos,
                        meses_pred_peor_seguidos, cerrado_desde, cross_default_activo,
-                       causa_cross_default, meses_con_cross_default}
+                       causa_cross_default, meses_con_cross_default,
+                       meses_puerta_blanda_seguidos}
 ```
 
 `L` y `L_vigente` se guardan los dos: la ficha enseña "recomendado 120 k,
 vigente 100 k (subida limitada al 25 %)".
+
+`capacidad_cuota_adv` es la del motor de decisión (§4, decisión 40), no la de
+`ScoreRow`. Con `cierre_pendiente = true` la fila sale `elegible = false` con el
+`motivo` de la puerta, `L = 0` y `L_vigente = L_prev`.
 
 ## 11. Plantillas de `motivo_accion`
 
@@ -406,7 +487,7 @@ vigente 100 k (subida limitada al 25 %)".
 | ampliar | "Límite sube de {Lp} a {L_vigente} €: {top1 delta_contrib}" |
 | reducir | "Límite baja de {Lp} a {L_vigente} €: {motivo = deterioro estructural \| 2 meses por debajo \| previsión: banda {banda_pred_3m} en 3 meses \| cross-default de {empresa causante} \| techo de grupo}, {top1 delta_contrib o driver_1}" |
 | cerrar | "{motivo de §3}" |
-| mantener | "Sin cambios: score {score}, límite {Lp} €" / "Reapertura en {n} meses" / "Pendiente confirmar bajada" |
+| mantener | "Sin cambios: score {score}, límite {Lp} €" / "Reapertura en {n} meses" / "Pendiente confirmar bajada" / "Pendiente confirmar cierre: {motivo de §3}" (decisión 42, manda sobre las otras) |
 
 `top1 delta_contrib` viene de la fila del score (variable con mayor
 `|delta_aportacion|`).
@@ -441,7 +522,13 @@ Resultado esperado por mes escrito en el fixture, no calculado.
 
 Tests de propiedades (sobre todas las filas del dataset):
 
-1. `elegible = false ⇒ L_vigente = 0`.
+1. `elegible = false ⇒ L_vigente = 0`, con dos excepciones: el mes de gracia
+   de una puerta blanda (`cierre_pendiente`, decisión 42) y la fila que pasa las
+   seis puertas pero se queda sin menú (`T_max = 0`, o capacidad por debajo del
+   escalón de `redondeo_L` en todos los plazos, §7). En los dos casos lo que
+   falta es grifo que abrir este mes, no solvencia, y la línea viva no se cierra.
+   Forma comprobable: `no elegible ⇒ L_vigente = 0 ∨ cierre_pendiente ∨
+   puertas_fallidas = []`.
 2. `cantidad_max` y `tae` no decrecen con el plazo dentro de un menú.
 3. `|L_vigente − L_prev| ≤ 25 % · L_prev` salvo `cerrar`, `reducir` por
    deterioro estructural o `reducir` por `grupo` (escalón de cross-default y
