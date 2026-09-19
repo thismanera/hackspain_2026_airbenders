@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FIXTURE_PERCENTILES } from "@/lib/features/scoring/__fixtures__/percentiles";
-import { aggregate, estadoSolo, subnota, subnotaB2 } from "@/lib/features/scoring/aggregate";
+import {
+  aggregate,
+  estadoConGrupo,
+  estadoSolo,
+  subnota,
+  subnotaB2,
+} from "@/lib/features/scoring/aggregate";
 import { PARAMS } from "@/lib/features/scoring/params";
 import type { Percentiles, VariableSet } from "@/lib/features/scoring/types";
 
@@ -93,6 +99,7 @@ test("estado thresholds", () => {
     ]),
   ) as VariableSet;
   vars.A1 = { raw: 0.2, conf: 1 };
+  vars.B2 = { raw: 0, conf: 1 };
   vars.C4 = { raw: 0.1, conf: 1 };
   assert.equal(estadoSolo(80, 0.9, 0, vars), "sana");
   assert.equal(estadoSolo(80, 0.4, 0, vars), "vigilar");
@@ -100,4 +107,40 @@ test("estado thresholds", () => {
   assert.equal(estadoSolo(40, 0.9, 0, vars), "riesgo");
   assert.equal(estadoSolo(80, 0.9, 2, vars), "riesgo");
   assert.equal(estadoSolo(80, 0.2, 0, vars), "sin_datos");
+});
+
+test("healthy state accepts absent invoice and obligation observations", () => {
+  const vars = Object.fromEntries(
+    [...PARAMS.bloques.A, ...PARAMS.bloques.B, ...PARAMS.bloques.C].map((id) => [
+      id,
+      { raw: 1, conf: 1 },
+    ]),
+  ) as VariableSet;
+  vars.A1 = { raw: 0.2, conf: 1 };
+  vars.B2 = { raw: null, conf: 0 };
+  vars.C4 = { raw: null, conf: 0 };
+  assert.equal(estadoSolo(80, 0.9, 0, vars), "sana");
+  assert.equal(estadoConGrupo("vigilar", 80, 0.9, "estandar", 0, 0, vars), "sana");
+});
+
+test("loan without a credit line reallocates A and excludes A5", () => {
+  const vars = Object.fromEntries(
+    [...PARAMS.bloques.A, ...PARAMS.bloques.B, ...PARAMS.bloques.C].map((id) => [
+      id,
+      { raw: 0, conf: 1 },
+    ]),
+  ) as VariableSet;
+  const result = aggregate(vars, { rachaB2Prev: [0, 0, 0] }, FIXTURE_PERCENTILES, {
+    tieneCuotas: true,
+    tieneLineaCredito: false,
+  });
+  const a = result.contributions.filter((contribution) => contribution.id.startsWith("A"));
+  assert.deepEqual(
+    a.map((contribution) => contribution.peso),
+    [0.12, 0.12, 0.11, 0.1, 0],
+  );
+  assert.equal(a[4].aplicable, false);
+  assert.ok(
+    Math.abs(a.reduce((total, contribution) => total + contribution.peso, 0) - 0.45) < 1e-12,
+  );
 });

@@ -5,7 +5,7 @@ Detalle técnico ampliado en [`scoring-engine.md`](./scoring-engine.md) (`scoreS
 [`forecast-engine.md`](./forecast-engine.md) (previsión) y
 [`decision-engine.md`](./decision-engine.md) (decisión).
 
-Contrato vigente (19-09-2026): `scoreSolo` es la única nota autónoma persistida mediante
+Contrato vigente (19-09-2026, scoreSolo-holding-v3): `scoreSolo` es la única nota autónoma persistida mediante
 `@map("score")`; `scoreGrupo = clamp(scoreSolo + ajusteHolding, 0, 100)`. El estado autónomo
 se publica como `estadoSolo` y el ajustado como `estadoGrupo`. Las ejecuciones incompatibles
 se rechazan con 409 y el selector por defecto ignora ejecuciones antiguas incompatibles.
@@ -148,10 +148,10 @@ préstamos intragrupo/socios en 33 empresas).
 | D5  | Interdependencia          | ¿Cuánto está enganchada al grupo?                | traspasos intragrupo brutos ambos sentidos / (`cobros_op + pagos_op`), 12 m                                              | idem       |
 
 ```text
-w          = w_max × min(1, D5 / 0,2)                  ✅ w_max = 0,4 ; grupo de 1 → w = 0
-si D2 > score_solo (aval):     aval_grupo = w × min(1, D3 / 2) × (D2 − score_solo)   ← el padre tiene que tener dinero
-si D2 < score_solo (contagio): aval_grupo = w × (D2 − score_solo)                    ← un grupo débil arrastra siempre
-|aval_grupo| ≤ 20 puntos                                ✅
+factorD5 = clip(max(0,35, D5 / 0,15), 0, 1)            ; grupo de 1 → ajuste 0
+si Ci > 0 y D2 < scoreSolo: -min(30, min(1,D/S) × (scoreSolo − D2) × 0,8 × factorD5)
+si Ci < 0 y D2 > scoreSolo: +min(20, min(1,S/D) × (D2 − scoreSolo) × 0,7 × factorD5)
+|ajusteHolding| ≤ 30 puntos negativos / 20 positivos
 ```
 
 - Cascada muestra "Aval de grupo +X" o "Contagio de grupo −X" como una

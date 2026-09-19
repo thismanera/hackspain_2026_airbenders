@@ -166,13 +166,15 @@ export function detectarInflexion(rows: InflexionRow[], includeHolding: boolean)
         valid = false;
         break;
       }
-      const delta = scoreOf(sequence[i]) - scoreOf(sequence[i - 1]);
-      if (delta === 0 || (up ? delta < 0 : delta > 0)) {
-        valid = false;
-        break;
-      }
     }
-    if (!valid || Math.abs(scoreOf(current) - scoreOf(candidate.row)) < 6) return null;
+    const extreme = scoreOf(candidate.row);
+    const currentScore = scoreOf(current);
+    const regime = after.every((row) => {
+      const score = scoreOf(row);
+      return up ? score >= extreme - 1 : score <= extreme + 1;
+    });
+    if (!valid || !regime || (up ? currentScore < extreme + 6 : currentScore > extreme - 6))
+      return null;
     const first = rows[candidate.index + 1];
     const ids = includeHolding
       ? [...PARAMS.bloques.A, ...PARAMS.bloques.B, ...PARAMS.bloques.C, "holding"]
@@ -208,7 +210,7 @@ export function detectarInflexion(rows: InflexionRow[], includeHolding: boolean)
       scoreInflexion: null,
       canalDesencadenante: "ninguno",
       variableDetonante: null,
-      explicacion: "No hay giro confirmado con dos cambios estrictos y distancia suficiente",
+      explicacion: "No hay giro confirmado con régimen sostenido y distancia suficiente",
     }
   );
 }

@@ -50,10 +50,22 @@ export type Aggregated = {
   confianza: number;
 };
 
-function activeWeight(id: VariableId, noDebt: boolean): number {
+function activeWeight(
+  id: VariableId,
+  cobertura?: Pick<Coverage, "tieneCuotas" | "tieneLineaCredito">,
+): number {
+  const noDebt = cobertura !== undefined && !cobertura.tieneCuotas && !cobertura.tieneLineaCredito;
   if (noDebt && id in PARAMS.pesosVariablesSinDeuda)
     return PARAMS.pesosVariablesSinDeuda[id as "A1" | "A2"];
   if (noDebt && id.startsWith("A")) return 0;
+  if (
+    cobertura?.tieneCuotas &&
+    !cobertura.tieneLineaCredito &&
+    id in PARAMS.pesosVariablesCuotasSinLinea
+  )
+    return PARAMS.pesosVariablesCuotasSinLinea[
+      id as keyof typeof PARAMS.pesosVariablesCuotasSinLinea
+    ];
   return PARAMS.pesosVariables[id];
 }
 
@@ -70,10 +82,10 @@ export function aggregate(
   const noDebt = cobertura !== undefined && !cobertura.tieneCuotas && !cobertura.tieneLineaCredito;
   for (const bloque of ["A", "B", "C"] as const) {
     const ids = PARAMS.bloques[bloque];
-    const active = ids.filter((id) => activeWeight(id, noDebt) > 0);
+    const active = ids.filter((id) => activeWeight(id, cobertura) > 0);
     for (const id of ids) {
       const v = vars[id];
-      const weight = activeWeight(id, noDebt);
+      const weight = activeWeight(id, cobertura);
       const aplicable = weight > 0;
       const rawSub =
         id === "B2"
@@ -99,7 +111,7 @@ export function aggregate(
       subscores[bloque] += aportacion;
       confs[bloque] += aplicable ? weight * v.conf : 0;
     }
-    const activeWeightTotal = active.reduce((total, id) => total + activeWeight(id, noDebt), 0);
+    const activeWeightTotal = active.reduce((total, id) => total + activeWeight(id, cobertura), 0);
     if (activeWeightTotal > 0) {
       subscores[bloque] /= activeWeightTotal;
       confs[bloque] /= activeWeightTotal;
@@ -127,9 +139,8 @@ export function estadoSolo(
     A1 !== null &&
     A1 >= 0.1 &&
     rachaB2 === 0 &&
-    vars.B2.raw !== null &&
-    C4 !== null &&
-    C4 <= 0.2
+    (vars.B2.raw === null || vars.B2.raw === 0) &&
+    (C4 === null || C4 <= 0.2)
   )
     return "sana";
   return "vigilar";
@@ -156,9 +167,8 @@ export function estadoConGrupo(
     A1 !== null &&
     A1 >= 0.1 &&
     rachaB2 === 0 &&
-    vars?.B2.raw != null &&
-    C4 !== null &&
-    C4 <= 0.2
+    (vars?.B2?.raw === null || vars?.B2?.raw === 0) &&
+    (C4 === null || C4 <= 0.2)
   )
     return "sana";
   return "vigilar";

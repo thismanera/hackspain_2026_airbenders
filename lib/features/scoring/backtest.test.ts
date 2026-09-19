@@ -156,3 +156,17 @@ test("an alert emitted in the last six months of the series is censored", () => 
   assert.equal(r.deterioro.alerts, 0); // CALENDAR[7] + 6 > CALENDAR[11], último de la serie
   assert.equal(r.deterioro.falseAlarmRate, null);
 });
+
+test("backtest compares autonomous and holding scores independently", () => {
+  const rows = series("c", D).map((row, index) => ({
+    ...row,
+    scoreGrupo: index < 6 ? 80 : index < 8 ? 70 : 60,
+  }));
+  const solo = backtest(rows);
+  const grupo = backtest(rows, { targetScore: "scoreGrupo" });
+  assert.equal(solo.targetScore, "scoreSolo");
+  assert.equal(grupo.targetScore, "scoreGrupo");
+  assert.equal(solo.deterioro.matched, 0);
+  assert.equal(grupo.deterioro.matched, 1);
+  assert.equal(grupo.deterioro.leadMedian, 2);
+});

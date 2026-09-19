@@ -126,7 +126,12 @@ export type Alert = { tipo: AlertTipo; desdeMes: string };
 export type Direccion = "mejora" | "estable" | "deterioro";
 export type Naturaleza = "temporal" | "estructural" | "sin_cambio";
 export type PatronTrayectoria =
-  "bache_puntual" | "caida_estructural" | "inestabilidad_cronica" | "estable" | "mejora";
+  | "bache_puntual"
+  | "caida_estructural"
+  | "inestabilidad_cronica"
+  | "deterioro_temporal"
+  | "estable"
+  | "mejora";
 export type Estado = "sana" | "vigilar" | "riesgo" | "sin_datos";
 export type PerfilGrupo = "filial_subvencionada" | "drenaje_tesoreria" | "estandar";
 export type FactorDeterminante = { id: string; delta: number; descripcion: string };

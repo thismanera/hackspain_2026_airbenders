@@ -62,7 +62,7 @@ existe):
 pnpm scoring:fit        # ingest por grupo, € y percentiles congelados
 pnpm scoring:score      # company_month_score (docs/scoring-engine.md §10)
 pnpm scoring:decide     # decisión legacy sobre las filas del score (docs/decision-engine.md)
-pnpm scoring:backtest   # lead time, recall, falsas alarmas sobre validación
+pnpm scoring:backtest   # lead time, recall y falsas alarmas para scoreSolo y scoreGrupo
 pnpm scoring:import     # Postgres
 ```
 

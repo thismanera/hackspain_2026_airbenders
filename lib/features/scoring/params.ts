@@ -20,7 +20,7 @@ export type VariableId = (typeof VARIABLES)[number];
 export type Bloque = "A" | "B" | "C";
 
 export const PARAMS = {
-  contratoVersion: "scoreSolo-holding-v2",
+  contratoVersion: "scoreSolo-holding-v3",
   mesInicio: "2024-09",
   mesFin: "2026-08",
   ventanaCorta: 6,
@@ -45,6 +45,13 @@ export const PARAMS = {
   pesosVariablesSinDeuda: {
     A1: 0.25,
     A2: 0.2,
+  } as const,
+  pesosVariablesCuotasSinLinea: {
+    A1: 0.12,
+    A2: 0.12,
+    A3: 0.11,
+    A4: 0.1,
+    A5: 0,
   } as const,
   bloques: {
     A: ["A1", "A2", "A3", "A4", "A5"],
@@ -90,6 +97,7 @@ export const PARAMS = {
     drenajeMax: 30,
     respaldoMax: 20,
     saturacionD5: 0.15,
+    factorMinimoGrupo: 0.35,
     factorAtenuacionDrenaje: 0.8,
     factorAtenuacionRespaldo: 0.7,
   },

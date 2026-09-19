@@ -148,7 +148,7 @@ function factorForGroup(
     : { id: "holding", delta: 0, descripcion: "Sin comparación disponible" };
 }
 
-function earlyWarning(
+export function earlyWarning(
   scoreSolo: number,
   previous: ScoreRow | undefined,
   previousRows: ScoreRow[],
@@ -163,10 +163,11 @@ function earlyWarning(
     previousRows.slice(-4).every((r) => r.margenMes !== null && r.margenMes > 0);
   if (deficitMes === true && rachaDeficit === 1 && healthyRun) return true;
   if (previous && c4 !== null && previous.C4 !== null && c4 - previous.C4 > 0.15) return true;
-  return c6 !== null && c6 > 0;
+  const previousC6 = previous?.variables.find((variable) => variable.id === "C6")?.raw ?? null;
+  return c6 !== null && c6 > 0 && (previousC6 === null || c6 > previousC6);
 }
 
-function trajectory(
+export function trajectory(
   current: ScoreRow,
   previous: ScoreRow | undefined,
   three: ScoreRow | undefined,
@@ -208,7 +209,8 @@ function trajectory(
   )
     return "bache_puntual";
   if (current.direccion === "mejora") return "mejora";
-  return current.direccion === "estable" ? "estable" : "estable";
+  if (current.direccion === "deterioro") return "deterioro_temporal";
+  return "estable";
 }
 
 /**
@@ -289,8 +291,14 @@ export function scoreGroup(input: GroupInput, params: Parameters): ScoreRow[] {
         me.b2Observed,
       );
       const ajusteBase = ajusteHolding(me, siblings, d.D2, d.D5);
-      const scoreGrupo = Math.min(100, Math.max(0, s.scoreSolo + ajusteBase));
-      const ajuste = scoreGrupo - s.scoreSolo;
+      const scoreGrupoPropuesto = Math.min(100, Math.max(0, s.scoreSolo + ajusteBase));
+      const ajuste = Number(
+        Math.min(
+          PARAMS.holding.respaldoMax,
+          Math.max(-PARAMS.holding.drenajeMax, scoreGrupoPropuesto - s.scoreSolo),
+        ).toFixed(12),
+      );
+      const scoreGrupo = Math.min(100, Math.max(0, s.scoreSolo + ajuste));
       const variables = s.contributions;
       const prevRows = rowsBy.get(id)!;
       const prev = prevRows[t - 1];

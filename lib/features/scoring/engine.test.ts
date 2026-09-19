@@ -3,7 +3,14 @@ import test from "node:test";
 import { FIXTURE_PERCENTILES } from "@/lib/features/scoring/__fixtures__/percentiles";
 import { aggregate, estadoConGrupo } from "@/lib/features/scoring/aggregate";
 import { scoreRowSchema } from "@/lib/features/scoring/contracts";
-import { prepareGroup, scoreGroup, type GroupInput } from "@/lib/features/scoring/engine";
+import {
+  earlyWarning,
+  prepareGroup,
+  scoreGroup,
+  trajectory,
+  type GroupInput,
+} from "@/lib/features/scoring/engine";
+import { scoreRowFixture } from "@/lib/features/scoring/__fixtures__/score-row";
 import { perfilGrupo } from "@/lib/features/scoring/group";
 import { hashParams, PARAMS } from "@/lib/features/scoring/params";
 import type { Parameters, Product, Tx, VariableSet } from "@/lib/features/scoring/types";
@@ -306,4 +313,25 @@ test("a single bad month after a healthy run is an early warning and a bache", (
   assert.equal(rows[start].alertaTempranaDeterioro, true);
   assert.equal(rows[start].patronTrayectoria, "bache_puntual");
   assert.equal(rows[start].estadoSolo === "riesgo", false);
+});
+
+test("C6 only warns when a returned-receipt ratio is new or increasing", () => {
+  const base = scoreRowFixture();
+  const withC6 = (raw: number | null) =>
+    scoreRowFixture({
+      variables: base.variables.map((variable) =>
+        variable.id === "C6" ? { ...variable, raw } : variable,
+      ),
+    });
+  const previous = withC6(0.2);
+  assert.equal(earlyWarning(80, previous, [], false, 0, null, 0.2), false);
+  assert.equal(earlyWarning(80, previous, [], false, 0, null, 0.1), false);
+  assert.equal(earlyWarning(80, previous, [], false, 0, null, 0.3), true);
+  assert.equal(earlyWarning(80, withC6(null), [], false, 0, null, 0.1), true);
+});
+
+test("non-structural deterioration has an explicit temporal trajectory", () => {
+  const current = scoreRowFixture({ direccion: "deterioro", scoreSolo: 60 });
+  const previous = scoreRowFixture({ direccion: "estable", scoreSolo: 64 });
+  assert.equal(trajectory(current, previous, undefined, null, null, [], 0), "deterioro_temporal");
 });

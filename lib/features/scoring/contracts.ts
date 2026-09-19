@@ -65,6 +65,7 @@ export const scoreRowSchema = z.object({
     "bache_puntual",
     "caida_estructural",
     "inestabilidad_cronica",
+    "deterioro_temporal",
     "estable",
     "mejora",
   ]),

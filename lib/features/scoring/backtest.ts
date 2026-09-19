@@ -1,7 +1,9 @@
-import type { AlertTipo, ScoreRow } from "@/lib/features/scoring/types";
+import { direccion } from "@/lib/features/scoring/evolution";
+import type { Alert, AlertTipo, ScoreRow } from "@/lib/features/scoring/types";
 import { median, monthIndex, percentile } from "@/lib/features/scoring/windows";
 
 type Kind = Extract<AlertTipo, "deterioro" | "recuperacion">;
+export type TargetScore = "scoreSolo" | "scoreGrupo";
 type Event = { company: string; month: string; index: number; kind: Kind };
 type BacktestKind = {
   events: number;
@@ -13,6 +15,7 @@ type BacktestKind = {
   leadP25: number | null;
 };
 export type BacktestReport = {
+  targetScore: TargetScore;
   forwardMarginSpearman: number | null;
   forwardMarginPairs: number;
   censoredMonths: number;
@@ -21,7 +24,7 @@ export type BacktestReport = {
 };
 
 /** Ventana de meses (inclusive) sobre la que se miden eventos, alertas y pares. */
-export type BacktestOptions = { months?: [string, string] };
+export type BacktestOptions = { months?: [string, string]; targetScore?: TargetScore };
 
 /** Meses del final de cada serie que no pueden contar como falsa alarma (censura por la derecha). */
 const CENSORED_MONTHS = 6;
@@ -73,6 +76,62 @@ function spearman(pairs: [number, number][]): number | null {
   return vx && vy ? cov / Math.sqrt(vx * vy) : null;
 }
 
+function scoreAt(row: ScoreRow, targetScore: TargetScore): number {
+  return row[targetScore];
+}
+
+/**
+ * Construye las alertas comparables de deterioro/recuperación para el score elegido. Las alertas
+ * autónomas ya persistidas siguen siendo la fuente de verdad cuando están disponibles; esto
+ * conserva la semántica enriquecida del motor. Para scoreGrupo (que no tiene alertas persistidas)
+ * y series sintéticas sin alertas, se derivan con la misma dirección y persistencia de dos meses.
+ */
+function alertsForTarget(rows: ScoreRow[], targetScore: TargetScore): Map<number, Alert[]> {
+  const out = new Map<number, Alert[]>();
+  const persisted = new Map<Kind, boolean>(
+    (["deterioro", "recuperacion"] as const).map((kind) => [
+      kind,
+      targetScore === "scoreSolo" && rows.some((row) => row.alertas.some((a) => a.tipo === kind)),
+    ]),
+  );
+  const directions = rows.map((row) => {
+    const current = scoreAt(row, targetScore);
+    const month = monthIndex(row.month);
+    const three = rows.find((candidate) => monthIndex(candidate.month) === month - 3);
+    const six = rows.find((candidate) => monthIndex(candidate.month) === month - 6);
+    return direccion(
+      current,
+      three ? scoreAt(three, targetScore) : null,
+      six ? scoreAt(six, targetScore) : null,
+    );
+  });
+  for (const kind of ["deterioro", "recuperacion"] as const) {
+    if (persisted.get(kind)) {
+      rows.forEach((row, index) => {
+        const alerts = row.alertas.filter((alert) => alert.tipo === kind);
+        if (alerts.length) out.set(index, [...(out.get(index) ?? []), ...alerts]);
+      });
+      continue;
+    }
+    const wanted = kind === "deterioro" ? "deterioro" : "mejora";
+    rows.forEach((row, index) => {
+      if (directions[index] !== wanted) return;
+      let run = 1;
+      while (
+        index - run >= 0 &&
+        directions[index - run] === wanted &&
+        monthIndex(rows[index - run + 1].month) - monthIndex(rows[index - run].month) === 1
+      )
+        run++;
+      if (run >= 2) {
+        const alert: Alert = { tipo: kind, desdeMes: rows[index - run + 1].month };
+        out.set(index, [...(out.get(index) ?? []), alert]);
+      }
+    });
+  }
+  return out;
+}
+
 /**
  * Métricas de §13 sobre la ventana `options.months` (ambos meses inclusive). Reglas:
  *
@@ -93,6 +152,7 @@ function spearman(pairs: [number, number][]): number | null {
  */
 export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): BacktestReport {
   const [desde, hasta] = options.months ?? [];
+  const targetScore = options.targetScore ?? "scoreSolo";
   const enVentana = (month: string) => desde === undefined || (month >= desde && month <= hasta!);
   const iVentana = desde === undefined ? Number.NEGATIVE_INFINITY : monthIndex(desde);
   const companies = new Map<string, ScoreRow[]>();
@@ -112,7 +172,7 @@ export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): Backt
         if (eventAt(list, i, kind)) events.push({ company, month: list[i].month, index: i, kind });
       if (!enVentana(list[i].month)) continue;
       if (i + 3 < list.length && list[i + 3].margenMes !== null)
-        pairs.push([list[i].scoreSolo, list[i + 3].margenMes!]);
+        pairs.push([scoreAt(list[i], targetScore), list[i + 3].margenMes!]);
     }
   }
   const empty = (): BacktestKind => ({
@@ -125,6 +185,7 @@ export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): Backt
     leadP25: null,
   });
   const report: BacktestReport = {
+    targetScore,
     forwardMarginSpearman: spearman(pairs),
     forwardMarginPairs: pairs.length,
     censoredMonths: CENSORED_MONTHS,
@@ -140,9 +201,15 @@ export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): Backt
       alerts = 0;
     for (const e of relevant) {
       const list = companies.get(e.company)!;
+      const alertsByIndex = alertsForTarget(list, targetScore);
       const candidates = list
         .slice(Math.max(0, e.index - 6), e.index)
-        .flatMap((r) => r.alertas.map((a) => ({ ...a, mes: r.month })))
+        .flatMap((r, offset) =>
+          (alertsByIndex.get(Math.max(0, e.index - 6) + offset) ?? []).map((a) => ({
+            ...a,
+            mes: r.month,
+          })),
+        )
         .filter((a) => a.tipo === kind && monthIndex(a.desdeMes) !== -1);
       if (!candidates.length) continue;
       matched++;
@@ -154,12 +221,13 @@ export function backtest(rows: ScoreRow[], options: BacktestOptions = {}): Backt
       leads.push(iEvento - monthIndex(first.desdeMes));
     }
     for (const [company, list] of companies) {
+      const alertsByIndex = alertsForTarget(list, targetScore);
       const ultimo = monthIndex(list[list.length - 1].month);
       if (ultimo === -1) continue;
       const cuando = todos.filter((e) => e.company === company).map((e) => monthIndex(e.month));
       for (let i = 0; i < list.length; i++) {
-        const ahora = list[i].alertas.some((a) => a.tipo === kind);
-        const antes = list[i - 1]?.alertas.some((a) => a.tipo === kind) ?? false;
+        const ahora = alertsByIndex.get(i)?.some((a) => a.tipo === kind) ?? false;
+        const antes = alertsByIndex.get(i - 1)?.some((a) => a.tipo === kind) ?? false;
         if (!ahora || antes) continue; // solo la emisión, no cada mes que sigue activa
         const m = monthIndex(list[i].month);
         if (m === -1) continue;

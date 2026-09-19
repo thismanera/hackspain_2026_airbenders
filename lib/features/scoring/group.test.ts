@@ -33,10 +33,12 @@ test("holding adjustment rewards a receiver and penalizes a donor with bounded f
   assert.equal(ajusteHolding(donor, [receiver], donorD.D2, 0.15), -20);
 });
 
-test("capacity, D5 zero, and one-person groups produce no adjustment", () => {
-  const me = member({ capacidadNeta6m: -100 });
+test("capacity and one-person groups gate the holding adjustment", () => {
+  const me = member({ scoreSolo: 40, capacidadNeta6m: -100 });
   assert.equal(ajusteHolding(me, [], null, 0.15), 0);
-  assert.equal(ajusteHolding(me, [member({ capacidadNeta6m: 200 })], 50, 0), 0);
+  assert.ok(ajusteHolding(me, [member({ capacidadNeta6m: 200 })], 50, 0) > 0);
+  const donor = member({ scoreSolo: 90, capacidadNeta6m: 200 });
+  assert.ok(ajusteHolding(donor, [me], 40, 0) < 0);
   assert.deepEqual(
     holdingTotals([member({ capacidadNeta6m: 10 }), member({ capacidadNeta6m: -4 })]),
     {

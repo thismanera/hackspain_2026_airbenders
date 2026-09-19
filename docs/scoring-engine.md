@@ -230,7 +230,9 @@ A5 dependencia_credito= Σ6m disp_credito / Σ6m cobros_op                     ;
 
 A3, A4 y A5 son no aplicables cuando no existen cuotas ni línea de crédito:
 se excluyen del bloque y A1/A2 reciben respectivamente 25 % y 20 % del score total.
-Con deuda o línea, las cinco variables pesan 9 % cada una.
+Cuando existen cuotas pero no línea, A5 sigue siendo no aplicable y los pesos son
+A1 12 %, A2 12 %, A3 11 % y A4 10 %. Con línea, los pesos son A1/A2/A3 10 %,
+A4 8 % y A5 7 %.
 
 Umbrales sanos (solo para la ficha, no entran en el score):
 A1 ≥ 10 % · A2 ≤ 1/6 · A3 ≥ 1,3 · A4 ≤ 25 % · A5 ≤ 20 %.
@@ -347,19 +349,19 @@ resto de pesos A es cero; `confs_A` es la media de las confianzas A1 y A2.
 
 Estado (para la ficha; decisión usa las puertas de su §3, no este campo):
 
-| Estado      | Regla                                                              |
-| ----------- | ------------------------------------------------------------------ |
-| `sin_datos` | `confianza < 0,3`                                                  |
-| `riesgo`    | `scoreSolo < 45`, `B2 ≥ 2` o `C4 > 0,40`                           |
-| `sana`      | `scoreSolo ≥ 70`, `confianza ≥ 0,5`, A1 ≥ 0,10, B2 = 0 y C4 ≤ 0,20 |
-| `vigilar`   | resto                                                              |
+| Estado      | Regla                                                                                  |
+| ----------- | -------------------------------------------------------------------------------------- |
+| `sin_datos` | `confianza < 0,3`                                                                      |
+| `riesgo`    | `scoreSolo < 45`, `B2 ≥ 2` o `C4 > 0,40`                                               |
+| `sana`      | `scoreSolo ≥ 70`, `confianza ≥ 0,5`, A1 ≥ 0,10, B2 ausente o = 0 y C4 ausente o ≤ 0,20 |
+| `vigilar`   | resto                                                                                  |
 
 ## 7. Etapa E — Ajuste de grupo
 
 ```text
 Ci = cobrosOpMedia6m − pagosOpMedia6m − servicioDeudaMedia6m
 S = Σ max(Ci, 0); D = Σ max(-Ci, 0)
-factorD5 = clip(D5 / 0,15, 0, 1)
+factorD5 = clip(max(0,35, D5 / 0,15), 0, 1)    ; con hermanas, incluso D5 = 0 conserva conexión base
 donante  = -min(30, min(1,D/S) × (scoreSolo-D2) × 0,8 × factorD5)
 receptora = +min(20, min(1,S/D) × (D2-scoreSolo) × 0,7 × factorD5)
 scoreGrupo = clip(scoreSolo + ajusteHolding, 0, 100)
@@ -392,23 +394,28 @@ naturaleza    = "sin_cambio" si direccion == "estable"
                               y alguna de esas v ∈ {A1, A2, A3}
               = "temporal" en otro caso
 
+patron_trayectoria = "caida_estructural" > "inestabilidad_cronica" > "bache_puntual"
+                     > "mejora" > "deterioro_temporal" > "estable"
+                     ; `bache_puntual` exige caída mensual ≥ 5, mes previo ≥ 65,
+                     ; racha_deficit ≤ 1 y B2 = 0
+
 racha_deficit = meses consecutivos hasta t con caja_op < 0 (mes sin fila rompe la racha)
 racha_B2      = B2(t)
 ```
 
 ## 9. Alertas de señal
 
-| Tipo                        | Regla                                                                                | Persistencia     |
-| --------------------------- | ------------------------------------------------------------------------------------ | ---------------- |
-| `deterioro`                 | `direccion == deterioro`                                                             | 2 meses seguidos |
-| `deterioro_estructural`     | `naturaleza == estructural` y deterioro                                              | inmediata        |
-| `recuperacion`              | `direccion == mejora`                                                                | 2 meses seguidos |
-| `deficit_persistente`       | `caja_op < 0`                                                                        | 3 meses seguidos |
-| `impago_obligaciones`       | `B2 ≥ 2`                                                                             | inmediata        |
-| `vencido_alto`              | `C4 > 0,40`                                                                          | 1 mes            |
-| `contagio_grupo`            | `ajusteHolding ≤ −10`                                                                | 1 mes            |
-| `datos_insuficientes`       | `confianza < 0,3`                                                                    | 1 mes            |
-| `alerta_temprana_deterioro` | caída autónoma ≤ −4, primer déficit tras 4 meses positivos, salto C4 > 0,15 o C6 > 0 | inmediata        |
+| Tipo                        | Regla                                                                                                 | Persistencia     |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------- |
+| `deterioro`                 | `direccion == deterioro`                                                                              | 2 meses seguidos |
+| `deterioro_estructural`     | `naturaleza == estructural` y deterioro                                                               | inmediata        |
+| `recuperacion`              | `direccion == mejora`                                                                                 | 2 meses seguidos |
+| `deficit_persistente`       | `caja_op < 0`                                                                                         | 3 meses seguidos |
+| `impago_obligaciones`       | `B2 ≥ 2`                                                                                              | inmediata        |
+| `vencido_alto`              | `C4 > 0,40`                                                                                           | 1 mes            |
+| `alerta_temprana_deterioro` | caída autónoma ≤ −4, primer déficit tras cuatro meses positivos, salto C4 > 0,15 o C6 nuevo/creciente | 1 mes            |
+| `contagio_grupo`            | `ajusteHolding ≤ −10`                                                                                 | 1 mes            |
+| `datos_insuficientes`       | `confianza < 0,3`                                                                                     | 1 mes            |
 
 Cada alerta guarda `desde_mes` (primer mes en que la regla se cumple sin
 interrupción). Las alertas de **acción** (abrir, reducir, cerrar) no son de
@@ -531,7 +538,7 @@ pura".
 | `recall`                | eventos con alerta previa en ≤ 6 meses / eventos                                                                  |
 | `falsas_alarmas`        | alertas `deterioro` elegibles sin evento en los 6 meses siguientes / alertas elegibles                            |
 | simetría                | las tres anteriores para `recuperacion`                                                                           |
-| `precision_nivel`       | Spearman entre `scoreSolo(t)` y `margen_caja(t+3)`                                                                |
+| `precision_nivel`       | Spearman entre el score objetivo (`scoreSolo` o `scoreGrupo`) y `margen_caja(t+3)`                                |
 | `estructural_precision` | % de `naturaleza = estructural` seguidos de evento en 6 m, frente a `temporal`                                    |
 
 Cómo interactúa cada métrica con la ventana (implementado en
@@ -549,6 +556,12 @@ Cómo interactúa cada métrica con la ventana (implementado en
   en `(m, m + 6]`; ese evento vale aunque caiga fuera de la ventana, porque la
   alerta sí acertó.
 - **`precision_nivel`**: pares con `t` dentro de la ventana y fila en `t + 3`.
+
+El backtest acepta `targetScore`, que vale `scoreSolo` por defecto. El informe
+de ejecución contiene una sección para `scoreSolo` y otra para `scoreGrupo`;
+recall, falsas alarmas y lead time se calculan con las alertas derivadas del
+score elegido. Las alertas autónomas persistidas se conservan para la sección
+`scoreSolo` cuando existen.
 
 ## 14. Orden de ejecución
 

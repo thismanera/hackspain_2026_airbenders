@@ -82,8 +82,12 @@ export function ajusteHolding(
   if (D2 === null || siblings.length === 0) return 0;
   const all = [me, ...siblings];
   const { excedente: S, deficit: D } = holdingTotals(all);
-  const factorD5 = clamp(D5 / PARAMS.holding.saturacionD5, 0, 1);
-  if (factorD5 === 0 || S <= 0 || D <= 0) return 0;
+  const factorD5 = clamp(
+    Math.max(PARAMS.holding.factorMinimoGrupo, D5 / PARAMS.holding.saturacionD5),
+    0,
+    1,
+  );
+  if (S <= 0 || D <= 0) return 0;
   if (capacidadNeta(me) > 0 && me.scoreSolo > D2) {
     return -Math.min(
       PARAMS.holding.drenajeMax,

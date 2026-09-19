@@ -124,7 +124,7 @@ function evolutionRow(month: string, scoreSolo: number, scoreGrupo = scoreSolo, 
   };
 }
 
-test("bidirectional inflection needs two strict monthly moves and names the initial trigger", () => {
+test("bidirectional inflection tolerates flat months and names the initial trigger", () => {
   const down = detectarInflexion(
     [
       evolutionRow("2025-01", 80, 82, 60),
@@ -152,6 +152,58 @@ test("bidirectional inflection needs two strict monthly moves and names the init
       .hayInflexion,
     false,
   );
+  const flat = detectarInflexion(
+    [
+      evolutionRow("2025-01", 85, 85, 60),
+      evolutionRow("2025-02", 80, 80, 56),
+      evolutionRow("2025-03", 80, 80, 56),
+      evolutionRow("2025-04", 78, 78, 55),
+      evolutionRow("2025-05", 74, 74, 54),
+    ],
+    false,
+  );
+  assert.equal(flat.tipo, "pico_bajista");
+  assert.equal(flat.mesInflexion, "2025-01");
+  const noisy = detectarInflexion(
+    [
+      evolutionRow("2025-01", 85, 85, 60),
+      evolutionRow("2025-02", 80, 80, 56),
+      evolutionRow("2025-03", 82, 82, 57),
+      evolutionRow("2025-04", 79, 79, 55),
+    ],
+    false,
+  );
+  assert.equal(noisy.mesInflexion, "2025-01");
+  assert.equal(
+    detectarInflexion(
+      [evolutionRow("2025-01", 85), evolutionRow("2025-02", 82), evolutionRow("2025-03", 80)],
+      false,
+    ).hayInflexion,
+    false,
+  );
+  assert.equal(
+    detectarInflexion(
+      [
+        evolutionRow("2025-01", 85),
+        evolutionRow("2025-02", 80),
+        evolutionRow("2025-04", 74),
+        evolutionRow("2025-05", 70),
+      ],
+      false,
+    ).hayInflexion,
+    false,
+  );
+  const tied = detectarInflexion(
+    [
+      evolutionRow("2025-01", 80),
+      evolutionRow("2025-02", 85),
+      evolutionRow("2025-03", 85),
+      evolutionRow("2025-04", 80),
+      evolutionRow("2025-05", 78),
+    ],
+    false,
+  );
+  assert.equal(tied.mesInflexion, "2025-03");
 });
 
 test("confirmed improvement requires monotonic monthly score and A1/A2 contribution growth", () => {

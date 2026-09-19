@@ -193,7 +193,8 @@ async function doBacktest() {
   for await (const row of lines<ScoreRow>(path.join(runDir(params, m.fingerprint), "scores.jsonl")))
     if (validation.has(row.groupId)) rows.push(row);
   const metrics = {
-    ...backtest(rows, { months: BACKTEST_MONTHS }),
+    scoreSolo: backtest(rows, { months: BACKTEST_MONTHS, targetScore: "scoreSolo" }),
+    scoreGrupo: backtest(rows, { months: BACKTEST_MONTHS, targetScore: "scoreGrupo" }),
     months: BACKTEST_MONTHS,
     validationCompanies: new Set(rows.map((r) => r.company)).size,
     validationRows: rows.length,
