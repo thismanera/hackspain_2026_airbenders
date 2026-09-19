@@ -42,6 +42,7 @@ model CompanyMonthScore {
   direction  String
   data       Json
   decision   CompanyMonthDecision?
+  forecast   CompanyMonthForecast?
 
   @@id([runId, companyId, month])
   @@index([runId, month, estado, direction])
@@ -62,4 +63,20 @@ model CompanyMonthDecision {
   @@id([runId, companyId, month])
   @@index([runId, month, band, action])
   @@map("company_month_decisions")
+}
+
+model CompanyMonthForecast {
+  runId        String
+  companyId    String
+  month        String
+  score        CompanyMonthScore @relation(fields: [runId, companyId, month], references: [runId, companyId, month])
+  scorePred3m  Float
+  bandPred3m   String
+  direction    String
+  metodo       String
+  data         Json
+
+  @@id([runId, companyId, month])
+  @@index([runId, month, bandPred3m, direction])
+  @@map("company_month_forecasts")
 }

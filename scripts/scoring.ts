@@ -8,6 +8,8 @@ import { decideGroup, parametrosDecision } from "../lib/features/decision/engine
 import { metricasDecision } from "../lib/features/decision/metrics";
 import type { DecisionRow } from "../lib/features/decision/types";
 import { previsiones } from "../lib/features/forecast/adapter";
+import { forecastRowSchema } from "../lib/features/forecast/contracts";
+import { FORECAST_PARAMS } from "../lib/features/forecast/params";
 import type { ForecastRow } from "../lib/features/forecast/types";
 import { backtest } from "../lib/features/scoring/backtest";
 import { scoreRowSchema } from "../lib/features/scoring/contracts";
@@ -207,8 +209,9 @@ async function doImport() {
       update: { groupId: c.groupId, currency: c.currency },
       create: { id: c.id, groupId: c.groupId, currency: c.currency },
     });
-  // Las decisiones cuelgan de la clave compuesta del score: se borran antes por la FK.
+  // Decisiones y previsiones cuelgan de la clave compuesta del score: se borran antes por la FK.
   await prisma.companyMonthDecision.deleteMany({ where: { runId: manifest.runId } });
+  await prisma.companyMonthForecast.deleteMany({ where: { runId: manifest.runId } });
   await prisma.companyMonthScore.deleteMany({ where: { runId: manifest.runId } });
   let batch: ScoreRow[] = [];
   let imported = 0;
@@ -263,12 +266,42 @@ async function doImport() {
   await flushDecisions();
   if (importedDecisions !== manifest.rows)
     throw new Error(`imported ${importedDecisions} decisions, expected ${manifest.rows}`);
+  // La previsión es opcional (decision §1): sin forecasts.jsonl no hay filas que importar.
+  const forecastsFile = path.join(run, "forecasts.jsonl");
+  let importedForecasts = 0;
+  if (existsSync(forecastsFile)) {
+    let forecasts: ForecastRow[] = [];
+    async function flushForecasts() {
+      if (!forecasts.length) return;
+      await prisma.companyMonthForecast.createMany({
+        data: forecasts.map((f) => ({
+          runId: manifest.runId,
+          companyId: f.company,
+          month: f.month,
+          scorePred3m: f.horizontes[FORECAST_PARAMS.horizonteDecision].scorePred,
+          bandPred3m: f.horizontes[FORECAST_PARAMS.horizonteDecision].bandaPred,
+          direction: f.direccionPred,
+          metodo: f.metodo,
+          data: f as never,
+        })),
+      });
+      importedForecasts += forecasts.length;
+      forecasts = [];
+    }
+    for await (const f of lines<ForecastRow>(forecastsFile)) {
+      forecasts.push(forecastRowSchema.parse(f));
+      if (forecasts.length >= 500) await flushForecasts();
+    }
+    await flushForecasts();
+  }
   await prisma.scoreRun.update({
     where: { id: manifest.runId },
     data: { status: "complete", completedAt: new Date(), metrics },
   });
   await prisma.$disconnect();
-  console.log(JSON.stringify({ imported, importedDecisions, runId: manifest.runId }));
+  console.log(
+    JSON.stringify({ imported, importedDecisions, importedForecasts, runId: manifest.runId }),
+  );
 }
 
 await mkdir(dir, { recursive: true });
