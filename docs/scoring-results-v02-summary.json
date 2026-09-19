@@ -1,0 +1,2077 @@
+{
+  "cutoff": "2026-08",
+  "runId": "4af59c03ab9b13e447a02978",
+  "companies": 1286,
+  "groups": 250,
+  "multiCompanyGroups": 179,
+  "score": {
+    "mean": 54.05512044398792,
+    "median": 53.184774696867535,
+    "min": 21.578377869219324,
+    "max": 74.32655829966953
+  },
+  "confidence": {
+    "mean": 0.4864182111351823
+  },
+  "rawBands": {
+    "C": 870,
+    "D": 114,
+    "B": 302
+  },
+  "assignedBands": {
+    "C": 859,
+    "D": 128,
+    "B": 299
+  },
+  "actions": {
+    "mantener": 730,
+    "cerrar": 438,
+    "reducir": 74,
+    "abrir": 14,
+    "ampliar": 30
+  },
+  "directions": {
+    "estable": 1131,
+    "mejora": 80,
+    "deterioro": 75
+  },
+  "alerts": {
+    "deficit_persistente": 255,
+    "vencido_alto": 210,
+    "dependencia_credito": 108,
+    "datos_insuficientes": 384,
+    "recuperacion": 37,
+    "deterioro": 33,
+    "deterioro_estructural": 32
+  },
+  "groupId": "GROUP_0088",
+  "group": [
+    {
+      "company": "COMP_0074",
+      "latest": {
+        "company": "COMP_0074",
+        "month": "2026-08",
+        "score": 51.471785418189235,
+        "confidence": 0.8222646497056827,
+        "monthlyDeficit": true,
+        "monthlyMargin": -0.4145576007449724,
+        "trend3m": -0.47159403946332645,
+        "direction": "estable",
+        "nature": "sin_cambio",
+        "contributions": [
+          {
+            "indicator": "margin",
+            "raw": -2.2804203571645862,
+            "subscore": 61.62235065782593,
+            "weight": 0.16,
+            "confidence": 0.7630195329409102,
+            "contribution": 9.418892891297572
+          },
+          {
+            "indicator": "deficit",
+            "raw": 1,
+            "subscore": 0,
+            "weight": 0.12,
+            "confidence": 0.7630195329409102,
+            "contribution": 1.4218828023545387
+          },
+          {
+            "indicator": "debtCover",
+            "raw": -7.353763638134678,
+            "subscore": 78.79335945547643,
+            "weight": 0.12,
+            "confidence": 0.7630195329409102,
+            "contribution": 8.636387482022084
+          },
+          {
+            "indicator": "interest",
+            "raw": 0,
+            "subscore": 100,
+            "weight": 0.05,
+            "confidence": 0.7630195329409102,
+            "contribution": 4.407548832352275
+          },
+          {
+            "indicator": "receivableDelay",
+            "raw": 25,
+            "subscore": 49.085123309466915,
+            "weight": 0.08,
+            "confidence": 1,
+            "contribution": 3.9268098647573533
+          },
+          {
+            "indicator": "overdue",
+            "raw": 0.40335033096007533,
+            "subscore": 59.664966903992465,
+            "weight": 0.08,
+            "confidence": 1,
+            "contribution": 4.773197352319397
+          },
+          {
+            "indicator": "payableDelay",
+            "raw": 27,
+            "subscore": 33.21725154031611,
+            "weight": 0.04,
+            "confidence": 1,
+            "contribution": 1.3286900616126445
+          },
+          {
+            "indicator": "revenueTrend",
+            "raw": 0.007535621471301541,
+            "subscore": 50.04675231255375,
+            "weight": 0.1,
+            "confidence": 0.7630195329409102,
+            "contribution": 5.003567292768867
+          },
+          {
+            "indicator": "marginTrend",
+            "raw": -0.353608762089615,
+            "subscore": 49.08846542313519,
+            "weight": 0.1,
+            "confidence": 0.7630195329409102,
+            "contribution": 4.930448131290113
+          },
+          {
+            "indicator": "concentration",
+            "raw": 0.34266791599905244,
+            "subscore": 65.73320840009475,
+            "weight": 0.05,
+            "confidence": 1,
+            "contribution": 3.286660420004738
+          },
+          {
+            "indicator": "volatility",
+            "raw": 0.211958963439059,
+            "subscore": 82.64003255492963,
+            "weight": 0.05,
+            "confidence": 0.7630195329409102,
+            "contribution": 3.7452491197619255
+          },
+          {
+            "indicator": "creditUse",
+            "raw": 10.987067397215199,
+            "subscore": 0,
+            "weight": 0.05,
+            "confidence": 0.7630195329409102,
+            "contribution": 0.5924511676477245
+          }
+        ],
+        "deltas": [
+          {
+            "indicator": "margin",
+            "delta": 2.1278573744628115
+          },
+          {
+            "indicator": "deficit",
+            "delta": -0.16880693591689555
+          },
+          {
+            "indicator": "debtCover",
+            "delta": 0.09811523363010544
+          },
+          {
+            "indicator": "interest",
+            "delta": 0.07033622329870681
+          },
+          {
+            "indicator": "receivableDelay",
+            "delta": -1.4850172368072148
+          },
+          {
+            "indicator": "overdue",
+            "delta": -0.1316397674217038
+          },
+          {
+            "indicator": "payableDelay",
+            "delta": -0.04286096972943998
+          },
+          {
+            "indicator": "revenueTrend",
+            "delta": 0.23296570415007345
+          },
+          {
+            "indicator": "marginTrend",
+            "delta": 0.2851205399513459
+          },
+          {
+            "indicator": "concentration",
+            "delta": 0.004602418617134063
+          },
+          {
+            "indicator": "volatility",
+            "delta": 0.15318973626578725
+          },
+          {
+            "indicator": "creditUse",
+            "delta": -0.07033622329870648
+          }
+        ],
+        "baseCapacity": 0,
+        "adverseCapacity": 0,
+        "capacityLimit": 0,
+        "operatingLimit": 877117.72,
+        "recommendedLimit": 0,
+        "appliedLimit": 0,
+        "band": "C",
+        "price": 0.1,
+        "action": "cerrar",
+        "reason": "cerrar: margin +2.1, receivableDelay -1.5",
+        "alerts": [
+          {
+            "type": "deficit_persistente",
+            "indicator": "margin",
+            "onsetMonth": "2025-09",
+            "confirmedMonth": "2025-09"
+          },
+          {
+            "type": "vencido_alto",
+            "indicator": "overdue",
+            "onsetMonth": "2026-08",
+            "confirmedMonth": "2026-08"
+          },
+          {
+            "type": "dependencia_credito",
+            "indicator": "creditUse",
+            "onsetMonth": "2025-01",
+            "confirmedMonth": "2025-02"
+          }
+        ],
+        "coverage": {
+          "observedMonths": 6,
+          "classifiedShare": 0.7630195329409102,
+          "hasInvoices": true,
+          "hasDebt": true,
+          "invoiceHistoryEstimated": true
+        },
+        "parameterVersion": "56446479dd2de9593f6a56507580e32421cab3bb3a44d756046cd2dce70c5576"
+      },
+      "first": {
+        "company": "COMP_0074",
+        "month": "2025-01",
+        "score": 49.860970666591896,
+        "confidence": 0.05304414526916104,
+        "monthlyDeficit": true,
+        "monthlyMargin": -2.6183435722338424,
+        "trend3m": -0.13902933340810364,
+        "direction": "estable",
+        "nature": "sin_cambio",
+        "contributions": [
+          {
+            "indicator": "margin",
+            "raw": -2.6183435722338424,
+            "subscore": 57.64748561324592,
+            "weight": 0.16,
+            "confidence": 0.10608829053832208,
+            "contribution": 8.129809388100107
+          },
+          {
+            "indicator": "deficit",
+            "raw": 1,
+            "subscore": 0,
+            "weight": 0.12,
+            "confidence": 0.10608829053832208,
+            "contribution": 5.363470256770067
+          },
+          {
+            "indicator": "debtCover",
+            "raw": -2.9176026013672987,
+            "subscore": 78.88246980069968,
+            "weight": 0.12,
+            "confidence": 0.10608829053832208,
+            "contribution": 6.367691021721713
+          },
+          {
+            "indicator": "interest",
+            "raw": 0,
+            "subscore": 100,
+            "weight": 0.05,
+            "confidence": 0.10608829053832208,
+            "contribution": 2.7652207263458055
+          },
+          {
+            "indicator": "receivableDelay",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.08,
+            "confidence": 0,
+            "contribution": 4
+          },
+          {
+            "indicator": "overdue",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.08,
+            "confidence": 0,
+            "contribution": 4
+          },
+          {
+            "indicator": "payableDelay",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.04,
+            "confidence": 0,
+            "contribution": 2
+          },
+          {
+            "indicator": "revenueTrend",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.1,
+            "confidence": 0,
+            "contribution": 5
+          },
+          {
+            "indicator": "marginTrend",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.1,
+            "confidence": 0,
+            "contribution": 5
+          },
+          {
+            "indicator": "concentration",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0,
+            "contribution": 2.5
+          },
+          {
+            "indicator": "volatility",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0,
+            "contribution": 2.5
+          },
+          {
+            "indicator": "creditUse",
+            "raw": 95.85154696373189,
+            "subscore": 0,
+            "weight": 0.05,
+            "confidence": 0.10608829053832208,
+            "contribution": 2.234779273654195
+          }
+        ],
+        "deltas": [
+          {
+            "indicator": "margin",
+            "delta": 0.12980938810010656
+          },
+          {
+            "indicator": "deficit",
+            "delta": -0.636529743229933
+          },
+          {
+            "indicator": "debtCover",
+            "delta": 0.3676910217217131
+          },
+          {
+            "indicator": "interest",
+            "delta": 0.2652207263458055
+          },
+          {
+            "indicator": "receivableDelay",
+            "delta": 0
+          },
+          {
+            "indicator": "overdue",
+            "delta": 0
+          },
+          {
+            "indicator": "payableDelay",
+            "delta": 0
+          },
+          {
+            "indicator": "revenueTrend",
+            "delta": 0
+          },
+          {
+            "indicator": "marginTrend",
+            "delta": 0
+          },
+          {
+            "indicator": "concentration",
+            "delta": 0
+          },
+          {
+            "indicator": "volatility",
+            "delta": 0
+          },
+          {
+            "indicator": "creditUse",
+            "delta": -0.26522072634580507
+          }
+        ],
+        "baseCapacity": 0,
+        "adverseCapacity": 0,
+        "capacityLimit": 0,
+        "operatingLimit": 14880.504,
+        "recommendedLimit": 0,
+        "appliedLimit": 0,
+        "band": "C",
+        "price": 0.1,
+        "action": "mantener",
+        "reason": "mantener: deficit -0.6, debtCover +0.4",
+        "alerts": [
+          {
+            "type": "datos_insuficientes",
+            "indicator": "confidence",
+            "onsetMonth": "2024-09",
+            "confirmedMonth": "2024-09"
+          }
+        ],
+        "coverage": {
+          "observedMonths": 1,
+          "classifiedShare": 0.6365297432299325,
+          "hasInvoices": true,
+          "hasDebt": true,
+          "invoiceHistoryEstimated": true
+        },
+        "parameterVersion": "56446479dd2de9593f6a56507580e32421cab3bb3a44d756046cd2dce70c5576"
+      },
+      "min": 48.5124683496313,
+      "max": 59.17223371929744
+    },
+    {
+      "company": "COMP_0330",
+      "latest": {
+        "company": "COMP_0330",
+        "month": "2026-08",
+        "score": 63.38527630265813,
+        "confidence": 0.8091819730853473,
+        "monthlyDeficit": false,
+        "monthlyMargin": 0.9202963793892341,
+        "trend3m": -4.293970155967543,
+        "direction": "estable",
+        "nature": "sin_cambio",
+        "contributions": [
+          {
+            "indicator": "margin",
+            "raw": 0.7496689073689875,
+            "subscore": 97.2641632426264,
+            "weight": 0.16,
+            "confidence": 0.9985392376524059,
+            "contribution": 15.551219445211364
+          },
+          {
+            "indicator": "deficit",
+            "raw": 0.16666666666666666,
+            "subscore": 83.33333333333334,
+            "weight": 0.12,
+            "confidence": 0.9985392376524059,
+            "contribution": 9.994156950609623
+          },
+          {
+            "indicator": "debtCover",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.12,
+            "confidence": 0,
+            "contribution": 6
+          },
+          {
+            "indicator": "interest",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0.29956177129572176,
+            "contribution": 2.5
+          },
+          {
+            "indicator": "receivableDelay",
+            "raw": 13,
+            "subscore": 61.813842482100185,
+            "weight": 0.08,
+            "confidence": 1,
+            "contribution": 4.945107398568015
+          },
+          {
+            "indicator": "overdue",
+            "raw": 0.5197350940534612,
+            "subscore": 48.02649059465388,
+            "weight": 0.08,
+            "confidence": 1,
+            "contribution": 3.8421192475723105
+          },
+          {
+            "indicator": "payableDelay",
+            "raw": 20,
+            "subscore": 40.717921242968124,
+            "weight": 0.04,
+            "confidence": 1,
+            "contribution": 1.628716849718725
+          },
+          {
+            "indicator": "revenueTrend",
+            "raw": -0.5017728839044672,
+            "subscore": 46.88691333705689,
+            "weight": 0.1,
+            "confidence": 0.9985392376524059,
+            "contribution": 4.689146081683892
+          },
+          {
+            "indicator": "marginTrend",
+            "raw": -0.5540421353656577,
+            "subscore": 48.57178719090162,
+            "weight": 0.1,
+            "confidence": 0.9985392376524059,
+            "contribution": 4.857387347039751
+          },
+          {
+            "indicator": "concentration",
+            "raw": 0.4901218241484246,
+            "subscore": 50.98781758515754,
+            "weight": 0.05,
+            "confidence": 1,
+            "contribution": 2.5493908792578774
+          },
+          {
+            "indicator": "volatility",
+            "raw": 0.17406269099288518,
+            "subscore": 86.61412659745491,
+            "weight": 0.05,
+            "confidence": 0.9985392376524059,
+            "contribution": 4.328032102996565
+          },
+          {
+            "indicator": "creditUse",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0.29956177129572176,
+            "contribution": 2.5
+          }
+        ],
+        "deltas": [
+          {
+            "indicator": "margin",
+            "delta": 0.05434523616048459
+          },
+          {
+            "indicator": "deficit",
+            "delta": -0.00007747746098196728
+          },
+          {
+            "indicator": "debtCover",
+            "delta": 0
+          },
+          {
+            "indicator": "interest",
+            "delta": 0
+          },
+          {
+            "indicator": "receivableDelay",
+            "delta": -0.16971625563510973
+          },
+          {
+            "indicator": "overdue",
+            "delta": -0.23498786911500424
+          },
+          {
+            "indicator": "payableDelay",
+            "delta": -0.25716581837664076
+          },
+          {
+            "indicator": "revenueTrend",
+            "delta": -0.1499836688199805
+          },
+          {
+            "indicator": "marginTrend",
+            "delta": -0.008718133362767055
+          },
+          {
+            "indicator": "concentration",
+            "delta": -0.12066423471748777
+          },
+          {
+            "indicator": "volatility",
+            "delta": 0.5062219657066596
+          },
+          {
+            "indicator": "creditUse",
+            "delta": 0
+          }
+        ],
+        "baseCapacity": 3604.620512820513,
+        "adverseCapacity": 2522.5975641025643,
+        "capacityLimit": 30271.170769230772,
+        "operatingLimit": 9977.560000000001,
+        "recommendedLimit": 7000,
+        "appliedLimit": 0,
+        "band": "B",
+        "price": 0.07,
+        "action": "cerrar",
+        "reason": "cerrar: volatility +0.5, payableDelay -0.3",
+        "alerts": [
+          {
+            "type": "vencido_alto",
+            "indicator": "overdue",
+            "onsetMonth": "2026-06",
+            "confirmedMonth": "2026-06"
+          }
+        ],
+        "coverage": {
+          "observedMonths": 6,
+          "classifiedShare": 0.9985392376524059,
+          "hasInvoices": true,
+          "hasDebt": false,
+          "invoiceHistoryEstimated": true
+        },
+        "parameterVersion": "56446479dd2de9593f6a56507580e32421cab3bb3a44d756046cd2dce70c5576"
+      },
+      "first": {
+        "company": "COMP_0330",
+        "month": "2025-01",
+        "score": 52.33333333333333,
+        "confidence": 0.051666666666666666,
+        "monthlyDeficit": false,
+        "monthlyMargin": 1,
+        "trend3m": 2.3333333333333286,
+        "direction": "estable",
+        "nature": "sin_cambio",
+        "contributions": [
+          {
+            "indicator": "margin",
+            "raw": 1,
+            "subscore": 100,
+            "weight": 0.16,
+            "confidence": 0.16666666666666666,
+            "contribution": 9.333333333333332
+          },
+          {
+            "indicator": "deficit",
+            "raw": 0,
+            "subscore": 100,
+            "weight": 0.12,
+            "confidence": 0.16666666666666666,
+            "contribution": 6.999999999999999
+          },
+          {
+            "indicator": "debtCover",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.12,
+            "confidence": 0,
+            "contribution": 6
+          },
+          {
+            "indicator": "interest",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0.049999999999999996,
+            "contribution": 2.5
+          },
+          {
+            "indicator": "receivableDelay",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.08,
+            "confidence": 0,
+            "contribution": 4
+          },
+          {
+            "indicator": "overdue",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.08,
+            "confidence": 0,
+            "contribution": 4
+          },
+          {
+            "indicator": "payableDelay",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.04,
+            "confidence": 0,
+            "contribution": 2
+          },
+          {
+            "indicator": "revenueTrend",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.1,
+            "confidence": 0,
+            "contribution": 5
+          },
+          {
+            "indicator": "marginTrend",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.1,
+            "confidence": 0,
+            "contribution": 5
+          },
+          {
+            "indicator": "concentration",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0,
+            "contribution": 2.5
+          },
+          {
+            "indicator": "volatility",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0,
+            "contribution": 2.5
+          },
+          {
+            "indicator": "creditUse",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0.049999999999999996,
+            "contribution": 2.5
+          }
+        ],
+        "deltas": [
+          {
+            "indicator": "margin",
+            "delta": 1.3333333333333321
+          },
+          {
+            "indicator": "deficit",
+            "delta": 0.9999999999999991
+          },
+          {
+            "indicator": "debtCover",
+            "delta": 0
+          },
+          {
+            "indicator": "interest",
+            "delta": 0
+          },
+          {
+            "indicator": "receivableDelay",
+            "delta": 0
+          },
+          {
+            "indicator": "overdue",
+            "delta": 0
+          },
+          {
+            "indicator": "payableDelay",
+            "delta": 0
+          },
+          {
+            "indicator": "revenueTrend",
+            "delta": 0
+          },
+          {
+            "indicator": "marginTrend",
+            "delta": 0
+          },
+          {
+            "indicator": "concentration",
+            "delta": 0
+          },
+          {
+            "indicator": "volatility",
+            "delta": 0
+          },
+          {
+            "indicator": "creditUse",
+            "delta": 0
+          }
+        ],
+        "baseCapacity": 87.2602564102564,
+        "adverseCapacity": 69.80820512820513,
+        "capacityLimit": 837.6984615384615,
+        "operatingLimit": 544.504,
+        "recommendedLimit": 0,
+        "appliedLimit": 0,
+        "band": "C",
+        "price": 0.1,
+        "action": "mantener",
+        "reason": "mantener: margin +1.3, deficit +1.0",
+        "alerts": [
+          {
+            "type": "datos_insuficientes",
+            "indicator": "confidence",
+            "onsetMonth": "2024-09",
+            "confirmedMonth": "2024-09"
+          }
+        ],
+        "coverage": {
+          "observedMonths": 1,
+          "classifiedShare": 1,
+          "hasInvoices": true,
+          "hasDebt": false,
+          "invoiceHistoryEstimated": true
+        },
+        "parameterVersion": "56446479dd2de9593f6a56507580e32421cab3bb3a44d756046cd2dce70c5576"
+      },
+      "min": 52.33333333333333,
+      "max": 70.08918805081736
+    },
+    {
+      "company": "COMP_0338",
+      "latest": {
+        "company": "COMP_0338",
+        "month": "2026-08",
+        "score": 21.578377869219324,
+        "confidence": 0.759692151533577,
+        "monthlyDeficit": true,
+        "monthlyMargin": -174.3517121891562,
+        "trend3m": -11.221878592105035,
+        "direction": "deterioro",
+        "nature": "temporal",
+        "contributions": [
+          {
+            "indicator": "margin",
+            "raw": -19.524331064501414,
+            "subscore": 0,
+            "weight": 0.16,
+            "confidence": 0.9673074134528161,
+            "contribution": 0.2615406923774708
+          },
+          {
+            "indicator": "deficit",
+            "raw": 1,
+            "subscore": 0,
+            "weight": 0.12,
+            "confidence": 0.9673074134528161,
+            "contribution": 0.1961555192831031
+          },
+          {
+            "indicator": "debtCover",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.12,
+            "confidence": 0,
+            "contribution": 6
+          },
+          {
+            "indicator": "interest",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0.2901922240358448,
+            "contribution": 2.5
+          },
+          {
+            "indicator": "receivableDelay",
+            "raw": 45,
+            "subscore": 27.87059135507812,
+            "weight": 0.08,
+            "confidence": 0.6,
+            "contribution": 2.9377883850437496
+          },
+          {
+            "indicator": "overdue",
+            "raw": 0.9985586758992796,
+            "subscore": 0.14413241007204647,
+            "weight": 0.08,
+            "confidence": 1,
+            "contribution": 0.011530592805763717
+          },
+          {
+            "indicator": "payableDelay",
+            "raw": 29,
+            "subscore": 31.0742030538441,
+            "weight": 0.04,
+            "confidence": 1,
+            "contribution": 1.242968122153764
+          },
+          {
+            "indicator": "revenueTrend",
+            "raw": -0.9928925499037751,
+            "subscore": 43.83992109978284,
+            "weight": 0.1,
+            "confidence": 0.9673074134528161,
+            "contribution": 4.404131001236567
+          },
+          {
+            "indicator": "marginTrend",
+            "raw": -228.0506195442765,
+            "subscore": 0,
+            "weight": 0.1,
+            "confidence": 0.9673074134528161,
+            "contribution": 0.16346293273591928
+          },
+          {
+            "indicator": "concentration",
+            "raw": 0.7441861685569943,
+            "subscore": 25.581383144300574,
+            "weight": 0.05,
+            "confidence": 1,
+            "contribution": 1.2790691572150288
+          },
+          {
+            "indicator": "volatility",
+            "raw": 1,
+            "subscore": 0,
+            "weight": 0.05,
+            "confidence": 0.9673074134528161,
+            "contribution": 0.08173146636795964
+          },
+          {
+            "indicator": "creditUse",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0.2901922240358448,
+            "contribution": 2.5
+          }
+        ],
+        "deltas": [
+          {
+            "indicator": "margin",
+            "delta": 0.04592055794760197
+          },
+          {
+            "indicator": "deficit",
+            "delta": 0.034440418460701505
+          },
+          {
+            "indicator": "debtCover",
+            "delta": 0
+          },
+          {
+            "indicator": "interest",
+            "delta": 0
+          },
+          {
+            "indicator": "receivableDelay",
+            "delta": 0
+          },
+          {
+            "indicator": "overdue",
+            "delta": -0.9974285358354552
+          },
+          {
+            "indicator": "payableDelay",
+            "delta": -0.04286096972943998
+          },
+          {
+            "indicator": "revenueTrend",
+            "delta": 0.005070127617905484
+          },
+          {
+            "indicator": "marginTrend",
+            "delta": 0.028700348717251273
+          },
+          {
+            "indicator": "concentration",
+            "delta": -0.000039987177533618024
+          },
+          {
+            "indicator": "volatility",
+            "delta": 0.014350174358625636
+          },
+          {
+            "indicator": "creditUse",
+            "delta": 0
+          }
+        ],
+        "baseCapacity": 0,
+        "adverseCapacity": 0,
+        "capacityLimit": 0,
+        "operatingLimit": 1083.008,
+        "recommendedLimit": 0,
+        "appliedLimit": 0,
+        "band": "D",
+        "price": null,
+        "action": "cerrar",
+        "reason": "cerrar: overdue -1.0, margin +0.0",
+        "alerts": [
+          {
+            "type": "deterioro",
+            "indicator": "score",
+            "onsetMonth": "2026-05",
+            "confirmedMonth": "2026-06"
+          },
+          {
+            "type": "deficit_persistente",
+            "indicator": "margin",
+            "onsetMonth": "2025-03",
+            "confirmedMonth": "2025-03"
+          },
+          {
+            "type": "vencido_alto",
+            "indicator": "overdue",
+            "onsetMonth": "2026-04",
+            "confirmedMonth": "2026-04"
+          }
+        ],
+        "coverage": {
+          "observedMonths": 6,
+          "classifiedShare": 0.9673074134528161,
+          "hasInvoices": true,
+          "hasDebt": false,
+          "invoiceHistoryEstimated": true
+        },
+        "parameterVersion": "56446479dd2de9593f6a56507580e32421cab3bb3a44d756046cd2dce70c5576"
+      },
+      "first": {
+        "company": "COMP_0338",
+        "month": "2025-01",
+        "score": 49.59920380815948,
+        "confidence": 0.05917315531814103,
+        "monthlyDeficit": true,
+        "monthlyMargin": -0.2876288100993785,
+        "trend3m": -0.40079619184052007,
+        "direction": "estable",
+        "nature": "sin_cambio",
+        "contributions": [
+          {
+            "indicator": "margin",
+            "raw": -0.2876288100993785,
+            "subscore": 85.06281614919685,
+            "weight": 0.16,
+            "confidence": 0.1516338343595947,
+            "contribution": 8.850673480983717
+          },
+          {
+            "indicator": "deficit",
+            "raw": 1,
+            "subscore": 0,
+            "weight": 0.12,
+            "confidence": 0.1516338343595947,
+            "contribution": 5.090196993842431
+          },
+          {
+            "indicator": "debtCover",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.12,
+            "confidence": 0,
+            "contribution": 6
+          },
+          {
+            "indicator": "interest",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0.04549015030787842,
+            "contribution": 2.5
+          },
+          {
+            "indicator": "receivableDelay",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.08,
+            "confidence": 0,
+            "contribution": 4
+          },
+          {
+            "indicator": "overdue",
+            "raw": 0.6666666666666666,
+            "subscore": 33.33333333333334,
+            "weight": 0.08,
+            "confidence": 0.09999999999999999,
+            "contribution": 3.866666666666667
+          },
+          {
+            "indicator": "payableDelay",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.04,
+            "confidence": 0,
+            "contribution": 2
+          },
+          {
+            "indicator": "revenueTrend",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.1,
+            "confidence": 0,
+            "contribution": 5
+          },
+          {
+            "indicator": "marginTrend",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.1,
+            "confidence": 0,
+            "contribution": 5
+          },
+          {
+            "indicator": "concentration",
+            "raw": 1,
+            "subscore": 0,
+            "weight": 0.05,
+            "confidence": 0.08333333333333333,
+            "contribution": 2.291666666666667
+          },
+          {
+            "indicator": "volatility",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0,
+            "contribution": 2.5
+          },
+          {
+            "indicator": "creditUse",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0.04549015030787842,
+            "contribution": 2.5
+          }
+        ],
+        "deltas": [
+          {
+            "indicator": "margin",
+            "delta": 0.8506734809837173
+          },
+          {
+            "indicator": "deficit",
+            "delta": -0.9098030061575688
+          },
+          {
+            "indicator": "debtCover",
+            "delta": 0
+          },
+          {
+            "indicator": "interest",
+            "delta": 0
+          },
+          {
+            "indicator": "receivableDelay",
+            "delta": 0
+          },
+          {
+            "indicator": "overdue",
+            "delta": -0.13333333333333286
+          },
+          {
+            "indicator": "payableDelay",
+            "delta": 0
+          },
+          {
+            "indicator": "revenueTrend",
+            "delta": 0
+          },
+          {
+            "indicator": "marginTrend",
+            "delta": 0
+          },
+          {
+            "indicator": "concentration",
+            "delta": -0.20833333333333304
+          },
+          {
+            "indicator": "volatility",
+            "delta": 0
+          },
+          {
+            "indicator": "creditUse",
+            "delta": 0
+          }
+        ],
+        "baseCapacity": 0,
+        "adverseCapacity": 0,
+        "capacityLimit": 0,
+        "operatingLimit": 35274.408,
+        "recommendedLimit": 0,
+        "appliedLimit": 0,
+        "band": "C",
+        "price": 0.1,
+        "action": "cerrar",
+        "reason": "cerrar: deficit -0.9, margin +0.9",
+        "alerts": [
+          {
+            "type": "vencido_alto",
+            "indicator": "overdue",
+            "onsetMonth": "2024-10",
+            "confirmedMonth": "2024-10"
+          },
+          {
+            "type": "datos_insuficientes",
+            "indicator": "confidence",
+            "onsetMonth": "2024-09",
+            "confirmedMonth": "2024-09"
+          }
+        ],
+        "coverage": {
+          "observedMonths": 1,
+          "classifiedShare": 0.9098030061575684,
+          "hasInvoices": true,
+          "hasDebt": false,
+          "invoiceHistoryEstimated": true
+        },
+        "parameterVersion": "56446479dd2de9593f6a56507580e32421cab3bb3a44d756046cd2dce70c5576"
+      },
+      "min": 21.578377869219324,
+      "max": 55.70749011838356
+    },
+    {
+      "company": "COMP_0844",
+      "latest": {
+        "company": "COMP_0844",
+        "month": "2026-08",
+        "score": 51.51005890020975,
+        "confidence": 0.5492631382021597,
+        "monthlyDeficit": null,
+        "monthlyMargin": null,
+        "trend3m": -5.558052903910088,
+        "direction": "estable",
+        "nature": "sin_cambio",
+        "contributions": [
+          {
+            "indicator": "margin",
+            "raw": 0.12265414422845236,
+            "subscore": 89.88882188310441,
+            "weight": 0.16,
+            "confidence": 0.4982994276557685,
+            "contribution": 11.180252338274213
+          },
+          {
+            "indicator": "deficit",
+            "raw": 0.6666666666666666,
+            "subscore": 33.33333333333334,
+            "weight": 0.12,
+            "confidence": 0.4982994276557685,
+            "contribution": 5.003401144688463
+          },
+          {
+            "indicator": "debtCover",
+            "raw": 0.40620969313426203,
+            "subscore": 78.94923610123871,
+            "weight": 0.12,
+            "confidence": 0.4982994276557685,
+            "contribution": 7.731046533638274
+          },
+          {
+            "indicator": "interest",
+            "raw": 0,
+            "subscore": 100,
+            "weight": 0.05,
+            "confidence": 0.4982994276557685,
+            "contribution": 3.7457485691394212
+          },
+          {
+            "indicator": "receivableDelay",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.08,
+            "confidence": 0,
+            "contribution": 4
+          },
+          {
+            "indicator": "overdue",
+            "raw": 1,
+            "subscore": 0,
+            "weight": 0.08,
+            "confidence": 0.5,
+            "contribution": 2
+          },
+          {
+            "indicator": "payableDelay",
+            "raw": 38,
+            "subscore": 21.43048486472007,
+            "weight": 0.04,
+            "confidence": 0.5,
+            "contribution": 1.4286096972944013
+          },
+          {
+            "indicator": "revenueTrend",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.1,
+            "confidence": 0.996598855311537,
+            "contribution": 5
+          },
+          {
+            "indicator": "marginTrend",
+            "raw": -0.9734133182235967,
+            "subscore": 47.490729890577065,
+            "weight": 0.1,
+            "confidence": 0.996598855311537,
+            "contribution": 4.749926428128165
+          },
+          {
+            "indicator": "concentration",
+            "raw": 1,
+            "subscore": 0,
+            "weight": 0.05,
+            "confidence": 0.5833333333333334,
+            "contribution": 1.0416666666666667
+          },
+          {
+            "indicator": "volatility",
+            "raw": 0.31672623124099575,
+            "subscore": 71.65333259876111,
+            "weight": 0.05,
+            "confidence": 0.5813493322650632,
+            "contribution": 3.129407522380155
+          },
+          {
+            "indicator": "creditUse",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0.14948982829673055,
+            "contribution": 2.5
+          }
+        ],
+        "deltas": [
+          {
+            "indicator": "margin",
+            "delta": -1.0600841127580676
+          },
+          {
+            "indicator": "deficit",
+            "delta": -0.9965988553115368
+          },
+          {
+            "indicator": "debtCover",
+            "delta": -0.576690238132306
+          },
+          {
+            "indicator": "interest",
+            "delta": -0.41524952304647345
+          },
+          {
+            "indicator": "receivableDelay",
+            "delta": 0
+          },
+          {
+            "indicator": "overdue",
+            "delta": 0.6666666666666663
+          },
+          {
+            "indicator": "payableDelay",
+            "delta": 0.1904634342351994
+          },
+          {
+            "indicator": "revenueTrend",
+            "delta": 0
+          },
+          {
+            "indicator": "marginTrend",
+            "delta": 0.20071338123896254
+          },
+          {
+            "indicator": "concentration",
+            "delta": 0.20833333333333315
+          },
+          {
+            "indicator": "volatility",
+            "delta": 2.29040561456605
+          },
+          {
+            "indicator": "creditUse",
+            "delta": 0
+          }
+        ],
+        "baseCapacity": 0,
+        "adverseCapacity": 0,
+        "capacityLimit": 0,
+        "operatingLimit": 4282.872,
+        "recommendedLimit": 0,
+        "appliedLimit": 0,
+        "band": "C",
+        "price": 0.1,
+        "action": "cerrar",
+        "reason": "cerrar: volatility +2.3, margin -1.1",
+        "alerts": [
+          {
+            "type": "vencido_alto",
+            "indicator": "overdue",
+            "onsetMonth": "2026-04",
+            "confirmedMonth": "2026-04"
+          }
+        ],
+        "coverage": {
+          "observedMonths": 3,
+          "classifiedShare": 0.996598855311537,
+          "hasInvoices": true,
+          "hasDebt": true,
+          "invoiceHistoryEstimated": true
+        },
+        "parameterVersion": "56446479dd2de9593f6a56507580e32421cab3bb3a44d756046cd2dce70c5576"
+      },
+      "first": {
+        "company": "COMP_0844",
+        "month": "2025-03",
+        "score": 56.65828130862131,
+        "confidence": 0.15499999999999997,
+        "monthlyDeficit": false,
+        "monthlyMargin": 0.9913674529957816,
+        "trend3m": 6.658281308621312,
+        "direction": "mejora",
+        "nature": "temporal",
+        "contributions": [
+          {
+            "indicator": "margin",
+            "raw": 0.9913674529957816,
+            "subscore": 100,
+            "weight": 0.16,
+            "confidence": 0.3333333333333333,
+            "contribution": 10.666666666666666
+          },
+          {
+            "indicator": "deficit",
+            "raw": 0,
+            "subscore": 100,
+            "weight": 0.12,
+            "confidence": 0.3333333333333333,
+            "contribution": 7.999999999999998
+          },
+          {
+            "indicator": "debtCover",
+            "raw": 0.7943468557094021,
+            "subscore": 78.957032715533,
+            "weight": 0.12,
+            "confidence": 0.3333333333333333,
+            "contribution": 7.158281308621319
+          },
+          {
+            "indicator": "interest",
+            "raw": 0,
+            "subscore": 100,
+            "weight": 0.05,
+            "confidence": 0.3333333333333333,
+            "contribution": 3.333333333333333
+          },
+          {
+            "indicator": "receivableDelay",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.08,
+            "confidence": 0,
+            "contribution": 4
+          },
+          {
+            "indicator": "overdue",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.08,
+            "confidence": 0,
+            "contribution": 4
+          },
+          {
+            "indicator": "payableDelay",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.04,
+            "confidence": 0,
+            "contribution": 2
+          },
+          {
+            "indicator": "revenueTrend",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.1,
+            "confidence": 0,
+            "contribution": 5
+          },
+          {
+            "indicator": "marginTrend",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.1,
+            "confidence": 0,
+            "contribution": 5
+          },
+          {
+            "indicator": "concentration",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0,
+            "contribution": 2.5
+          },
+          {
+            "indicator": "volatility",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0,
+            "contribution": 2.5
+          },
+          {
+            "indicator": "creditUse",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0.09999999999999999,
+            "contribution": 2.5
+          }
+        ],
+        "deltas": [
+          {
+            "indicator": "margin",
+            "delta": 2.666666666666666
+          },
+          {
+            "indicator": "deficit",
+            "delta": 1.9999999999999982
+          },
+          {
+            "indicator": "debtCover",
+            "delta": 1.1582813086213193
+          },
+          {
+            "indicator": "interest",
+            "delta": 0.833333333333333
+          },
+          {
+            "indicator": "receivableDelay",
+            "delta": 0
+          },
+          {
+            "indicator": "overdue",
+            "delta": 0
+          },
+          {
+            "indicator": "payableDelay",
+            "delta": 0
+          },
+          {
+            "indicator": "revenueTrend",
+            "delta": 0
+          },
+          {
+            "indicator": "marginTrend",
+            "delta": 0
+          },
+          {
+            "indicator": "concentration",
+            "delta": 0
+          },
+          {
+            "indicator": "volatility",
+            "delta": 0
+          },
+          {
+            "indicator": "creditUse",
+            "delta": 0
+          }
+        ],
+        "baseCapacity": 0,
+        "adverseCapacity": 0,
+        "capacityLimit": 0,
+        "operatingLimit": 4170.264,
+        "recommendedLimit": 0,
+        "appliedLimit": 0,
+        "band": "C",
+        "price": 0.1,
+        "action": "mantener",
+        "reason": "mantener: margin +2.7, deficit +2.0",
+        "alerts": [
+          {
+            "type": "datos_insuficientes",
+            "indicator": "confidence",
+            "onsetMonth": "2024-09",
+            "confirmedMonth": "2024-09"
+          }
+        ],
+        "coverage": {
+          "observedMonths": 2,
+          "classifiedShare": 1,
+          "hasInvoices": true,
+          "hasDebt": true,
+          "invoiceHistoryEstimated": true
+        },
+        "parameterVersion": "56446479dd2de9593f6a56507580e32421cab3bb3a44d756046cd2dce70c5576"
+      },
+      "min": 51.00209919941794,
+      "max": 65.35921161663228
+    },
+    {
+      "company": "COMP_0915",
+      "latest": {
+        "company": "COMP_0915",
+        "month": "2026-08",
+        "score": 66.48478868415756,
+        "confidence": 0.7921562682077105,
+        "monthlyDeficit": false,
+        "monthlyMargin": 0.3960746525372517,
+        "trend3m": -0.5153532754050758,
+        "direction": "estable",
+        "nature": "sin_cambio",
+        "contributions": [
+          {
+            "indicator": "margin",
+            "raw": 0.42862764706900003,
+            "subscore": 93.48787435056907,
+            "weight": 0.16,
+            "confidence": 0.9681361932280542,
+            "contribution": 14.73634962005438
+          },
+          {
+            "indicator": "deficit",
+            "raw": 0,
+            "subscore": 100,
+            "weight": 0.12,
+            "confidence": 0.9681361932280542,
+            "contribution": 11.808817159368326
+          },
+          {
+            "indicator": "debtCover",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.12,
+            "confidence": 0,
+            "contribution": 6
+          },
+          {
+            "indicator": "interest",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0.29044085796841623,
+            "contribution": 2.5
+          },
+          {
+            "indicator": "receivableDelay",
+            "raw": -49,
+            "subscore": 100,
+            "weight": 0.08,
+            "confidence": 1,
+            "contribution": 8
+          },
+          {
+            "indicator": "overdue",
+            "raw": 0.563074917923963,
+            "subscore": 43.692508207603694,
+            "weight": 0.08,
+            "confidence": 1,
+            "contribution": 3.495400656608296
+          },
+          {
+            "indicator": "payableDelay",
+            "raw": 10,
+            "subscore": 51.43316367532816,
+            "weight": 0.04,
+            "confidence": 1,
+            "contribution": 2.0573265470131266
+          },
+          {
+            "indicator": "revenueTrend",
+            "raw": -0.2580969033285256,
+            "subscore": 48.39872170603,
+            "weight": 0.1,
+            "confidence": 0.9681361932280542,
+            "contribution": 4.844974452817717
+          },
+          {
+            "indicator": "marginTrend",
+            "raw": -0.15525938264535066,
+            "subscore": 49.59977152481291,
+            "weight": 0.1,
+            "confidence": 0.9681361932280542,
+            "contribution": 4.96125243276109
+          },
+          {
+            "indicator": "concentration",
+            "raw": 0.5365696854671053,
+            "subscore": 46.34303145328948,
+            "weight": 0.05,
+            "confidence": 1,
+            "contribution": 2.317151572664474
+          },
+          {
+            "indicator": "volatility",
+            "raw": 0.3728009244420888,
+            "subscore": 65.77290980774868,
+            "weight": 0.05,
+            "confidence": 0.9681361932280542,
+            "contribution": 3.2635162428701623
+          },
+          {
+            "indicator": "creditUse",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0.29044085796841623,
+            "contribution": 2.5
+          }
+        ],
+        "deltas": [
+          {
+            "indicator": "margin",
+            "delta": -0.07820145427216119
+          },
+          {
+            "indicator": "deficit",
+            "delta": -0.032284589236121874
+          },
+          {
+            "indicator": "debtCover",
+            "delta": 0
+          },
+          {
+            "indicator": "interest",
+            "delta": 0
+          },
+          {
+            "indicator": "receivableDelay",
+            "delta": 0
+          },
+          {
+            "indicator": "overdue",
+            "delta": -0.39023356228041983
+          },
+          {
+            "indicator": "payableDelay",
+            "delta": 0
+          },
+          {
+            "indicator": "revenueTrend",
+            "delta": -0.06806902894952316
+          },
+          {
+            "indicator": "marginTrend",
+            "delta": 0.013018259183714243
+          },
+          {
+            "indicator": "concentration",
+            "delta": -0.07969105025872913
+          },
+          {
+            "indicator": "volatility",
+            "delta": 0.19465728276610816
+          },
+          {
+            "indicator": "creditUse",
+            "delta": 0
+          }
+        ],
+        "baseCapacity": 164604.2564102565,
+        "adverseCapacity": 65856.81512820521,
+        "capacityLimit": 790281.7815384625,
+        "operatingLimit": 1020630.784,
+        "recommendedLimit": 553000,
+        "appliedLimit": 0,
+        "band": "B",
+        "price": 0.07,
+        "action": "cerrar",
+        "reason": "cerrar: overdue -0.4, volatility +0.2",
+        "alerts": [
+          {
+            "type": "vencido_alto",
+            "indicator": "overdue",
+            "onsetMonth": "2026-06",
+            "confirmedMonth": "2026-06"
+          }
+        ],
+        "coverage": {
+          "observedMonths": 6,
+          "classifiedShare": 0.9681361932280542,
+          "hasInvoices": true,
+          "hasDebt": false,
+          "invoiceHistoryEstimated": true
+        },
+        "parameterVersion": "56446479dd2de9593f6a56507580e32421cab3bb3a44d756046cd2dce70c5576"
+      },
+      "first": {
+        "company": "COMP_0915",
+        "month": "2025-01",
+        "score": 52.34170554991438,
+        "confidence": 0.06502380952380953,
+        "monthlyDeficit": false,
+        "monthlyMargin": 0.5181696504002304,
+        "trend3m": 2.34170554991438,
+        "direction": "estable",
+        "nature": "sin_cambio",
+        "contributions": [
+          {
+            "indicator": "margin",
+            "raw": 0.5181696504002304,
+            "subscore": 94.54112361901613,
+            "weight": 0.16,
+            "confidence": 0.16190476190476188,
+            "contribution": 9.15382720232118
+          },
+          {
+            "indicator": "deficit",
+            "raw": 0,
+            "subscore": 100,
+            "weight": 0.12,
+            "confidence": 0.16190476190476188,
+            "contribution": 6.9714285714285715
+          },
+          {
+            "indicator": "debtCover",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.12,
+            "confidence": 0,
+            "contribution": 6
+          },
+          {
+            "indicator": "interest",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0.048571428571428564,
+            "contribution": 2.5
+          },
+          {
+            "indicator": "receivableDelay",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.08,
+            "confidence": 0,
+            "contribution": 4
+          },
+          {
+            "indicator": "overdue",
+            "raw": 0.10270911690005968,
+            "subscore": 89.72908830999403,
+            "weight": 0.08,
+            "confidence": 0.13333333333333333,
+            "contribution": 4.423776941973269
+          },
+          {
+            "indicator": "payableDelay",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.04,
+            "confidence": 0,
+            "contribution": 2
+          },
+          {
+            "indicator": "revenueTrend",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.1,
+            "confidence": 0,
+            "contribution": 5
+          },
+          {
+            "indicator": "marginTrend",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.1,
+            "confidence": 0,
+            "contribution": 5
+          },
+          {
+            "indicator": "concentration",
+            "raw": 0.9975851979407315,
+            "subscore": 0.24148020592684816,
+            "weight": 0.05,
+            "confidence": 0.08333333333333333,
+            "contribution": 2.2926728341913623
+          },
+          {
+            "indicator": "volatility",
+            "raw": null,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0,
+            "contribution": 2.5
+          },
+          {
+            "indicator": "creditUse",
+            "raw": 0,
+            "subscore": 50,
+            "weight": 0.05,
+            "confidence": 0.048571428571428564,
+            "contribution": 2.5
+          }
+        ],
+        "deltas": [
+          {
+            "indicator": "margin",
+            "delta": 1.15382720232118
+          },
+          {
+            "indicator": "deficit",
+            "delta": 0.9714285714285715
+          },
+          {
+            "indicator": "debtCover",
+            "delta": 0
+          },
+          {
+            "indicator": "interest",
+            "delta": 0
+          },
+          {
+            "indicator": "receivableDelay",
+            "delta": 0
+          },
+          {
+            "indicator": "overdue",
+            "delta": 0.4237769419732693
+          },
+          {
+            "indicator": "payableDelay",
+            "delta": 0
+          },
+          {
+            "indicator": "revenueTrend",
+            "delta": 0
+          },
+          {
+            "indicator": "marginTrend",
+            "delta": 0
+          },
+          {
+            "indicator": "concentration",
+            "delta": -0.20732716580863775
+          },
+          {
+            "indicator": "volatility",
+            "delta": 0
+          },
+          {
+            "indicator": "creditUse",
+            "delta": 0
+          }
+        ],
+        "baseCapacity": 19831.487179487187,
+        "adverseCapacity": 10332.978974358983,
+        "capacityLimit": 123995.74769230779,
+        "operatingLimit": 238818.46400000004,
+        "recommendedLimit": 5000,
+        "appliedLimit": 0,
+        "band": "C",
+        "price": 0.1,
+        "action": "mantener",
+        "reason": "mantener: margin +1.2, deficit +1.0",
+        "alerts": [
+          {
+            "type": "datos_insuficientes",
+            "indicator": "confidence",
+            "onsetMonth": "2024-09",
+            "confirmedMonth": "2024-09"
+          }
+        ],
+        "coverage": {
+          "observedMonths": 1,
+          "classifiedShare": 0.9714285714285714,
+          "hasInvoices": true,
+          "hasDebt": false,
+          "invoiceHistoryEstimated": true
+        },
+        "parameterVersion": "56446479dd2de9593f6a56507580e32421cab3bb3a44d756046cd2dce70c5576"
+      },
+      "min": 52.34170554991438,
+      "max": 74.50140681855463
+    }
+  ],
+  "aggregate": [
+    {
+      "month": "2024-09",
+      "score": 50
+    },
+    {
+      "month": "2024-10",
+      "score": 50
+    },
+    {
+      "month": "2024-11",
+      "score": 50
+    },
+    {
+      "month": "2024-12",
+      "score": 50
+    },
+    {
+      "month": "2025-01",
+      "score": 51.05601962121205
+    },
+    {
+      "month": "2025-02",
+      "score": 51.02806458076594
+    },
+    {
+      "month": "2025-03",
+      "score": 54.228374491508994
+    },
+    {
+      "month": "2025-04",
+      "score": 58.8264645159182
+    },
+    {
+      "month": "2025-05",
+      "score": 59.512720364841165
+    },
+    {
+      "month": "2025-06",
+      "score": 62.67518500068407
+    },
+    {
+      "month": "2025-07",
+      "score": 64.50172288971923
+    },
+    {
+      "month": "2025-08",
+      "score": 63.86340981001856
+    },
+    {
+      "month": "2025-09",
+      "score": 64.06599299764825
+    },
+    {
+      "month": "2025-10",
+      "score": 63.13259193361186
+    },
+    {
+      "month": "2025-11",
+      "score": 62.22552186910758
+    },
+    {
+      "month": "2025-12",
+      "score": 60.05859108974373
+    },
+    {
+      "month": "2026-01",
+      "score": 58.50821177357245
+    },
+    {
+      "month": "2026-02",
+      "score": 58.537721886845816
+    },
+    {
+      "month": "2026-03",
+      "score": 57.847607010989215
+    },
+    {
+      "month": "2026-04",
+      "score": 56.38920593182378
+    },
+    {
+      "month": "2026-05",
+      "score": 55.36570395124213
+    },
+    {
+      "month": "2026-06",
+      "score": 53.745290042822425
+    },
+    {
+      "month": "2026-07",
+      "score": 51.199491588960946
+    },
+    {
+      "month": "2026-08",
+      "score": 51.16209481813901
+    }
+  ],
+  "backtest": {
+    "forwardMarginSpearman": 0.16248808053743755,
+    "forwardMarginPairs": 4113,
+    "deterioro": {
+      "events": 22,
+      "alerts": 63,
+      "matched": 0,
+      "recall": 0,
+      "falseAlarmRate": 1,
+      "leadMedian": null,
+      "leadP25": null
+    },
+    "recuperacion": {
+      "events": 76,
+      "alerts": 105,
+      "matched": 11,
+      "recall": 0.14473684210526316,
+      "falseAlarmRate": 0.9047619047619048,
+      "leadMedian": 3,
+      "leadP25": 3
+    },
+    "validationCompanies": 348,
+    "validationRows": 8352
+  }
+}
