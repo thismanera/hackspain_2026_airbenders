@@ -156,28 +156,24 @@ export function peerMapFrom(
   const { month, index } = monthIndexOf(input.month);
   const { companies } = dataset;
   const space = peerSpace(companies);
-  const focus = input.company && companies.has(input.company) ? input.company : null;
   const start = Math.max(0, index - (PEER_TRAIL_MONTHS - 1));
   const months = CALENDAR.slice(start, index + 1);
   const monthData = space.months[index];
 
-  const canName = (id: string) => (input.scope === "partner" ? true : id === focus);
-
-  const points: PeerPoint[] = [...companies.entries()].map(([id, entry], i) => {
+  const points: PeerPoint[] = [...companies.entries()].map(([id, entry]) => {
     const all = space.coords.get(id)!;
     const series = byCalendar(entry);
     const current = series[index];
     const first = series[start];
-    const named = canName(id);
     const now = hasData(current);
     return {
-      company: named ? id : null,
-      key: named ? id : `anon-${i}`,
+      company: id,
+      key: id,
       pos: all[index],
       estado: current?.estado ?? "sin_datos",
-      score: named && now ? current.score : null,
+      score: now ? current.score : null,
       deltaTrail:
-        named && now && start < index && hasData(first)
+        now && start < index && hasData(first)
           ? Math.round((current.score - first.score) * 10) / 10
           : null,
       cluster: monthData.assignment.get(id) ?? null,
@@ -195,5 +191,32 @@ export function peerMapFrom(
       .slice(0, 3),
   })) as PeerMapResponse["axes"];
 
-  return { month, months, axes, clusters: monthData.clusters, points, focus };
+  return scopePeerMap(
+    { month, months, axes, clusters: monthData.clusters, points, focus: null },
+    input,
+  );
+}
+
+/**
+ * Aplica el `scope` a un mapa con todas las empresas nombradas (el del partner):
+ * la empresa solo se ve a sí misma, el resto quedan anónimas y sin score.
+ */
+export function scopePeerMap(
+  full: PeerMapResponse,
+  input: { scope: Scope; company?: string },
+): PeerMapResponse {
+  const focus =
+    input.company && full.points.some((point) => point.company === input.company)
+      ? input.company
+      : null;
+  if (input.scope === "partner") return { ...full, focus };
+  return {
+    ...full,
+    focus,
+    points: full.points.map((point, i) =>
+      point.company === focus
+        ? point
+        : { ...point, company: null, key: `anon-${i}`, score: null, deltaTrail: null },
+    ),
+  };
 }

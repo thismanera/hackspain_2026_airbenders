@@ -62,7 +62,8 @@ pnpm scoring:fit        # ingest por grupo, € y percentiles congelados
 pnpm scoring:score      # company_month_score (docs/scoring-engine.md §10)
 pnpm scoring:decide     # motor de decisión v1 (docs/decision-engine.md)
 pnpm scoring:backtest   # lead time, recall y falsas alarmas para scoreSolo y scoreGrupo, más métricas de decisión
-pnpm scoring:import     # Postgres
+pnpm scoring:import     # Postgres: filas del run + panel materializado (portfolio_snapshots)
+pnpm scoring:snapshot   # solo rematerializa el panel de un run ya importado
 ```
 
 `scoring:decide` corre el motor v1 entero sobre `scores.jsonl`: elegibilidad por
