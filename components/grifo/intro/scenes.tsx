@@ -7,6 +7,7 @@ import {
   Coins,
   Gauge,
   HandCoins,
+  Handshake,
   Landmark,
   Network,
   Receipt,
@@ -398,11 +399,11 @@ function Consent() {
         {/* Cursor que entra, se posa sobre el botón y hace click con onda expansiva */}
         <div
           aria-hidden="true"
-          className="consent-cursor-anim pointer-events-none absolute top-1/2 left-1/2"
+          className="consent-cursor-anim pointer-events-none absolute top-1/2 left-1/2 opacity-0"
         >
           <div className="relative">
             {/* Onda expansiva circular que brota de la punta del cursor al hacer click */}
-            <div className="consent-click-wave pointer-events-none absolute -top-2 -left-2 size-6 rounded-full border-2 border-white/90 bg-white/20" />
+            <div className="consent-click-wave pointer-events-none absolute -top-2 -left-2 size-6 rounded-full border-2 border-white/90 bg-white/20 opacity-0" />
 
             {/* Puntero de ratón estándar limpio y nítido (blanco sólido con borde oscuro) */}
             <svg
@@ -594,6 +595,13 @@ export const SCENES: Scene[] = [
   },
   {
     kicker: "Quién financia",
+    heroVisual: (
+      <div className="intro-rise flex justify-center">
+        <span className="bg-muted text-foreground flex size-12 items-center justify-center rounded-full">
+          <Handshake className="size-6" strokeWidth={1.75} />
+        </span>
+      </div>
+    ),
     title: (
       <>
         El partner financiero ve la salud de la empresa <Accent>mes a mes, en directo.</Accent>

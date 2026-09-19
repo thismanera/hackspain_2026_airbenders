@@ -447,7 +447,7 @@
 }
 
 .consent-btn-target {
-  animation: consent-btn-target 2.5s forwards 0.2s;
+  animation: consent-btn-target 2.5s both 0.2s;
   will-change: transform, box-shadow;
 }
 
@@ -479,7 +479,9 @@
 }
 
 .consent-cursor-anim {
-  animation: consent-cursor-anim 2.5s forwards 0.2s;
+  opacity: 0;
+  transform: translate(85px, 55px) scale(1);
+  animation: consent-cursor-anim 2.5s both 0.2s;
   will-change: transform, opacity;
 }
 
@@ -502,7 +504,9 @@
 }
 
 .consent-click-wave {
-  animation: consent-click-wave 2.5s forwards 0.2s;
+  opacity: 0;
+  transform: scale(0.3);
+  animation: consent-click-wave 2.5s both 0.2s;
   will-change: transform, opacity;
 }
 
