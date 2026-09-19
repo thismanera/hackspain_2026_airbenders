@@ -1,17 +1,112 @@
 # SOURCE — Embat Flow (Embat · X-Ray)
 
-Source of truth. Corto a propósito. `☐` = pendiente de validar con Pablo; `✅` validado; `⏳` aplazado. Justificaciones en §4.
-Detalle técnico ampliado en [`scoring-engine.md`](./scoring-engine.md) (score), [`forecast-engine.md`](./forecast-engine.md) (previsión) y [`decision-engine.md`](./decision-engine.md) (decisión).
+**Este es el documento principal del equipo.** Si algo no cuadra con otro
+documento, manda este. Está escrito para que lo entienda todo el equipo, no
+solo quien programa el motor: cada parte técnica empieza con un párrafo
+"en pocas palabras" y las fórmulas van después, para quien las necesite.
 
-**Producto:** financiación de circulante (anticipar cobros / estirar pagos)
-con límite que se recalcula solo mes a mes. El score dice cuánto, a qué
-precio y cuándo cerrar el grifo.
+Marcas: `✅` validado con Pablo · `☐` pendiente de validar · `⏳` aplazado.
 
-**Cuatro partes:** (1) score · (2) previsión · (3) decisión · (4) producto.
+Documentos de apoyo (detalle, no fuente de verdad):
+[`scoring-engine.md`](./scoring-engine.md) (score),
+[`forecast-engine.md`](./forecast-engine.md) (previsión),
+[`decision-engine.md`](./decision-engine.md) (decisión),
+[`decisiones-diseno.md`](./decisiones-diseno.md) (argumentario para el jurado),
+[`analysis/FINDINGS.md`](../analysis/FINDINGS.md) (hallazgos del dataset).
+
+| § | Contenido |
+| --- | --- |
+| 0 | El proyecto en una página: reto, producto, piezas, estado, equipo |
+| 1 | Score: la nota de cada empresa cada mes |
+| 2 | Previsión: la nota dentro de 3 y 6 meses |
+| 3 | Decisión: ¿presto?, cuánto, plazo, precio, acción del mes |
+| 4 | Producto: pantallas, demo, alcance |
+| 5 | Registro de decisiones 1-42 con su justificación |
+| 6 | Los datos y sus trampas |
+| 7 | Cómo se ejecuta: pipeline, tablas, API, código |
+| 8 | Estado a 19-09: hecho, en curso, falta |
+| 9 | Resultados medidos (backtest) |
+| 10 | Cómo lo contamos al jurado |
+| 11 | Glosario |
+
+---
+
+## 0. El proyecto en una página
+
+### 0.1 El reto
+
+Embat (plataforma de tesorería para pymes) plantea el reto **X-Ray**: con los
+datos bancarios y de facturación de 1.286 empresas (250 grupos, 24 meses),
+construir un score de salud financiera que (a) acierte, (b) anticipe el
+deterioro antes de que pase y (c) sirva para un producto real. El jurado
+(Embat e inversores) pesa por igual precisión, anticipación y producto, y
+dice literal que un modelo sencillo con un producto claro vale más que un
+número sofisticado. Al final se entrega el score sobre 60-80 empresas nuevas
+que no hemos visto. Bonus: alertas.
+
+Entregables obligatorios: **repositorio + vídeo + demo**. Los tres.
+
+> El enunciado original no está en el repo; esto es nuestro resumen. Si
+> alguien tiene el enlace o PDF, enlazarlo aquí.
+
+### 0.2 Qué construimos
+
+**Embat Flow**: financiación de circulante embebida en Embat. Cada pyme tiene
+un límite de crédito que se recalcula solo cada mes a partir de su score. Con
+ese límite puede anticipar cobros o aplazar pagos a proveedores. El score
+decide cuánto, a qué precio, a qué plazo y cuándo se cierra el grifo.
+
+Comprador: Embat, con un partner financiero que pone el dinero y paga por
+límite vivo monitorizado. Usuario de la demo: analista de riesgo del partner
+mirando su cartera.
+
+### 0.3 Las cuatro piezas, en orden
+
+```text
+datos (CSV) → [1] SCORE → [2] PREVISIÓN → [3] DECISIÓN → [4] PRODUCTO
+              nota 0-100      nota a 3 y 6 m   ¿presto? cuánto,    pantallas:
+              + confianza,    (solo endurece)  plazo, precio,      cartera, ficha,
+              por empresa-mes                  acción del mes      grupo, backtest
+```
+
+Cada pieza es un motor separado con su contrato (una tabla por empresa y
+mes). El motor siguiente solo lee la tabla del anterior. Las pantallas no
+calculan nada: pintan las tablas.
+
+### 0.4 Estado a 19-09 (resumen; detalle en §8)
+
+| Pieza | Estado |
+| --- | --- |
+| [1] Score | Hecho y testeado. 30.864 filas empresa-mes. PR #20 abierta. |
+| [2] Previsión | Código en rama `feat/forecast-engine`, sin PR. **No conectado**: la decisión corre "sin previsión". |
+| [3] Decisión | Hecho y testeado. Calibrado el 19-09 (decisiones 39-42). PR #21 abierta. |
+| [4] Producto | **Sin empezar.** La app sigue siendo la plantilla. API y export CSV ya existen. |
+| Backtest | Se calcula en cada run. Las métricas de alerta hoy son malas (§9). |
+| Entregables | Repo ✔ · vídeo ✘ · demo ✘ |
+
+### 0.5 Equipo y forma de trabajar
+
+Cuatro personas. Pablo lleva producto y pitch y valida cada decisión de
+diseño una por una; la justificación se escribe siempre (§5), es lo que se
+defiende ante el jurado. El resto se reparte pipeline de datos, motor de
+decisión e interfaz. Cualquier cambio de regla pasa por §5 antes de tocar
+código. Ramas por feature con PR a `main`. Node 22 (`fnm use 22`).
 
 ---
 
 ## 1. Score — por empresa × mes
+
+> **En pocas palabras.** Cada empresa recibe cada mes una nota de 0 a 100 y
+> una confianza de 0 a 1 (cuánto nos fiamos de la nota). La nota responde a
+> tres preguntas: ¿le sobra caja para pagar más cuotas? (bloque A, pesa 45),
+> ¿paga lo que ya debe? (bloque B, pesa 30), ¿depende de pocos clientes y le
+> pagan tarde? (bloque C, pesa 25). Encima se ajusta por el grupo: si el
+> resto del grupo está mejor y tiene dinero, sube (aval); si está peor, baja
+> (contagio). Estados: sana ≥ 70, vigilar 45-70, riesgo < 45; con confianza
+> < 0,3 no opinamos. Cada punto de la nota se descompone exacto en la
+> aportación de cada variable (la "cascada"), así el analista ve por qué
+> cambió. Solo se usa lo que se sabía a fin de ese mes: nunca la foto final
+> del dataset.
 
 ### 1.0 Reglas comunes
 
@@ -157,6 +252,14 @@ si D2 < score_solo (contagio): aval_grupo = w × (D2 − score_solo)            
 
 ## 2. Previsión — el score dentro de 3 y 6 meses
 
+> **En pocas palabras.** Con la nota de hoy y su tendencia estimamos la nota
+> dentro de 3 y 6 meses, sin modelo entrenado: cada variable sigue su
+> tendencia y se recalcula la misma fórmula. La previsión solo puede
+> endurecer las condiciones (acortar plazo, reducir antes, subir precio),
+> nunca mejorarlas. **Estado:** código en la rama `feat/forecast-engine`, no
+> conectado; hasta que bata al baseline en backtest la decisión corre sin
+> ella (`banda_pred_3m = banda actual`).
+
 Entrada: `company_month_score`. Salida: `company_month_forecast`. Todo
 validado 19-09 (decisiones 34-38). Detalle en `forecast-engine.md`.
 
@@ -172,6 +275,15 @@ validado 19-09 (decisiones 34-38). Detalle en `forecast-engine.md`.
 ---
 
 ## 3. Decisión — ¿te puedo prestar? · cuánto · plazo · interés
+
+> **En pocas palabras.** Con la fila del score respondemos en orden: ¿te
+> puedo prestar? (seis puertas; la primera que falla es el motivo), ¿cuánto?
+> (límite L: lo que su caja estresada devuelve en 12 meses, topado por lo
+> que cobra en 3), ¿a qué plazo? (30 a 180 días según banda y tendencia), ¿a
+> qué precio? (TAE base por banda más recargos explicables). Se ofrece un
+> menú: a más plazo, más cantidad pero más caro. Cada mes sale una acción
+> (abrir, ampliar, mantener, reducir, cerrar) con freno para que el grifo no
+> oscile por un mes ruidoso.
 
 Entrada: fila del score (§1). Salida por empresa-mes: `elegible`, `motivo`,
 `L` (límite), `menu[]` de opciones (plazo, cantidad máx, TAE), `accion`.
@@ -314,6 +426,12 @@ no distingue usos.
 
 ## 4. Producto
 
+> **En pocas palabras.** Cuatro pantallas para el analista del partner:
+> cartera, ficha de empresa, grupo y backtest, todas "a cierre del mes t"
+> con un selector de mes que deja ver que avisamos antes de que pasara. La
+> interfaz no calcula: lee las tablas de score y decisión. **Hoy no está
+> construida** (§8).
+
 Comprador ✅: Embat vende financiación embebida a sus pymes con un partner
 financiero que pone el dinero y paga por límite vivo monitorizado.
 Usuario principal de la demo ✅: analista de riesgo del partner mirando la
@@ -402,7 +520,6 @@ el jurado.
 | 15 | `w_max = 0,4` · saturación 20 % · tope ±20 puntos | El grupo puede mover el score pero nunca sustituirlo: una filial mala con padre rico sigue siendo vigilada. | ✅ 19-09 |
 | 16 | Aval exige capacidad (D3); contagio no | El padre solo avala si tiene dinero. Un grupo débil arrastra siempre: hace barridos de caja. Asimetría deliberada. | ✅ 19-09 |
 | 17 | Techo de grupo y cross-default al 30 % | El aval no se cuenta dos veces entre filiales. Si cae quien sostiene el grupo, el aval desaparece. Run 2026-09-19: de 30.137 cierres, `caja` (capacidad estresada ≤ 0) aparecía en 24.944 y `historia` (confianza < 0,5) en 22.801; el techo de grupo solo en 371 (1,2 %), pero cerraba al único miembro solvente de su grupo. Calibrado en las decisiones 39-41: el techo a 0 baja una banda en vez de cerrar (41) y la capacidad se recalcula con el estrés propio del motor (40). | ✅ 19-09 (techo resuelto en la 41) |
-
 | 18 | Elegibilidad = 6 puertas duras, primera que falla es el motivo | Sí/no antes de cuánto: sin historia, en riesgo, con impago real, sin caja estresada, con clientes que no pagan o con el grupo cayendo, no se presta. Reglas explícitas y explicables, sin umbral de score compuesto. | ✅ 19-09 |
 | 19 | Región factible: `cantidad ≤ L` y `cantidad ≤ capacidad_cuota_adv × plazo_meses` | La empresa debe poder devolver lo prestado con caja estresada dentro del plazo. Es la dependencia central entre cantidad y plazo: corto → poco, largo → más pero más caro. | ✅ 19-09 |
 | 20 | T_max por banda (180/120/60 d) y recorte por deterioro según la tabla de §3.2 (temporal y estructural acortan el plazo dentro de la misma banda) | Peor score → menos exposición al futuro y más rotación: re-evaluamos más veces antes de que algo se rompa. Estructural en C no presta. | ✅ 19-09 |
@@ -437,3 +554,288 @@ categorías nuevas de #12. Y la cuota esperada de `debt_repayment`
 `debt_schedule_config.csv` —una foto final— para el término de interés,
 en contra de la regla de «sin foto final»: desviación pequeña y aceptada.
 El techo de grupo (decisión 17) sale de la lista: la decisión 41 lo cierra.
+
+---
+
+## 6. Los datos y sus trampas
+
+### 6.1 Qué hay en `dataset/` (Git LFS, solo lectura)
+
+Dataset sintético: las empresas no son reales, pero los números se generaron
+a partir de estadísticas de tesorería real de pymes.
+
+| Fichero | Filas | Qué es |
+| --- | --- | --- |
+| `groups.csv` | 250 | Un grupo (holding) por fila: de 1 a 24 empresas, mediana 2 |
+| `companies.csv` | 1.286 | Empresa: grupo, moneda, ERP, fecha de alta. País casi siempre vacío |
+| `banking_products.csv` | 5.987 | Cuentas bancarias (corriente, ahorro, tarjeta, wallet) |
+| `debt_products.csv` | 2.239 | Préstamos, leasing, líneas de crédito, factoring; con `granted` / `outstanding` |
+| `debt_schedule_config.csv` | 87 | Cuadro de amortización; solo 40 empresas lo tienen |
+| `transactions.csv` | 2.556.437 (472 MB) | Movimientos bancarios 2024-09 → 2026-09: importe con signo, categoría, contraparte |
+| `invoices.csv` | 897.894 (172 MB) | Facturas del ERP: emisión, vencimiento, pago, importe, pendiente, estado |
+| `balances.csv` | 7.996 | Saldo por producto, **una sola foto** a 2026-09-01 |
+
+Cobertura: movimientos bancarios en el 100 % de empresas; facturas en el
+61 % (784); algún producto de deuda en el 29 % (378); línea de crédito en el
+16 % (206). 44 monedas, pero 10 cubren el 98,5 %. Solo 373 empresas tienen
+los 24 meses completos; la mediana es 19.
+
+### 6.2 Trampas (cada una nos costó horas; no repetir)
+
+- **Foto final ≠ historia.** `balances`, `status`, `pending_amount` y
+  `outstanding` son a fecha de extracción. Usarlos en un mes anterior es
+  mirar el futuro. Regla: para `t < 2026-09` solo movimientos y facturas
+  con fecha ≤ fin de mes.
+- **`payment_date` casi siempre es `due_date` copiada.** Coincide en el
+  62 % de facturas y en el 96 % de las vencidas. Solo cuenta como pago si
+  `status = paid`.
+- **2026-09 está truncado** (~11 movimientos por empresa frente a ~110).
+  Último mes completo: 2026-08.
+- **`exchange_rate` no convierte a euros**: convierte moneda del producto a
+  moneda de la empresa. A euros se pasa con nuestra tabla mensual (§1.0).
+- **Los traspasos entre cuentas del mismo grupo son casi la mitad de los
+  euros** y solo un tercio va etiquetado `transfer`. Se emparejan por
+  importe, signo y fecha (§1.0). Sin esto prestaríamos contra dinero de la
+  matriz.
+- **25 % de movimientos sin categoría.** Recuperamos la mitad del volumen
+  con la reclasificación (`analysis/08_categories.py`); el resto queda
+  `unknown` y baja la confianza en vez de contaminar la nota.
+- **`invoices.csv` no está mezclado**: las primeras 400 k filas tienen
+  0,05 % de vencidas frente al 22 % real. Nunca muestrear por cabecera.
+- **El 94,5 % de las empresas está en un grupo**: cualquier partición
+  ajuste / validación va por `group_id`, nunca por empresa (fuga vía
+  hermanas).
+- **La tendencia mes a mes es ruido** (FINDINGS §1): no se suma al score;
+  se publica aparte como dirección y exige persistencia.
+- **El saldo histórico se reconstruye hacia atrás** desde la foto; el 8,2 %
+  de los meses sale con caja negativa que puede ser artefacto. El score no
+  usa el saldo.
+
+### 6.3 Análisis previo (`analysis/`, Python)
+
+Scripts `00`-`09` más `fx.py` y `report.py`; conclusiones en
+`analysis/FINDINGS.md` (los números se regeneran con `06_report.py
+--check`). Lo que el motor usa de aquí: `transaction_categories.csv`
+(categorías recuperadas) y las reglas de divisa y espejos, ya reescritas en
+TypeScript.
+
+---
+
+## 7. Cómo se ejecuta
+
+### 7.1 Arranque
+
+```bash
+git lfs install && git lfs pull   # dataset
+fnm use 22                         # Node 22 obligatorio (Prisma 7)
+pnpm install
+pnpm db:setup                      # Postgres en Docker + esquema + pipeline completo (idempotente)
+pnpm dev                           # http://localhost:3000
+```
+
+`pnpm db:setup:force` recalcula aunque ya haya un run. Docker Desktop tiene
+que estar arrancado.
+
+### 7.2 Pipeline (5 pasos; cada uno lee la salida del anterior en `tmp/scoring-v1/`)
+
+| Paso | Comando | Qué hace | Salida |
+| --- | --- | --- | --- |
+| 0 (opcional) | `python analysis/08_categories.py` y `python analysis/09_export_categories.py` | recupera categorías | `analysis/transaction_categories.csv`; la ingesta lo coge sola si existe |
+| 1 | `pnpm scoring:fit` | lee CSV, pasa a €, empareja espejos, congela percentiles p5/p95 en las empresas de ajuste | particiones por grupo + parámetros versionados. Primera vez o CSV nuevos: `SCORING_REINGEST=1` (tarda minutos) |
+| 2 | `pnpm scoring:score` | score por empresa-mes (§1) | `scores.jsonl` |
+| 3 | `pnpm scoring:decide` | decisión por empresa-mes, grupo entero de una vez (§3) | `decisions.jsonl`, `decision-parameters.json` |
+| 4 | `pnpm scoring:backtest` | métricas del score y bloque `decision` (§9) | `backtest.json` |
+| 5 | `pnpm scoring:import` | carga a Postgres | tablas de §7.3 |
+
+Variables de entorno: `SCORING_DATASET`, `SCORING_OUT`, `SCORING_CATEGORIES`,
+`SCORING_PARAMS`. Todos los números del algoritmo viven en tablas de
+parámetros con `version_parametros` (un hash): cambiar un peso cambia la
+versión y cada fila guarda con cuál se calculó. Ningún número suelto en
+código.
+
+### 7.3 Tablas (Postgres, `prisma/schema/scoring.prisma`)
+
+| Tabla | Clave | Columnas planas | Resto |
+| --- | --- | --- | --- |
+| `score_runs` | run | versión de parámetros, estado, manifest, métricas | |
+| `score_parameters` | versión (hash) | JSON con todos los parámetros | |
+| `score_companies` | `company_id` | `group_id`, moneda | |
+| `company_month_scores` | run + empresa + mes | `score`, `confidence`, `estado`, `direction` | `data` JSON = contrato completo (scoring-engine §10) |
+| `company_month_decisions` | run + empresa + mes | `band`, `action`, `recommendedLimit`, `appliedLimit` | `data` JSON = contrato completo (decision-engine §10) |
+
+`company_month_forecast` (forecast-engine §8) todavía no existe en Prisma.
+
+Campos que lee la interfaz o el motor siguiente. Del score: `score`,
+`score_solo`, `aval_grupo`, `confianza`, `estado`, `direccion`,
+`naturaleza`, `racha_B2`, `racha_deficit`, cascada por variable. De la
+decisión: `elegible`, `motivo`, `banda`, `L`, `L_vigente`, `T_max`,
+`menu[]`, `accion`, `motivo_accion`, `cierre_pendiente`.
+
+### 7.4 API (ya existe)
+
+| Ruta | Devuelve |
+| --- | --- |
+| `GET /api/scoring/companies?month=2026-08` | cartera: filas con `score` y `decision`; filtros por mes, banda, acción, dirección, estado |
+| `GET /api/scoring/companies/[companyId]` | historial mensual de una empresa |
+| `GET /api/scoring/runs/[runId]` | manifest y métricas del run |
+| `GET /api/scoring/export?run=&month=&mode=month\|latest` | CSV con score + decisión (base de la entrega de empresas test, §4.6) |
+
+### 7.5 Código
+
+```text
+lib/features/scoring/   14 módulos: ingest, fx, mirrors, flows, variables, fit,
+                        aggregate, group, evolution, engine, backtest, api…
+lib/features/decision/  13 módulos: eligibility, limit, tenor, interest, menu,
+                        group, action, motivos, metrics, engine…
+lib/features/forecast/  solo en la rama feat/forecast-engine
+scripts/scoring.ts      CLI de los 5 pasos · scripts/setup-db.mjs · scripts/run-tests.mjs
+app/api/scoring/*       rutas de §7.4
+app/, components/       todavía plantilla (home, sign-in, /tasks de ejemplo)
+```
+
+Comprobaciones: `pnpm test` (153 tests en 25 ficheros, `node --test`),
+`pnpm run typecheck`, `pnpm run lint`. Hay un test por módulo de cada
+motor; no hay tests de API ni de interfaz.
+
+---
+
+## 8. Estado a 19-09: hecho, en curso, falta
+
+### 8.1 Hecho ✔
+
+- Análisis del dataset (FINDINGS §1-8) y reclasificación de categorías.
+- Motor de score v1 completo: 30.864 filas; la suma de aportaciones es
+  igual al score en todas.
+- Motor de decisión v1 completo y calibrado (decisiones 39-42), con techo
+  de grupo y cross-default.
+- Pipeline por CLI, import a Postgres, API y export CSV.
+- 42 decisiones validadas y documento para el jurado
+  (`decisiones-diseno.md`).
+
+### 8.2 En curso ⏳
+
+- Previsión v1: código en `feat/forecast-engine` (11 commits). Falta el
+  backtest contra el baseline, la tabla en Prisma y conectarla a la
+  decisión solo si bate al baseline (decisión 38).
+- PRs apiladas sin mergear: #20 scoring → #21 decisión → #22 docs jurado.
+  `main` va 67 commits por detrás.
+
+### 8.3 Falta ✘ (por orden de valor para la demo)
+
+1. **Las cuatro pantallas** (§4.1) y el selector de mes. Nada empezado. Es
+   lo que el jurado ve.
+2. **Calibrar el backtest de alerta** (§9.3): un recall de 0,14 no vende
+   anticipación. Palancas: umbral de dirección ±6, persistencia de 2 meses,
+   definición de evento (3 meses de déficit).
+3. **Golden path**: elegir las empresas X, Y, Z reales del backtest (§4.3).
+4. **Vídeo y demo**: obligatorios además del repo.
+5. Alertas: feed en cartera y webhook a Slack (bonus del reto).
+6. Entrega test: correr el pipeline con `version_parametros` congelada
+   sobre las 60-80 empresas nuevas y exportar el CSV. El export existe;
+   falta probarlo con datos nuevos.
+7. `PRODUCT.md` está vacío: rellenarlo o hacer que apunte a este documento.
+8. Botón "explicar en palabras" con LLM: solo si sobra tiempo.
+
+---
+
+## 9. Resultados medidos (run del 19-09, tras la calibración 39-42)
+
+### 9.1 Cuántas empresas pasan cada puerta en 2026-08 (mes de la demo)
+
+| Filtro | Empresas que pasan |
+| --- | --- |
+| historia: confianza ≥ 0,4 | 723 (eran 560 con 0,5) |
+| caja: capacidad estresada > 0 | 417 (eran 337) |
+| score ≥ 45 | 1.278 |
+| racha de impago ≤ 1 | 1.230 |
+| racha de déficit ≤ 2 | 1.006 |
+| vencido sin cobrar ≤ 40 % | 1.044 |
+| **las seis puertas a la vez** | **147** (eran 79) |
+| con línea abierta ese mes | 116 (eran 8) |
+
+### 9.2 En 24 meses, antes → después de calibrar
+
+| Métrica | Antes | Después | Objetivo |
+| --- | --- | --- | --- |
+| empresas con línea alguna vez | 46 | 308 | |
+| acciones abrir / ampliar / reducir | 50 / 35 / 9 | 420 / 417 / 394 | |
+| oscilación (cambios de acción) | 5,8 % | 8,6 % | < 20 % ✔ |
+| exposición evitada (validación) | 405 k€ | 656 k€ | |
+| ingresos simulados (uso del 60 % del límite) | 142 k€ | 1,89 M€ | |
+| filas con cierre pendiente en 2026-08 | 0 | 10 | |
+| empresas con techo de grupo 0 (banda −1, siguen abiertas) | 0 | 324 | |
+| cerradas por prorrateo del techo | 219 | 37 | |
+
+### 9.3 Backtest de alerta del score: hoy es malo y lo decimos
+
+| Métrica | Valor |
+| --- | --- |
+| recall de deterioro | 0,14 |
+| falsas alarmas de deterioro | 95 % |
+| recall de recuperación | 0,43 |
+| falsas alarmas de recuperación | 89 % |
+| lead time mediano | 3 meses, sobre solo 2 eventos casados |
+
+Definiciones en scoring-engine §13. Validación fuera de muestra por grupo,
+ventana 2025-09 … 2026-08. Es lo que hay que mover antes de la slide de
+anticipación (§8.3, punto 2).
+
+### 9.4 Previsión
+
+Sin medir: el motor no está conectado. Condición para conectarlo (decisión
+38): MAE a 3 meses mejor que el baseline `score_pred = score`, mejor acierto
+de banda y cobertura del intervalo entre el 75 y el 85 %.
+
+---
+
+## 10. Cómo lo contamos al jurado
+
+1. **Modelo sencillo, producto claro**: catorce variables explicables, un
+   menú de financiación encima, cero LLM en el cálculo.
+2. **Grupo**: el founder pidió holding; lo medimos con traspasos reales y
+   lo enseñamos como aval y contagio en la cascada.
+3. **Prudencia con memoria**: histéresis, cierre confirmado, previsión que
+   solo endurece. Los parámetros se eligieron con las cifras de §9, no a
+   ojo.
+4. **Honestidad con el backtest**: las métricas se calculan de verdad y hoy
+   son malas; decimos cuáles y qué palanca las mueve.
+
+**Lo que no hacemos, a propósito** (cada uno era una hora que no cambiaba
+la demo): LLM en el cálculo, sector inventado, consolidación contable de
+grupos, conversión de moneda sin validar, disposiciones y amortizaciones
+reales, vista pyme salvo tiempo.
+
+**Aceptado con reserva, a revisitar**: confianza fija 0,90 para
+`debt_drawdown` y `balance_adjustment` (decisión 2); la cuota esperada de
+`debt_repayment` usa `outstanding_balance`, una foto final, con efecto de
+~6 % en la cuota (scoring-engine §5.2).
+
+---
+
+## 11. Glosario
+
+| Término | Qué significa |
+| --- | --- |
+| score / nota | 0-100 por empresa y mes. Más alto, más sana. |
+| confianza | 0-1, cuánto nos fiamos de la nota (meses de historia × cobertura de datos). Se enseña aparte. |
+| cascada | Descomposición exacta de la nota en la aportación de cada variable. |
+| bloque A / B / C / D | Capacidad de deuda / fiabilidad de pago / dependencia de clientes y proveedores / grupo. |
+| aval / contagio | Ajuste de grupo: sube si el resto del grupo está mejor y tiene caja; baja si está peor. |
+| `caja_op` | Cobros operativos menos pagos operativos del mes. |
+| `capacidad_cuota_adv` | Caja mensual que sobra para cuotas tras estresar (−10 % cobros, +5 % pagos) y cubrir 1,3 veces. |
+| banda | A / B / C / D según score (≥ 75, 60-75, 45-60, < 45). Fija el factor de límite y el precio base. |
+| `L` / `L_vigente` | Límite calculado este mes / límite que realmente aplica (con freno de ±25 %). |
+| `T_max` | Plazo máximo en días. |
+| TAE | Precio anual: base por banda más recargos por plazo, confianza, tendencia y previsión. |
+| menú | Opciones (plazo, cantidad máxima, TAE) que ve la empresa. |
+| puerta | Condición de elegibilidad. Dura: cierra el mismo mes. Blanda: necesita dos meses seguidos. |
+| acción | abrir / ampliar / mantener / reducir / cerrar; una por empresa y mes. |
+| histéresis | Freno para que el límite no oscile con un mes ruidoso. |
+| dirección / naturaleza | mejora, estable o deterioro a 3 meses / temporal o estructural. |
+| cross-default | Si cae una empresa que pesa ≥ 30 % del grupo, el resto baja una banda. |
+| espejo | Par de movimientos iguales y opuestos el mismo día: traspaso, no actividad. |
+| foto final | Datos a fecha de extracción (saldos, estados). Prohibidos para meses anteriores. |
+| backtest | Comprobar sobre el pasado si avisamos antes de que pasara. |
+| lead time | Meses entre nuestra alerta y el evento. |
+| `version_parametros` | Hash de todos los números del motor; viaja con cada fila. |
+| run | Una ejecución completa del pipeline. |
