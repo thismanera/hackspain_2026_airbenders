@@ -6,7 +6,13 @@ import type { MouseEvent } from "react";
 import { ActionBadge } from "@/components/grifo/action-badge";
 import { CompanyAvatar } from "@/components/grifo/company-avatar";
 import { StatusBadge } from "@/components/grifo/status-badge";
-import { AlertFlag, DeltaFigure, MoneyFigure, ScoreFigure } from "@/components/grifo/table-figures";
+import {
+  AlertFlag,
+  DeltaFigure,
+  MoneyDelta,
+  MoneyFigure,
+  ScoreFigure,
+} from "@/components/grifo/table-figures";
 import {
   Table,
   TableBody,
@@ -70,12 +76,13 @@ export function PortfolioTable({
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[26%]">Empresa</TableHead>
-              <TableHead className="w-[12%]">Estado</TableHead>
-              <TableHead className="w-[10%] text-right">Score</TableHead>
-              <TableHead className="w-[12%] text-right">Δ 3 meses</TableHead>
-              <TableHead className="w-[22%] text-right">Límite</TableHead>
-              <TableHead className="w-[18%]">Acción</TableHead>
+              <TableHead className="w-[24%]">Empresa</TableHead>
+              <TableHead className="w-[11%]">Estado</TableHead>
+              <TableHead className="w-[9%] text-right">Score</TableHead>
+              <TableHead className="w-[10%] text-right">Δ 3 meses</TableHead>
+              <TableHead className="w-[12%] text-center">Límite</TableHead>
+              <TableHead className="w-[12%] text-right">Δ límite</TableHead>
+              <TableHead className="w-[22%]">Acción</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -106,10 +113,18 @@ export function PortfolioTable({
                 <TableCell className="text-right">
                   <DeltaFigure delta={row.trend3m} />
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-center">
                   <MoneyFigure
                     amount={row.eligible ? row.limit : 0}
                     previous={row.previousLimit}
+                    align="center"
+                    showDelta={false}
+                  />
+                </TableCell>
+                <TableCell className="text-right">
+                  <MoneyDelta
+                    amount={row.eligible ? row.limit : 0}
+                    previous={row.previousLimit ?? 0}
                   />
                 </TableCell>
                 <TableCell>
@@ -162,10 +177,20 @@ export function PortfolioTable({
                     amount={row.eligible ? row.limit : 0}
                     previous={row.previousLimit}
                     align="start"
+                    showDelta={false}
                   />
                 </dd>
               </div>
               <div>
+                <dt className="text-muted-foreground text-xs">Δ límite</dt>
+                <dd>
+                  <MoneyDelta
+                    amount={row.eligible ? row.limit : 0}
+                    previous={row.previousLimit ?? 0}
+                  />
+                </dd>
+              </div>
+              <div className="col-span-2">
                 <dt className="text-muted-foreground text-xs">Acción</dt>
                 <dd>
                   <ActionBadge action={row.action} changed={row.changed} />

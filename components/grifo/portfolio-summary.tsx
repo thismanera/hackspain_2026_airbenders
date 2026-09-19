@@ -18,9 +18,8 @@ import type { PortfolioSummary } from "@/lib/features/portfolio/types";
 
 /**
  * Cuatro respuestas a "¿qué ha pasado este mes?", cada una con su comparación
- * contra el mes anterior y los últimos doce meses detrás. Dos de ellas son a la
- * vez filtros: pulsar "En riesgo" deja la tabla en las empresas en riesgo, igual
- * que la vista del menú lateral.
+ * contra el mes anterior. Dos de ellas son a la vez filtros: pulsar "En riesgo"
+ * deja la tabla en las empresas en riesgo, igual que la vista del menú lateral.
  */
 type Tone = "good" | "bad" | "neutral";
 
@@ -44,7 +43,7 @@ function Delta({
   }
   const Icon = value > 0 ? ArrowUpRight : ArrowDownRight;
   return (
-    <span className="flex items-center gap-1.5 text-xs whitespace-nowrap">
+    <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
       <span
         className={cn(
           "inline-flex items-center gap-0.5 rounded-full py-px pr-1.5 pl-1 font-medium tabular-nums",
@@ -61,36 +60,12 @@ function Delta({
   );
 }
 
-/**
- * Doce barras, una por mes, con la última resaltada. Es una ayuda de lectura del
- * número grande de al lado, no un gráfico: sin ejes ni tooltip, y decorativa.
- */
-function MiniBars({ values, className }: { values: number[]; className?: string }) {
-  const max = Math.max(...values, 1);
-  return (
-    <span aria-hidden className={cn("flex h-9 items-end gap-[3px]", className)}>
-      {values.map((value, index) => {
-        const last = index === values.length - 1;
-        const height = Math.max(8, Math.round((value / max) * 100));
-        return (
-          <span
-            key={index}
-            className={cn("w-1.5 rounded-sm", last ? "bg-current" : "bg-current/25")}
-            style={{ height: `${height}%` }}
-          />
-        );
-      })}
-    </span>
-  );
-}
-
 function KpiCard({
   icon: Icon,
   label,
   value,
   unit,
   delta,
-  series,
   footer,
   accent,
   pressed,
@@ -101,9 +76,8 @@ function KpiCard({
   value: string;
   unit?: string;
   delta: ReactNode;
-  series: number[];
   footer?: ReactNode;
-  accent: { tile: string; bars: string };
+  accent: { tile: string };
   pressed?: boolean;
   onToggle?: () => void;
 }) {
@@ -133,20 +107,17 @@ function KpiCard({
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-end justify-between gap-3">
-          <p className="min-w-0 text-2xl leading-none font-semibold tracking-[-0.02em] tabular-nums">
-            {value}
-            {unit ? (
-              <span className="text-muted-foreground ml-1 text-base font-normal">{unit}</span>
-            ) : null}
-          </p>
-          <MiniBars values={series} className={cn("shrink-0", accent.bars)} />
-        </div>
+        <p className="text-xl leading-tight font-semibold tracking-[-0.02em] tabular-nums sm:text-2xl">
+          {value}
+          {unit ? (
+            <span className="text-muted-foreground ml-1 text-sm font-normal sm:text-base">{unit}</span>
+          ) : null}
+        </p>
         {delta}
       </div>
 
       {footer ? (
-        <div className="text-muted-foreground border-t pt-2.5 text-xs">{footer}</div>
+        <div className="text-muted-foreground truncate border-t pt-2.5 text-xs">{footer}</div>
       ) : null}
     </Root>
   );
@@ -155,17 +126,14 @@ function KpiCard({
 export function PortfolioKpis({
   summary,
   previous,
-  history,
   filters,
   onChange,
 }: {
   summary: PortfolioSummary;
   previous: PortfolioSummary | null;
-  history: PortfolioSummary[];
   filters: PortfolioSearchState;
   onChange: (update: Partial<PortfolioSearchState>) => void;
 }) {
-  const window = history.slice(-12);
   const previousMonth = previous?.month ?? summary.month;
   const delta = (pick: (s: PortfolioSummary) => number) =>
     previous ? pick(summary) - pick(previous) : 0;
@@ -182,11 +150,7 @@ export function PortfolioKpis({
         icon={Wallet}
         label="Límite vivo"
         value={formatEuros(summary.exposure)}
-        accent={{
-          tile: "bg-status-healthy-surface text-status-healthy-fg",
-          bars: "text-status-healthy",
-        }}
-        series={window.map((s) => s.exposure)}
+        accent={{ tile: "bg-status-healthy-surface text-status-healthy-fg" }}
         delta={
           <Delta
             value={delta((s) => s.exposure)}
@@ -197,9 +161,8 @@ export function PortfolioKpis({
         }
         footer={
           <>
-            Suma de los límites de las{" "}
             <span className="text-foreground tabular-nums">{summary.eligible}</span> empresas con
-            línea
+            línea activa
           </>
         }
       />
@@ -209,8 +172,7 @@ export function PortfolioKpis({
         label="En riesgo"
         value={String(summary.byEstado.riesgo)}
         unit={`de ${summary.total}`}
-        accent={{ tile: "bg-status-risk-surface text-status-risk-fg", bars: "text-status-risk" }}
-        series={window.map((s) => s.byEstado.riesgo)}
+        accent={{ tile: "bg-status-risk-surface text-status-risk-fg" }}
         delta={
           <Delta
             value={delta((s) => s.byEstado.riesgo)}
@@ -219,7 +181,7 @@ export function PortfolioKpis({
             previousMonth={previousMonth}
           />
         }
-        footer="Score bajo 45, o dos meses sin pagar una obligación"
+        footer="Score <45 o impago 2 meses"
         pressed={riskOn}
         onToggle={() => onChange({ estado: riskOn ? "todos" : "riesgo" })}
       />
@@ -229,8 +191,7 @@ export function PortfolioKpis({
         label="Con deterioro"
         value={String(summary.byDireccion.deterioro)}
         unit={`de ${summary.total}`}
-        accent={{ tile: "bg-status-watch-surface text-status-watch-fg", bars: "text-status-watch" }}
-        series={window.map((s) => s.byDireccion.deterioro)}
+        accent={{ tile: "bg-status-watch-surface text-status-watch-fg" }}
         delta={
           <Delta
             value={delta((s) => s.byDireccion.deterioro)}
@@ -239,7 +200,7 @@ export function PortfolioKpis({
             previousMonth={previousMonth}
           />
         }
-        footer="El score cae 6 puntos o más respecto a hace 3 meses"
+        footer="Baja ≥6 pts en 3 meses"
         pressed={deteriorationOn}
         onToggle={() => onChange({ direccion: deteriorationOn ? "todas" : "deterioro" })}
       />
@@ -249,8 +210,7 @@ export function PortfolioKpis({
         label="Se mueven este mes"
         value={String(summary.moved)}
         unit={`de ${summary.total}`}
-        accent={{ tile: "bg-secondary text-foreground", bars: "text-foreground" }}
-        series={window.map((s) => s.moved)}
+        accent={{ tile: "bg-secondary text-foreground" }}
         delta={
           <Delta
             value={delta((s) => s.moved)}
@@ -260,14 +220,11 @@ export function PortfolioKpis({
           />
         }
         footer={
-          <span className="flex items-center gap-3">
-            <span className="text-status-healthy-fg inline-flex items-center gap-1 tabular-nums">
-              <ArrowUpRight aria-hidden className="size-3" /> {up} abren o amplían
-            </span>
-            <span className="text-status-risk-fg inline-flex items-center gap-1 tabular-nums">
-              <ArrowDownRight aria-hidden className="size-3" /> {down} reducen o cierran
-            </span>
-          </span>
+          <>
+            <span className="text-status-healthy-fg tabular-nums">{up} suben</span>
+            {" · "}
+            <span className="text-status-risk-fg tabular-nums">{down} bajan</span>
+          </>
         }
       />
     </section>

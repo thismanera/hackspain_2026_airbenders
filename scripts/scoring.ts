@@ -343,25 +343,42 @@ async function doImport() {
   console.log(JSON.stringify({ imported, importedDecisions, snapshots, runId: manifest.runId }));
 }
 
-async function localRunId(): Promise<string> {
+async function localRunId(): Promise<string | undefined> {
   const params = parametersSchema.parse(JSON.parse(await readFile(parameterPath(), "utf8")));
   const run = runDir(params, (await meta()).fingerprint);
-  const manifest = JSON.parse(await readFile(path.join(run, "manifest.json"), "utf8")) as {
-    runId: string;
-  };
-  return manifest.runId;
+  try {
+    const manifest = JSON.parse(await readFile(path.join(run, "manifest.json"), "utf8")) as {
+      runId: string;
+    };
+    return manifest.runId;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    return undefined;
+  }
 }
 
 /**
  * Materializa el panel de una ejecución ya importada: cada respuesta que la UI
- * puede pedir queda como una fila en `portfolio_snapshots`. Sin `runId` usa la
- * ejecución del run local. Se puede relanzar solo: borra y vuelve a escribir.
+ * puede pedir queda como una fila en `portfolio_snapshots`. Sin `runId` usa el
+ * run local si existe (`scoring:score` + `scoring:import` ya corridos aquí) y,
+ * si no, la última ejecución completa ya importada en la base compartida —
+ * así `pnpm scoring:snapshot` a secas rematerializa sin exigir el pipeline
+ * local cuando el run ya vive en Postgres. Se puede relanzar solo: borra y
+ * vuelve a escribir.
  */
 async function doSnapshot(runId?: string): Promise<number> {
   const { prisma } = await import("../lib/core/db");
-  const { buildDataset, runHeader } = await import("../lib/features/portfolio/load-dataset");
+  const { buildDataset, runHeader, compatibleRun } = await import(
+    "../lib/features/portfolio/load-dataset"
+  );
   const { materialize } = await import("../lib/features/portfolio/snapshots");
-  const id = runId ?? (await localRunId());
+  const id = runId ?? (await localRunId()) ?? (await compatibleRun())?.id;
+  if (!id)
+    throw new Error(
+      "No hay ningún run para materializar: ni un run local (scoring:score + scoring:import) " +
+        "ni un run completo ya importado en la base de datos. Ejecuta `pnpm db:setup` o pasa " +
+        "un runId explícito: `pnpm scoring:snapshot <runId>`.",
+    );
   const dataset = await buildDataset(await runHeader(id));
   await prisma.portfolioSnapshot.deleteMany({ where: { runId: id } });
   let written = 0;

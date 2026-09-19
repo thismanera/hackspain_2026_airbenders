@@ -22,36 +22,12 @@ import {
 } from "@/lib/features/portfolio/format";
 import type { BenchmarkResponse, CompanyFileResponse } from "@/lib/features/portfolio/types";
 
-/**
- * Doce barras, una por mes, con la última resaltada.
- * Ayuda visual de lectura del número grande, consistente con PortfolioKpis en Cartera.
- */
-function MiniBars({ values, className }: { values: number[]; className?: string }) {
-  const max = Math.max(...values, 1);
-  return (
-    <span aria-hidden className={cn("flex h-9 items-end gap-[3px]", className)}>
-      {values.map((value, index) => {
-        const last = index === values.length - 1;
-        const height = Math.max(8, Math.round((value / max) * 100));
-        return (
-          <span
-            key={index}
-            className={cn("w-1.5 rounded-sm", last ? "bg-current" : "bg-current/25")}
-            style={{ height: `${height}%` }}
-          />
-        );
-      })}
-    </span>
-  );
-}
-
 function KpiCard({
   icon: Icon,
   label,
   value,
   unit,
   delta,
-  series,
   footer,
   accent,
 }: {
@@ -60,9 +36,8 @@ function KpiCard({
   value: string;
   unit?: string;
   delta: ReactNode;
-  series: number[];
   footer?: ReactNode;
-  accent: { tile: string; bars: string };
+  accent: { tile: string };
 }) {
   return (
     <div className="bg-card flex flex-col gap-3 rounded-xl border p-4 text-left">
@@ -77,20 +52,17 @@ function KpiCard({
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-end justify-between gap-3">
-          <p className="min-w-0 text-2xl leading-none font-semibold tracking-[-0.02em] tabular-nums">
-            {value}
-            {unit ? (
-              <span className="text-muted-foreground ml-1 text-base font-normal">{unit}</span>
-            ) : null}
-          </p>
-          <MiniBars values={series} className={cn("shrink-0", accent.bars)} />
-        </div>
+        <p className="text-xl leading-tight font-semibold tracking-[-0.02em] tabular-nums sm:text-2xl">
+          {value}
+          {unit ? (
+            <span className="text-muted-foreground ml-1 text-sm font-normal sm:text-base">{unit}</span>
+          ) : null}
+        </p>
         {delta}
       </div>
 
       {footer ? (
-        <div className="text-muted-foreground border-t pt-2.5 text-xs">{footer}</div>
+        <div className="text-muted-foreground truncate border-t pt-2.5 text-xs">{footer}</div>
       ) : null}
     </div>
   );
@@ -105,15 +77,9 @@ export function PymeKpis({
   benchmark: BenchmarkResponse;
   requested: boolean;
 }) {
-  const { latest, previous, history } = file;
+  const { latest, previous } = file;
   const { decision } = latest;
-  const window12 = history.slice(-12);
   const previousMonth = previous?.month ?? latest.month;
-
-  // Serie de scores de los últimos 12 meses
-  const scoreSeries = window12.map((m) => Math.round(m.score));
-  // Serie de límites de los últimos 12 meses
-  const limitSeries = window12.map((m) => (m.decision.eligible ? m.decision.limit : 0));
 
   // Cálculo de ahorro estimado vs póliza bancaria tradicional estándar (8.2% TAE + apertura)
   const traditionalApr = 0.082;
@@ -121,9 +87,6 @@ export function PymeKpis({
   const aprDifferential = Math.max(0, traditionalApr - activeApr);
   const baseAmount = decision.eligible && decision.limit > 0 ? decision.limit : 20000;
   const estimatedSavingsAnnual = Math.round(baseAmount * (aprDifferential + 0.005));
-  const savingsSeries = window12.map((m) =>
-    m.decision.eligible ? Math.round(m.decision.limit * (aprDifferential + 0.005)) : 300,
-  );
 
   const scoreDiff = previous ? Math.round((latest.score - previous.score) * 10) / 10 : 0;
   const limitDiff =
@@ -139,11 +102,7 @@ export function PymeKpis({
         label="Score de salud"
         value={formatScore(latest.score)}
         unit="/ 100"
-        accent={{
-          tile: "bg-status-healthy-surface text-status-healthy-fg",
-          bars: "text-status-healthy",
-        }}
-        series={scoreSeries.length > 0 ? scoreSeries : [latest.score]}
+        accent={{ tile: "bg-status-healthy-surface text-status-healthy-fg" }}
         delta={
           scoreDiff !== 0 ? (
             <span className="flex items-center gap-1.5 text-xs whitespace-nowrap">
@@ -171,13 +130,13 @@ export function PymeKpis({
           )
         }
         footer={
-          <span>
-            Banda <span className="font-semibold text-foreground">{decision.band}</span> · Mejor que el{" "}
-            <span className="font-medium text-foreground tabular-nums">
+          <>
+            Banda {decision.band} · top{" "}
+            <span className="text-foreground tabular-nums">
               {formatPercent(benchmark.scorePercentile, 0)}
             </span>{" "}
-            de {benchmark.cohort} comparables
-          </span>
+            del sector
+          </>
         }
       />
 
@@ -186,11 +145,7 @@ export function PymeKpis({
         icon={Wallet}
         label="Límite preaprobado"
         value={decision.eligible ? formatEuros(decision.limit) : "0 €"}
-        accent={{
-          tile: "bg-status-healthy-surface text-status-healthy-fg",
-          bars: "text-status-healthy",
-        }}
-        series={limitSeries.length > 0 ? limitSeries : [decision.limit]}
+        accent={{ tile: "bg-status-healthy-surface text-status-healthy-fg" }}
         delta={
           decision.eligible ? (
             limitDiff !== 0 ? (
@@ -221,14 +176,9 @@ export function PymeKpis({
           )
         }
         footer={
-          decision.eligible ? (
-            <span>
-              Hasta <span className="font-medium text-foreground tabular-nums">{decision.maxTenorDays} días</span> · TAE desde{" "}
-              <span className="font-medium text-foreground tabular-nums">{formatApr(decision.apr)}</span>
-            </span>
-          ) : (
-            <span>Condiciones disponibles al pasar puertas</span>
-          )
+          decision.eligible
+            ? `Hasta ${decision.maxTenorDays} días · TAE ${formatApr(decision.apr)}`
+            : "Condiciones al pasar puertas"
         }
       />
 
@@ -238,11 +188,7 @@ export function PymeKpis({
         label="Ahorro estimado anual"
         value={formatEuros(estimatedSavingsAnnual)}
         unit="/ año"
-        accent={{
-          tile: "bg-status-watch-surface text-status-watch-fg",
-          bars: "text-status-watch",
-        }}
-        series={savingsSeries.length > 0 ? savingsSeries : [estimatedSavingsAnnual]}
+        accent={{ tile: "bg-status-watch-surface text-status-watch-fg" }}
         delta={
           <span className="flex items-center gap-1.5 text-xs whitespace-nowrap">
             <span className="bg-status-healthy-surface text-status-healthy-fg inline-flex items-center gap-0.5 rounded-full py-px pr-1.5 pl-1 font-medium tabular-nums">
@@ -252,7 +198,7 @@ export function PymeKpis({
             <span className="text-muted-foreground">vs. media bancaria 8,2 %</span>
           </span>
         }
-        footer="Informe de negociación disponible para tu banco"
+        footer="Informe de negociación para tu banco"
       />
 
       {/* KPI 4: Privacidad y Opt-in */}
@@ -264,9 +210,7 @@ export function PymeKpis({
           tile: requested
             ? "bg-status-healthy-surface text-status-healthy-fg"
             : "bg-secondary text-foreground",
-          bars: requested ? "text-status-healthy" : "text-foreground",
         }}
-        series={window12.map(() => (requested ? 100 : 50))}
         delta={
           requested ? (
             <span className="text-status-healthy-fg inline-flex items-center gap-1 text-xs font-medium">
@@ -280,7 +224,7 @@ export function PymeKpis({
             </span>
           )
         }
-        footer="Ni movimientos ni facturas se comparten jamás"
+        footer="Sin compartir movimientos ni facturas"
       />
     </section>
   );
