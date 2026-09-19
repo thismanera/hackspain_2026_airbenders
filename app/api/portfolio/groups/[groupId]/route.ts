@@ -20,5 +20,9 @@ export async function GET(
     return Response.json({ error: z.treeifyError(parsed.error) }, { status: 400 });
   }
 
-  return scoringResponse(() => getGroupFile(groupId, parsed.data.month), "Grupo no encontrado");
+  return scoringResponse(
+    () => getGroupFile(groupId, parsed.data.month),
+    "Grupo no encontrado",
+    request,
+  );
 }

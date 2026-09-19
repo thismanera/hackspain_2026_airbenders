@@ -1,10 +1,9 @@
 "use client";
 
 import { SearchX } from "lucide-react";
+import dynamic from "next/dynamic";
 import { Component, Suspense, type ReactNode } from "react";
 
-import { CompanySheet } from "@/components/grifo/sheet/company-sheet";
-import { GroupSheet } from "@/components/grifo/group/group-sheet";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -84,6 +83,19 @@ function SheetSkeleton() {
     </div>
   );
 }
+
+/**
+ * Las fichas (pestañas, gráficas Recharts, lectura LLM) solo se descargan al
+ * abrir la hoja: la cartera y las alertas no las necesitan para pintarse.
+ */
+const CompanySheet = dynamic(
+  () => import("@/components/grifo/sheet/company-sheet").then((m) => m.CompanySheet),
+  { loading: SheetSkeleton },
+);
+const GroupSheet = dynamic(
+  () => import("@/components/grifo/group/group-sheet").then((m) => m.GroupSheet),
+  { loading: SheetSkeleton },
+);
 
 /**
  * La ficha encima de la cartera. Empresa y grupo comparten la misma hoja: pasar

@@ -20,5 +20,9 @@ export async function GET(
     return Response.json({ error: z.treeifyError(parsed.error) }, { status: 400 });
   }
 
-  return scoringResponse(() => getBenchmark(companyId, parsed.data.month), "Empresa no encontrada");
+  return scoringResponse(
+    () => getBenchmark(companyId, parsed.data.month),
+    "Empresa no encontrada",
+    request,
+  );
 }

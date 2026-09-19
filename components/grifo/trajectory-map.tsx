@@ -9,7 +9,7 @@ import { useMonthPlayer } from "@/components/grifo/use-month-player";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/core/utils";
 import { formatMonthShort, formatScore, formatSigned } from "@/lib/features/portfolio/format";
-import type { PortfolioRow } from "@/lib/features/portfolio/types";
+import type { PortfolioListRow } from "@/lib/features/portfolio/types";
 import { ACCION } from "@/lib/features/portfolio/vocabulary";
 
 const W = 720;
@@ -28,7 +28,7 @@ const TONE = {
   mejora: "var(--status-healthy)",
   deterioro: "var(--status-risk)",
   estable: "var(--status-none)",
-} satisfies Record<PortfolioRow["direction"], string>;
+} satisfies Record<PortfolioListRow["direction"], string>;
 
 /** Dos hot casi encima se separan un poco en horizontal para que se lean los dos números. */
 function spread(points: { id: string; x: number; y: number }[]): Map<string, number> {
@@ -60,7 +60,7 @@ export function TrajectoryMap({
   onOpenCompany,
   className,
 }: {
-  rows: PortfolioRow[];
+  rows: PortfolioListRow[];
   months: string[];
   onOpenCompany: (companyId: string) => void;
   className?: string;

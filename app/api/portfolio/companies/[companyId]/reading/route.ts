@@ -25,5 +25,6 @@ export async function GET(
   return scoringResponse(
     () => getReading(companyId, parsed.data.kind, parsed.data.month),
     "Empresa no encontrada",
+    request,
   );
 }

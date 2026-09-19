@@ -5,6 +5,7 @@ import type { MouseEvent } from "react";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
 import { CompanyAvatar } from "@/components/grifo/company-avatar";
+import { ShowMore, useVisibleRows } from "@/components/grifo/show-more";
 import { StatusBadge } from "@/components/grifo/status-badge";
 import {
   AlertFlag,
@@ -24,14 +25,14 @@ import {
 import { IMPACT_TONE } from "@/components/grifo/company/forecast-impact";
 import { cn } from "@/lib/core/utils";
 import { formatEurosCompact, formatScore } from "@/lib/features/portfolio/format";
-import type { PortfolioRow } from "@/lib/features/portfolio/types";
+import type { PortfolioListRow } from "@/lib/features/portfolio/types";
 
 /**
  * Dónde estará en 3 meses y qué le cuesta: score previsto, cambio de banda si lo
  * hay, y euros al año. El texto dice lo mismo que el color (PRODUCT §8.6). La
  * previsión va en sombra: informa, la acción de la fila no depende de ella.
  */
-function ForecastCell({ row, align = "end" }: { row: PortfolioRow; align?: "start" | "end" }) {
+function ForecastCell({ row, align = "end" }: { row: PortfolioListRow; align?: "start" | "end" }) {
   const forecast = row.forecast;
   if (!forecast) return <span className="text-muted-foreground tabular-nums">—</span>;
   const { impact } = forecast;
@@ -60,7 +61,7 @@ function ForecastCell({ row, align = "end" }: { row: PortfolioRow; align?: "star
   );
 }
 
-function hrefFor(row: PortfolioRow, month: string): string {
+function hrefFor(row: PortfolioListRow, month: string): string {
   return `/cartera/${row.company.id}?mes=${month}`;
 }
 
@@ -77,7 +78,7 @@ function GroupTag({
   row,
   onOpenGroup,
 }: {
-  row: PortfolioRow;
+  row: PortfolioListRow;
   onOpenGroup?: (groupId: string) => void;
 }) {
   if (!onOpenGroup || row.company.groupSize <= 1) {
@@ -96,12 +97,14 @@ function GroupTag({
 }
 
 export function PortfolioTable({
-  rows,
+  rows: allRows,
   month,
+  resetKey,
   onOpenCompany,
   onOpenGroup,
-}: { rows: PortfolioRow[]; month: string } & Openers) {
-  const companyClick = (row: PortfolioRow) => (event: MouseEvent<HTMLAnchorElement>) => {
+}: { rows: PortfolioListRow[]; month: string; resetKey: string } & Openers) {
+  const { visible: rows, hidden, showMore, showAll } = useVisibleRows(allRows, resetKey);
+  const companyClick = (row: PortfolioListRow) => (event: MouseEvent<HTMLAnchorElement>) => {
     if (!onOpenCompany || !plainClick(event)) return;
     event.preventDefault();
     onOpenCompany(row.company.id);
@@ -247,6 +250,8 @@ export function PortfolioTable({
           </li>
         ))}
       </ul>
+
+      <ShowMore hidden={hidden} onMore={showMore} onAll={showAll} noun="empresas" />
     </>
   );
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import { SearchX } from "lucide-react";
+import dynamic from "next/dynamic";
 
 import { HotList } from "@/components/grifo/hot-list";
-import { AccionBreakdown, EstadoEvolution } from "@/components/grifo/portfolio-charts";
 import { PortfolioFilters } from "@/components/grifo/portfolio-filters";
 import { PortfolioKpis } from "@/components/grifo/portfolio-summary";
 import { PortfolioTable } from "@/components/grifo/portfolio-table";
@@ -19,6 +19,14 @@ import {
 } from "@/components/ui/empty";
 import { usePortfolio, usePortfolioFilters, useSheetState } from "@/lib/features/portfolio/hooks";
 import { formatMonthLong } from "@/lib/features/portfolio/format";
+
+/** Recharts fuera del bundle inicial: la tabla y los KPI no lo necesitan para hidratar. */
+const EstadoEvolution = dynamic(() =>
+  import("@/components/grifo/portfolio-charts").then((m) => m.EstadoEvolution),
+);
+const AccionBreakdown = dynamic(() =>
+  import("@/components/grifo/portfolio-charts").then((m) => m.AccionBreakdown),
+);
 
 const CLEARED = {
   q: "",
@@ -111,6 +119,7 @@ export function CarteraClient() {
         <PortfolioTable
           rows={data.rows}
           month={data.month}
+          resetKey={JSON.stringify(filters)}
           onOpenCompany={openCompany}
           onOpenGroup={(grupo) => void setSheet({ empresa: "", grupo, pestana: "decision" })}
         />

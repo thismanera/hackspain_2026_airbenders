@@ -16,5 +16,5 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: z.treeifyError(parsed.error) }, { status: 400 });
   }
 
-  return scoringResponse(() => getAlerts(parsed.data.month), "Sin alertas");
+  return scoringResponse(() => getAlerts(parsed.data.month), "Sin alertas", request);
 }
