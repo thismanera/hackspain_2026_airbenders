@@ -13,6 +13,7 @@ const querySchema = z.object({
   accion: z.enum(["todas", "abrir", "ampliar", "mantener", "reducir", "cerrar"]).optional(),
   direccion: z.enum(["todas", "mejora", "estable", "deterioro"]).optional(),
   banda: z.enum(["todas", "A", "B", "C", "D"]).optional(),
+  prevision: z.enum(["todas", "sube_banda", "baja_banda", "mantiene"]).optional(),
 });
 
 export async function GET(request: Request): Promise<Response> {

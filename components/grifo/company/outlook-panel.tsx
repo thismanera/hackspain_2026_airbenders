@@ -1,39 +1,18 @@
+import { ForecastImpactLine, IMPACT_TONE } from "@/components/grifo/company/forecast-impact";
 import { Figure, Panel } from "@/components/grifo/panel";
 import { TrendDelta } from "@/components/grifo/trend";
 import { cn } from "@/lib/core/utils";
-import { formatApr, formatDays, formatScore } from "@/lib/features/portfolio/format";
-import type { Banda, MonthScore } from "@/lib/features/portfolio/types";
-import { BANDA, NATURALEZA, deriveBanda } from "@/lib/features/portfolio/vocabulary";
-
-const BAND_RANK = { D: 0, C: 1, B: 2, A: 3 } satisfies Record<Banda, number>;
-
-function bandOutcome(current: Banda, predicted: Banda) {
-  if (predicted === current) {
-    return { text: `Seguirías en banda ${current}.`, tone: "text-muted-foreground" };
-  }
-  if (BAND_RANK[predicted] > BAND_RANK[current]) {
-    return {
-      text: `Entrarías en banda ${predicted}: TAE base ${formatApr(BANDA[predicted].baseApr)} y plazo hasta ${formatDays(BANDA[predicted].maxTenor)}.`,
-      tone: "text-status-healthy-fg",
-    };
-  }
-  return {
-    text:
-      predicted === "D"
-        ? "Caerías a banda D: sin oferta hasta recuperar el score."
-        : `Caerías a banda ${predicted}: menos importe y plazo hasta ${formatDays(BANDA[predicted].maxTenor)}.`,
-    tone: "text-status-watch-fg",
-  };
-}
+import { formatEuros, formatScore } from "@/lib/features/portfolio/format";
+import type { MonthScore } from "@/lib/features/portfolio/types";
+import { NATURALEZA } from "@/lib/features/portfolio/vocabulary";
 
 /**
  * Anticipación en lenguaje de empresa (PRODUCT §10, prioridad 4): dónde estará
- * el score si nada cambia, y qué significa para la oferta. La previsión va en
- * modo sombra (SOURCE parte 2): informa, no decide.
+ * el score si nada cambia, y qué significa para la oferta y para el bolsillo.
+ * La previsión va en modo sombra (SOURCE parte 2): informa, no decide.
  */
 export function OutlookPanel({ month }: { month: MonthScore }) {
   const { forecast } = month;
-  const currentBand = deriveBanda(month.score);
 
   if (!forecast) {
     const nature = NATURALEZA[month.nature];
@@ -55,7 +34,7 @@ export function OutlookPanel({ month }: { month: MonthScore }) {
     );
   }
 
-  const outcome = bandOutcome(currentBand, deriveBanda(forecast.scoreSoloPred3m));
+  const { impact } = forecast;
   const groupDiffers =
     month.scoreGrupo !== undefined && Math.abs(month.scoreGrupo - month.score) >= 0.5;
 
@@ -64,7 +43,7 @@ export function OutlookPanel({ month }: { month: MonthScore }) {
       title="Hacia dónde va tu score"
       description="Si nada cambia en tu operativa. Previsión orientativa; la oferta de este mes no depende de ella."
     >
-      <dl className="grid grid-cols-2 gap-4">
+      <dl className="grid grid-cols-3 gap-4">
         <Figure
           label="En 3 meses"
           value={formatScore(forecast.scoreSoloPred3m)}
@@ -75,8 +54,25 @@ export function OutlookPanel({ month }: { month: MonthScore }) {
           value={formatScore(forecast.scoreSoloPred6m)}
           hint={`Hoy ${formatScore(month.score)}`}
         />
+        <Figure
+          label="Al año"
+          value={
+            <span className={cn(impact.annualDelta !== 0 && IMPACT_TONE[impact.tone])}>
+              {impact.annualDelta === 0
+                ? "0 €"
+                : `${impact.annualDelta > 0 ? "+" : "−"}${formatEuros(Math.abs(impact.annualDelta))}`}
+            </span>
+          }
+          hint={
+            impact.annualDelta > 0
+              ? "Te ahorrarías en intereses"
+              : impact.annualDelta < 0
+                ? "Pagarías de más en intereses"
+                : "Mismo coste que hoy"
+          }
+        />
       </dl>
-      <p className={cn("mt-3 text-sm text-pretty", outcome.tone)}>{outcome.text}</p>
+      <ForecastImpactLine forecast={forecast} voice="tu" className="mt-3" />
       {groupDiffers ? (
         <p className="text-muted-foreground mt-3 border-t pt-3 text-xs text-pretty">
           Con el efecto de tu grupo: {formatScore(month.scoreGrupo ?? month.score)} hoy,{" "}

@@ -11,7 +11,8 @@ import { decisionRowSchema } from "@/lib/features/decision/contracts";
 import { forecastRowSchema } from "@/lib/features/forecast/contracts";
 import type { ScoreRow } from "@/lib/features/scoring/types";
 
-import type { CompanyMeta, EngineMetrics, MonthScore } from "./types";
+import { forecastImpact } from "./forecast-impact";
+import type { CompanyMeta, Decision, EngineMetrics, Forecast, MonthScore } from "./types";
 import { deriveBanda } from "./vocabulary";
 
 export type CompanyDataset = {
@@ -77,6 +78,52 @@ export function monthScore(
      del menú: el mismo tramo del que sale `apr`, para que la suma cuadre. */
   const split = decision?.menu[0]?.desglose;
   const deltas = new Map(row.deltaContrib.map((delta) => [delta.id, delta.delta]));
+  const decisionOut: Decision = {
+    eligible: decision?.elegible ?? false,
+    reason: decision?.motivo ?? decision?.motivoAccion ?? "Sin decisión importada",
+    gates,
+    band: decision?.banda ?? deriveBanda(row.scoreSolo),
+    limit: decision?.L ?? 0,
+    previousLimit: decision?.estado.LPrev ?? 0,
+    maxTenorDays: decision?.TMax ?? 0,
+    baseApr: menu[0]?.apr ?? 0,
+    apr: menu[0]?.apr ?? 0,
+    aprBreakdown: {
+      base: split?.base ?? 0,
+      tenorPremium: split?.primaPlazo ?? 0,
+      confidencePremium: split?.primaConfianza ?? 0,
+      trendAdjustment: split?.ajusteTendencia ?? 0,
+      forecastPremium: split?.primaPrevision ?? 0,
+    },
+    menu,
+    action: decision?.accion ?? "mantener",
+    adverseCapacity: row.capacidadCuotaAdv,
+    capacityLimit: decision?.limiteOp ?? 0,
+    operatingLimit: decision?.L ?? 0,
+  };
+  /* La previsión aplanada más su lectura en dinero (banda prevista → límite,
+     TAE e intereses), calculada aquí para que ninguna pantalla haga cuentas. */
+  const forecastOut: Forecast | null = forecast
+    ? {
+        scoreSoloPred3m: forecast.horizontes[3].scoreSoloPred,
+        scoreGrupoPred3m: forecast.horizontes[3].scoreGrupoPred,
+        scoreSoloPred6m: forecast.horizontes[6].scoreSoloPred,
+        scoreGrupoPred6m: forecast.horizontes[6].scoreGrupoPred,
+        p10Solo3m: forecast.horizontes[3].p10Solo,
+        p90Solo3m: forecast.horizontes[3].p90Solo,
+        p10Grupo3m: forecast.horizontes[3].p10Grupo,
+        p90Grupo3m: forecast.horizontes[3].p90Grupo,
+        p10Solo6m: forecast.horizontes[6].p10Solo,
+        p90Solo6m: forecast.horizontes[6].p90Solo,
+        bandaSoloPred3m: forecast.horizontes[3].bandaSoloPred,
+        bandaSoloPred6m: forecast.horizontes[6].bandaSoloPred,
+        direccionPred: forecast.direccionSoloPred,
+        sinTendencia: forecast.sinTendencia.length > 0,
+        metodoSolo: forecast.metodoSolo,
+        metodoGrupo: forecast.metodoGrupo,
+        impact: forecastImpact(decisionOut, forecast.horizontes[3].scoreSoloPred),
+      }
+    : null;
   return {
     company: row.company,
     month: row.month,
@@ -110,29 +157,7 @@ export function monthScore(
             interdependence: row.D5,
             adjustment: row.ajusteHolding,
           },
-    decision: {
-      eligible: decision?.elegible ?? false,
-      reason: decision?.motivo ?? decision?.motivoAccion ?? "Sin decisión importada",
-      gates,
-      band: decision?.banda ?? deriveBanda(row.scoreSolo),
-      limit: decision?.L ?? 0,
-      previousLimit: decision?.estado.LPrev ?? 0,
-      maxTenorDays: decision?.TMax ?? 0,
-      baseApr: menu[0]?.apr ?? 0,
-      apr: menu[0]?.apr ?? 0,
-      aprBreakdown: {
-        base: split?.base ?? 0,
-        tenorPremium: split?.primaPlazo ?? 0,
-        confidencePremium: split?.primaConfianza ?? 0,
-        trendAdjustment: split?.ajusteTendencia ?? 0,
-        forecastPremium: split?.primaPrevision ?? 0,
-      },
-      menu,
-      action: decision?.accion ?? "mantener",
-      adverseCapacity: row.capacidadCuotaAdv,
-      capacityLimit: decision?.limiteOp ?? 0,
-      operatingLimit: decision?.L ?? 0,
-    },
+    decision: decisionOut,
     alerts: row.alertas.map((alert) => ({
       type: alert.tipo,
       label: alert.tipo.replaceAll("_", " "),
@@ -150,20 +175,7 @@ export function monthScore(
     },
     scoreSolo: row.scoreSolo,
     scoreGrupo: row.scoreGrupo,
-    forecast: forecast
-      ? {
-          scoreSoloPred3m: forecast.horizontes[3].scoreSoloPred,
-          scoreGrupoPred3m: forecast.horizontes[3].scoreGrupoPred,
-          scoreSoloPred6m: forecast.horizontes[6].scoreSoloPred,
-          scoreGrupoPred6m: forecast.horizontes[6].scoreGrupoPred,
-          p10Solo3m: forecast.horizontes[3].p10Solo,
-          p90Solo3m: forecast.horizontes[3].p90Solo,
-          p10Grupo3m: forecast.horizontes[3].p10Grupo,
-          p90Grupo3m: forecast.horizontes[3].p90Grupo,
-          metodoSolo: forecast.metodoSolo,
-          metodoGrupo: forecast.metodoGrupo,
-        }
-      : null,
+    forecast: forecastOut,
   };
 }
 

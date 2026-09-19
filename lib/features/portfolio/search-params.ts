@@ -30,6 +30,13 @@ export const portfolioSearchParams = {
     "todas",
   ),
   banda: parseAsStringLiteral(["todas", "A", "B", "C", "D"] as const).withDefault("todas"),
+  /** Lo que la previsión dice de la banda dentro de 3 meses. */
+  prevision: parseAsStringLiteral([
+    "todas",
+    "sube_banda",
+    "baja_banda",
+    "mantiene",
+  ] as const).withDefault("todas"),
 };
 
 export const loadPortfolioSearchParams = createLoader(portfolioSearchParams);
@@ -41,6 +48,7 @@ export type PortfolioSearchState = {
   accion: "todas" | "abrir" | "ampliar" | "mantener" | "reducir" | "cerrar";
   direccion: "todas" | "mejora" | "estable" | "deterioro";
   banda: "todas" | "A" | "B" | "C" | "D";
+  prevision: "todas" | "sube_banda" | "baja_banda" | "mantiene";
 };
 
 /** El mes no cuenta como filtro: siempre estás mirando algún mes. */
@@ -51,6 +59,7 @@ export function activeFilterCount(state: PortfolioSearchState): number {
   if (state.accion !== "todas") count += 1;
   if (state.direccion !== "todas") count += 1;
   if (state.banda !== "todas") count += 1;
+  if (state.prevision !== "todas") count += 1;
   return count;
 }
 

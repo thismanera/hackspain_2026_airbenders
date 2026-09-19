@@ -44,6 +44,7 @@ export function CompanyPicker({
     accion: "todas",
     direccion: "todas",
     banda: "todas",
+    prevision: "todas",
   };
   const { data } = useQuery({
     queryKey: portfolioKeys.list(filters),

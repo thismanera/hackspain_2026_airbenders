@@ -15,6 +15,7 @@
 import { CALENDAR } from "./calendar";
 import type { CompanyDataset } from "./dataset";
 import { COMPANY_SEED } from "./companies.seed";
+import { fixtureForecast } from "./forecast-fixture";
 import { BLOCKS, INDICATORS, type BlockId } from "./indicators";
 import type {
   Accion,
@@ -840,6 +841,12 @@ export function buildPortfolio(): Map<string, CompanyDataset> {
 
       reducedLastMonth = decision.limit < previousLimit * 0.85;
       previousLimit = decision.limit;
+    }
+
+    // Paso 3: previsión sobre la serie ya cerrada, mes a mes (necesita la
+    // ventana de tendencia completa detrás de cada mes).
+    for (let t = 0; t < months.length; t++) {
+      months[t].forecast = fixtureForecast(months, t);
     }
 
     result.set(seed.id, {

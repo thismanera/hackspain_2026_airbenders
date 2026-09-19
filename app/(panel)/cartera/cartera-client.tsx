@@ -26,6 +26,7 @@ const CLEARED = {
   accion: "todas",
   direccion: "todas",
   banda: "todas",
+  prevision: "todas",
 } as const;
 
 export function CarteraClient() {

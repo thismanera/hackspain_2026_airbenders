@@ -144,6 +144,7 @@ function toSearch(filters: PortfolioSearchState): string {
   if (filters.accion !== "todas") search.set("accion", filters.accion);
   if (filters.direccion !== "todas") search.set("direccion", filters.direccion);
   if (filters.banda !== "todas") search.set("banda", filters.banda);
+  if (filters.prevision !== "todas") search.set("prevision", filters.prevision);
   return search.toString();
 }
 
