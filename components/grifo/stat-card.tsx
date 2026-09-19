@@ -55,24 +55,19 @@ export function StatCard({
 
 /** Cabecera de página: qué es esto en una línea, y para quién. */
 export function PageIntro({
-  eyebrow,
   title,
   description,
   aside,
 }: {
-  eyebrow: string;
   title: string;
   description: ReactNode;
   aside?: ReactNode;
 }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div className="max-w-2xl">
-        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-          {eyebrow}
-        </p>
-        <h1 className="mt-1 text-xl font-semibold tracking-[-0.02em]">{title}</h1>
-        <p className="text-muted-foreground mt-1 text-sm text-pretty">{description}</p>
+      <div className="max-w-3xl">
+        <h1 className="text-xl font-semibold tracking-[-0.02em]">{title}</h1>
+        <p className="text-muted-foreground mt-0.5 text-sm text-pretty">{description}</p>
       </div>
       {aside ? <div className="shrink-0">{aside}</div> : null}
     </div>

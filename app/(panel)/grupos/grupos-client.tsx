@@ -118,14 +118,11 @@ export function GruposClient() {
   return (
     <div className="flex flex-col gap-4">
       <PageIntro
-        eyebrow="Grupos"
         title="El grupo no es prestatario: es el techo"
         description={
           <>
-            {holdings.length} holdings con más de una empresa a cierre de{" "}
-            {formatMonthLong(data.month)}
-            {singles > 0 ? ` (y ${singles} empresas que van solas)` : ""}. Aval, contagio y techo se
-            razonan aquí antes que en la ficha de cada empresa.
+            {holdings.length} holdings a cierre de {formatMonthLong(data.month)}
+            {singles > 0 ? `; ${singles} empresas van solas` : ""}.
           </>
         }
       />

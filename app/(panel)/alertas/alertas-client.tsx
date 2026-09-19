@@ -35,20 +35,19 @@ function isDirection(value: string): value is Direction {
 function LeadCell({ alert }: { alert: AlertItem }) {
   if (alert.leadMonths === 0) {
     return (
-      <span className="text-muted-foreground text-xs">
-        Aparece y se confirma en {formatMonthShort(alert.confirmedMonth)}
+      <span className="text-muted-foreground text-xs tabular-nums">
+        {formatMonthShort(alert.confirmedMonth)}, sin aviso previo
       </span>
     );
   }
   return (
-    <span className="flex flex-col text-xs leading-tight">
-      <span className="inline-flex items-center gap-1 font-medium tabular-nums">
+    <span className="flex flex-col text-xs leading-tight tabular-nums">
+      <span className="inline-flex items-center gap-1 font-medium">
         <Clock aria-hidden className="size-3" />
-        {alert.leadMonths} {alert.leadMonths === 1 ? "mes" : "meses"} de anticipación
+        {alert.leadMonths} {alert.leadMonths === 1 ? "mes" : "meses"} antes
       </span>
-      <span className="text-muted-foreground tabular-nums">
-        Desde {formatMonthShort(alert.onsetMonth)} · confirmada{" "}
-        {formatMonthShort(alert.confirmedMonth)}
+      <span className="text-muted-foreground">
+        {formatMonthShort(alert.onsetMonth)} → {formatMonthShort(alert.confirmedMonth)}
       </span>
     </span>
   );
@@ -147,13 +146,11 @@ export function AlertasClient() {
   return (
     <div className="flex flex-col gap-4">
       <PageIntro
-        eyebrow="Alertas"
         title="Lo que cambia, con fecha de cuándo se vio venir"
         description={
           <>
-            {data.items.length} señales a cierre de {formatMonthLong(data.month)}. Las de deterioro
-            son las que dispara el motor; las de mejora, las subidas de banda y las líneas que se
-            abren o amplían. Las dos direcciones se leen igual.
+            {data.items.length} señales a cierre de {formatMonthLong(data.month)}, deterioro y
+            mejora con la misma vara.
           </>
         }
         aside={

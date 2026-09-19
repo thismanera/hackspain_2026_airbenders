@@ -1,9 +1,9 @@
 "use client";
 
-import { Clock, FlaskConical, ShieldAlert, XCircle } from "lucide-react";
+import { ArrowUpDown, Clock, FlaskConical, Repeat, ShieldAlert, XCircle } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
-import { Figure, Panel } from "@/components/grifo/panel";
+import { Panel } from "@/components/grifo/panel";
 import { PageIntro, StatCard } from "@/components/grifo/stat-card";
 import {
   ChartContainer,
@@ -26,7 +26,7 @@ const timelineConfig = {
 } satisfies ChartConfig;
 
 const leadConfig = {
-  count: { label: "Cierres", color: "var(--foreground)" },
+  count: { label: "Cierres", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
 export function BacktestClient() {
@@ -54,55 +54,66 @@ export function BacktestClient() {
   return (
     <div className="flex flex-col gap-4">
       <PageIntro
-        eyebrow="Backtest"
         title="¿Avisó antes de cerrar, y cuánto antes?"
         description={
           <>
-            Se recorre la historia de las {data.companies} empresas hasta{" "}
-            {formatMonthLong(data.cutoff)}: cada vez que una línea viva se cierra, se mira si había
-            una alerta abierta y desde cuándo. Es una medida sobre el dataset de demostración, no
-            sobre cartera real.
+            {data.companies} empresas del dataset de demostración hasta{" "}
+            {formatMonthLong(data.cutoff)}; cambiar el mes mueve la fecha de corte.
           </>
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           icon={XCircle}
           label="Cierres de línea"
           value={data.closes}
-          hint={`Líneas vivas que pasaron a cerrar, ${formatMonthShort(data.months[0])} – ${formatMonthShort(data.cutoff)}`}
+          hint={`${formatMonthShort(data.months[0])} – ${formatMonthShort(data.cutoff)}, con línea viva el mes anterior`}
         />
         <StatCard
           icon={ShieldAlert}
           label="Avisados antes"
           value={hitRate === null ? "—" : formatPercent(hitRate, 0)}
           tone="healthy"
-          hint={`${data.anticipated} de ${data.closes} cierres tenían una alerta abierta el mes anterior`}
+          hint={`${data.anticipated} de ${data.closes} con alerta abierta al cerrar`}
         />
         <StatCard
           icon={Clock}
           label="Anticipación mediana"
           value={data.medianLead ?? "—"}
           unit={data.medianLead === null ? undefined : data.medianLead === 1 ? "mes" : "meses"}
-          hint="Desde que aparece la primera alerta hasta que la línea se cierra"
+          hint="De la primera alerta al cierre"
         />
         <StatCard
           icon={FlaskConical}
-          label="Críticas seguidas de acción"
+          label="Críticas seguidas"
           value={criticalRate === null ? "—" : formatPercent(criticalRate, 0)}
           hint={
             data.criticalAlerts > 0
-              ? `${data.criticalFollowed} de ${data.criticalAlerts} alertas críticas con línea viva acabaron en reducir o cerrar en 3 meses`
-              : "Ninguna alerta crítica con línea viva y tres meses de seguimiento"
+              ? `${data.criticalFollowed} de ${data.criticalAlerts} acabaron en reducir o cerrar en 3 meses`
+              : "Sin críticas con 3 meses por delante"
           }
+        />
+        <StatCard
+          icon={ArrowUpDown}
+          label="Cambios de banda por empresa"
+          value={formatDecimal(data.bandChangesPerYear)}
+          unit="al año"
+          hint="Menos es una decisión más estable"
+        />
+        <StatCard
+          icon={Repeat}
+          label="Ida y vuelta"
+          value={data.flipFlops}
+          unit={`de ${data.companies}`}
+          hint="La acción cambió y volvió al mes siguiente"
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-5">
         <Panel
           title="Cierres por mes"
-          description="Cada cierre, según hubiera o no una alerta abierta el mes anterior."
+          description="Con o sin alerta abierta el mes anterior."
           className="lg:col-span-3"
         >
           <ChartContainer config={timelineConfig} className="aspect-auto h-56 w-full">
@@ -165,7 +176,7 @@ export function BacktestClient() {
 
         <Panel
           title="Cuánto antes"
-          description="Meses entre la primera alerta y el cierre, para los cierres avisados."
+          description="Meses de la primera alerta al cierre."
           className="lg:col-span-2"
         >
           {leadHistogram.length === 0 ? (
@@ -199,47 +210,6 @@ export function BacktestClient() {
               </BarChart>
             </ChartContainer>
           )}
-        </Panel>
-
-        <Panel
-          title="Estabilidad de la decisión"
-          description="Una línea que cambia de banda cada mes no sirve a nadie, aunque acierte."
-          className="lg:col-span-2"
-        >
-          <dl className="grid grid-cols-2 gap-4">
-            <Figure
-              label="Cambios de banda por empresa y año"
-              value={formatDecimal(data.bandChangesPerYear)}
-              hint="Contando solo meses con datos"
-            />
-            <Figure
-              label="Empresas con ida y vuelta"
-              value={data.flipFlops}
-              hint={`De ${data.companies}: la acción cambió y volvió al mes siguiente`}
-            />
-          </dl>
-        </Panel>
-
-        <Panel
-          title="Cómo se mide"
-          description="Sin trampas: la misma regla para todas las empresas."
-          className="lg:col-span-3"
-        >
-          <ol className="flex flex-col gap-2 text-sm text-pretty">
-            {[
-              "Un cierre cuenta si la línea estaba viva el mes anterior. Cerrar lo que ya estaba cerrado no es una decisión.",
-              "Se considera avisado si al cerrar había alguna alerta abierta cuyo inicio es anterior al mes del cierre. La anticipación es la distancia hasta la más antigua.",
-              "Una alerta crítica se da por seguida si en los tres meses siguientes la acción pasó a reducir o cerrar. Solo se mide donde hay tres meses por delante.",
-              "Cambiar el mes de arriba mueve la fecha de corte: el backtest solo mira hacia atrás desde ahí.",
-            ].map((line, index) => (
-              <li key={line} className="flex gap-2.5">
-                <span className="text-muted-foreground w-4 shrink-0 text-right text-xs tabular-nums">
-                  {index + 1}
-                </span>
-                {line}
-              </li>
-            ))}
-          </ol>
         </Panel>
       </div>
     </div>

@@ -45,7 +45,7 @@ import { COMPARE_SLOTS } from "@/lib/features/portfolio/search-params";
 import type { CompanyFileResponse } from "@/lib/features/portfolio/types";
 import { BANDA, NATURALEZA } from "@/lib/features/portfolio/vocabulary";
 
-const SERIES = ["var(--foreground)", "var(--status-healthy)", "var(--status-watch)"];
+const SERIES = ["var(--chart-1)", "var(--chart-3)", "var(--chart-5)"];
 
 function Slot({
   file,
@@ -320,13 +320,9 @@ export function CompararClient() {
   return (
     <div className="flex flex-col gap-4">
       <PageIntro
-        eyebrow="Comparar"
         title="Tres empresas, los mismos números"
         description={
-          <>
-            Score, decisión, límite y precio a cierre de {formatMonthLong(state.mes)}, lado a lado.
-            Lo que se compara sale del mismo motor que la ficha; aquí no se calcula nada nuevo.
-          </>
+          <>Score, decisión, límite y precio a cierre de {formatMonthLong(state.mes)}.</>
         }
       />
 
@@ -406,31 +402,21 @@ export function CompararClient() {
           </Button>
         </Empty>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-5">
-          <Panel
-            title="Lectura"
-            description="Qué dice la tabla, en pocas frases."
-            className="lg:col-span-2"
-          >
-            <ul className="flex flex-col gap-2 text-sm text-pretty">
-              {summarize(files).map((line) => (
-                <li key={line} className="flex gap-2">
-                  <span
-                    aria-hidden
-                    className="bg-foreground/60 mt-2 size-1 shrink-0 rounded-full"
-                  />
-                  {line}
-                </li>
-              ))}
-            </ul>
-          </Panel>
+        <div className="flex flex-col gap-4">
+          <ul className="bg-card flex flex-col gap-1.5 rounded-[14px] border px-4 py-3 text-sm text-pretty">
+            {summarize(files).map((line) => (
+              <li key={line} className="flex gap-2">
+                <span aria-hidden className="bg-foreground/60 mt-2 size-1 shrink-0 rounded-full" />
+                {line}
+              </li>
+            ))}
+          </ul>
 
           <Panel
             title="Score en el tiempo"
             description={`Desde que hay datos de cada una hasta ${formatMonthShort(state.mes)}.`}
-            className="lg:col-span-3"
           >
-            <ChartContainer config={chartConfig} className="aspect-auto h-52 w-full">
+            <ChartContainer config={chartConfig} className="aspect-auto h-48 w-full">
               <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
@@ -484,7 +470,7 @@ export function CompararClient() {
             </ul>
           </Panel>
 
-          <div className="bg-card overflow-hidden rounded-xl border lg:col-span-5">
+          <div className="bg-card overflow-hidden rounded-[14px] border">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
@@ -532,9 +518,6 @@ export function CompararClient() {
                 })}
               </tbody>
             </table>
-            <p className="text-muted-foreground border-t px-4 py-2 text-xs">
-              El fondo teal marca el mejor valor de la fila cuando hay uno solo.
-            </p>
           </div>
         </div>
       )}
