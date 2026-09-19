@@ -36,6 +36,10 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-accent: var(--brand-accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -68,19 +72,23 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: #0F1331;
+  --primary-foreground: #ffffff;
+  --brand: #0F1331;
+  --brand-foreground: #ffffff;
+  --brand-surface: #eef1f8;
+  --brand-accent: #0F1331;
   --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  --secondary-foreground: #0F1331;
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --accent: #eef1f8;
+  --accent-foreground: #0F1331;
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.72 0.14 168);
+  --ring: #0F1331;
+  --chart-1: #0F1331;
   --chart-2: oklch(0.58 0.2 293);
   --chart-3: oklch(0.68 0.14 237);
   --chart-4: oklch(0.82 0.15 78);
@@ -90,9 +98,9 @@
      icons, all ≥ 4.5:1 on both card and surface) and surface (tint pill).
      Lightness is ordered risk < healthy < watch so the ramp survives
      greyscale and deuteranopia; colour never carries the state alone. */
-  --status-healthy: oklch(0.72 0.14 168);
-  --status-healthy-fg: oklch(0.46 0.1 168);
-  --status-healthy-surface: oklch(0.96 0.03 168);
+  --status-healthy: #0F1331;
+  --status-healthy-fg: #0F1331;
+  --status-healthy-surface: #eef1f8;
   --status-watch: oklch(0.82 0.15 78);
   --status-watch-fg: oklch(0.47 0.1 75);
   --status-watch-surface: oklch(0.96 0.05 85);
@@ -106,8 +114,8 @@
   --radius: 0.625rem;
   --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: #0F1331;
+  --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
@@ -163,47 +171,89 @@
   animation: intro-arc 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s both;
 }
 
-/* Escena del hueco de caja: una moneda sigue, a velocidad media, la misma
-   parábola punteada que se ve dibujada de fondo (M4,60 Q50,4 96,60, muestreada
-   en sus puntos t=0/.25/.5/.75/1), y va girando como si volteara en el aire. */
+/* Escena del hueco de caja: una moneda viaja de forma fluida y continua
+   desde el primer nodo (12.5%, 90%) hasta el último (87.5%, 90%) trazando una parábola
+   cóncava bien arqueada hacia arriba a velocidad horizontal constante, sin paradas intermedias, en bucle continuo. */
 @keyframes cash-gap-coin {
   0% {
-    left: 4%;
-    top: 60px;
+    left: 12.5%;
+    top: 90%;
     opacity: 0;
     transform: translate(-50%, -50%) rotate(0deg);
   }
-  8% {
+  2% {
     opacity: 1;
   }
-  25% {
-    left: 27%;
-    top: 39px;
-    transform: translate(-50%, -50%) rotate(140deg);
+  9% {
+    left: 20%;
+    top: 63.6%;
+    transform: translate(-50%, -50%) rotate(36deg);
   }
-  50% {
+  18% {
+    left: 27.5%;
+    top: 43.1%;
+    transform: translate(-50%, -50%) rotate(72deg);
+  }
+  27% {
+    left: 35%;
+    top: 28.4%;
+    transform: translate(-50%, -50%) rotate(108deg);
+  }
+  36% {
+    left: 42.5%;
+    top: 19.6%;
+    transform: translate(-50%, -50%) rotate(144deg);
+  }
+  45% {
     left: 50%;
-    top: 32px;
-    transform: translate(-50%, -50%) rotate(280deg);
+    top: 16.7%;
+    transform: translate(-50%, -50%) rotate(180deg);
   }
-  75% {
-    left: 73%;
-    top: 39px;
-    transform: translate(-50%, -50%) rotate(420deg);
+  54% {
+    left: 57.5%;
+    top: 19.6%;
+    transform: translate(-50%, -50%) rotate(216deg);
   }
-  92% {
+  63% {
+    left: 65%;
+    top: 28.4%;
+    transform: translate(-50%, -50%) rotate(252deg);
+  }
+  72% {
+    left: 72.5%;
+    top: 43.1%;
+    transform: translate(-50%, -50%) rotate(288deg);
+  }
+  81% {
+    left: 80%;
+    top: 63.6%;
+    transform: translate(-50%, -50%) rotate(324deg);
+  }
+  87% {
     opacity: 1;
+  }
+  90% {
+    left: 87.5%;
+    top: 90%;
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+  90.1% {
+    left: 12.5%;
+    top: 90%;
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(0deg);
   }
   100% {
-    left: 96%;
-    top: 60px;
+    left: 12.5%;
+    top: 90%;
     opacity: 0;
-    transform: translate(-50%, -50%) rotate(560deg);
+    transform: translate(-50%, -50%) rotate(0deg);
   }
 }
 
 .cash-gap-coin {
-  animation: cash-gap-coin 3s cubic-bezier(0.45, 0, 0.55, 1) 0.5s both;
+  animation: cash-gap-coin 2.6s linear infinite;
 }
 
 /* Escena del calendario: los meses entran uno a uno; el primero dispara un
@@ -309,185 +359,190 @@
   animation: snake-down 2.4s ease-in-out infinite;
 }
 
-/* Escena de consentimiento: el paso "decide" respira para que se lea como el
-   único punto en el que la empresa actúa. */
-@keyframes consent-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 oklch(0.72 0.14 168 / 0.35);
-  }
-  50% {
-    box-shadow: 0 0 0 7px oklch(0.72 0.14 168 / 0);
-  }
-}
-
-.consent-pulse-ring {
-  animation: consent-pulse 2.6s cubic-bezier(0.2, 0.8, 0.2, 1) 1.8s infinite;
-}
-
-/* Escena "qué es Embat": primero una maraña de cables entre orígenes que no
-   se hablan entre sí; luego se apagan y cada nodo dibuja su propia línea,
-   limpia, hacia Embat, que aparece en el centro y se queda fluyendo. */
-@keyframes embat-tangle {
+/* Escena "qué es Embat": haces luminosos limpios que nacen en cada nodo
+   (bancos, facturas, cobros) y fluyen hacia el hub central de Embat. */
+@keyframes embat-beam-flow {
   0% {
+    stroke-dashoffset: 100;
     opacity: 0;
   }
   12% {
-    opacity: 0.55;
+    opacity: 1;
   }
-  62% {
-    opacity: 0.55;
+  82% {
+    opacity: 1;
   }
   100% {
+    stroke-dashoffset: -26;
     opacity: 0;
   }
 }
 
-.embat-tangle {
-  animation: embat-tangle 1.3s ease-in-out both;
+.embat-beam {
+  stroke-dasharray: 26 100;
+  stroke-dashoffset: 100;
+  animation: embat-beam-flow 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-@keyframes embat-link-draw {
-  from {
-    stroke-dashoffset: 1;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-.embat-link-draw {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: embat-link-draw 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 1.1s both;
-}
-
-@keyframes embat-link-flow-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes embat-link-flow {
-  from {
-    stroke-dashoffset: 0;
-  }
-  to {
-    stroke-dashoffset: -1;
-  }
-}
-
-.embat-link-flow {
-  stroke-dasharray: 0.08 0.12;
-  opacity: 0;
-  animation:
-    embat-link-flow-in 0.3s linear 1.8s both,
-    embat-link-flow 1.4s linear 1.8s infinite;
-}
-
-@keyframes embat-mark-pop {
-  from {
-    opacity: 0;
-    transform: scale(0.55);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.embat-mark-pop {
-  opacity: 0;
-  animation: embat-mark-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1.15s both;
-}
-
-/* Escena "primero, la empresa": el candado pasa de abierto a cerrado, un
-   crossfade en vez de un icono estático. */
+/* Escena "primero, la empresa": solo el icono del candado cerrándose
+   1 sola vez y permaneciendo cerrado. */
 @keyframes lock-open-out {
   0%,
-  55% {
+  35% {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0);
   }
+  50%,
   100% {
     opacity: 0;
-    transform: scale(0.85);
+    transform: translateY(-2px);
   }
 }
 
 @keyframes lock-closed-in {
   0%,
-  55% {
+  35% {
     opacity: 0;
-    transform: scale(0.85);
+    transform: translateY(-3px) scale(0.95);
   }
-  70% {
-    transform: scale(1.15);
+  52% {
+    opacity: 1;
+    transform: translateY(0) scale(1.08);
   }
+  65%,
   100% {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0) scale(1);
   }
 }
 
 .lock-open-out {
-  animation: lock-open-out 1.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s both;
+  animation: lock-open-out 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s forwards;
 }
 
 .lock-closed-in {
-  animation: lock-closed-in 1.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s both;
+  animation: lock-closed-in 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s forwards;
 }
 
-/* Escena de consentimiento: un dedo pulsa el botón de "Pedir financiación",
-   en bucle, para que la acción se lea sin que nadie toque la pantalla. */
-@keyframes consent-tap {
+/* Escena de consentimiento: el click se ejecuta 1 sola vez y el cursor se retira de forma 100% lineal. */
+@keyframes consent-btn-target {
   0%,
-  12% {
-    transform: translate(0, 0) scale(1);
-    opacity: 0;
+  38% {
+    transform: scale(1);
+    box-shadow: 0 4px 18px -2px rgba(15, 19, 49, 0.18);
+    animation-timing-function: ease-in;
   }
-  20% {
-    opacity: 1;
-  }
-  38%,
-  58% {
-    transform: translate(-6px, 4px) scale(1);
-  }
-  46% {
-    transform: translate(-6px, 4px) scale(0.8);
-  }
-  85% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(0, 0) scale(1);
-  }
-}
-
-.consent-tap {
-  animation: consent-tap 3.4s ease-in-out 1.4s infinite;
-}
-
-@keyframes consent-tap-ripple {
-  0%,
   44% {
-    opacity: 0;
-    transform: scale(0.4);
+    transform: scale(0.96) translateY(2px);
+    box-shadow: 0 2px 6px 0 rgba(15, 19, 49, 0.1);
+    animation-timing-function: ease-out;
   }
   50% {
-    opacity: 0.5;
+    transform: scale(1);
   }
-  70%,
   100% {
-    opacity: 0;
-    transform: scale(1.6);
+    transform: scale(1);
+    box-shadow: 0 4px 18px -2px rgba(15, 19, 49, 0.18);
   }
 }
 
-.consent-tap-ripple {
-  animation: consent-tap-ripple 3.4s ease-out 1.4s infinite;
+.consent-btn-target {
+  animation: consent-btn-target 2.5s forwards 0.2s;
+  will-change: transform, box-shadow;
+}
+
+@keyframes consent-cursor-anim {
+  0% {
+    opacity: 0;
+    transform: translate(85px, 55px) scale(1);
+    animation-timing-function: ease-out;
+  }
+  38% {
+    opacity: 1;
+    transform: translate(10px, -4px) scale(1);
+    animation-timing-function: ease-in;
+  }
+  44% {
+    opacity: 1;
+    transform: translate(10px, -4px) scale(0.84);
+    animation-timing-function: ease-out;
+  }
+  50% {
+    opacity: 1;
+    transform: translate(10px, -4px) scale(1);
+    animation-timing-function: linear;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(85px, 55px) scale(1);
+  }
+}
+
+.consent-cursor-anim {
+  animation: consent-cursor-anim 2.5s forwards 0.2s;
+  will-change: transform, opacity;
+}
+
+@keyframes consent-click-wave {
+  0%,
+  43% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  44% {
+    opacity: 0.85;
+    transform: scale(0.4);
+    animation-timing-function: ease-out;
+  }
+  58%,
+  100% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+
+.consent-click-wave {
+  animation: consent-click-wave 2.5s forwards 0.2s;
+  will-change: transform, opacity;
+}
+
+/* Escena 8: Las tarjetas animadas de evolución de crédito (crecimiento / adaptación).
+   Se ejecutan 1 sola vez de forma sincronizada y permanecen 100% reveladas. */
+@keyframes visual-card-curtain {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes visual-card-bars {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-18%);
+  }
+}
+
+.visual-curtain-loop {
+  animation: visual-card-curtain 1.3s cubic-bezier(0.25, 1, 0.5, 1) 0.15s forwards;
+  will-change: transform;
+}
+
+.visual-bars-loop {
+  animation: visual-card-bars 1.3s cubic-bezier(0.25, 1, 0.5, 1) 0.15s forwards;
+  will-change: transform;
+}
+
+@media (hover: hover) {
+  .animated-card:hover .visual-curtain-loop {
+    transform: translateX(100%);
+  }
+
+  .animated-card:hover .visual-bars-loop {
+    transform: translateX(-20%);
+    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
 }

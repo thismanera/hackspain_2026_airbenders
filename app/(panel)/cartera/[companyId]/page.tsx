@@ -23,7 +23,6 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { companyId } = await params;
   return {
-    title: `${companyId} · Embat Flow`,
     description: `Decisión de crédito y score de ${companyId}.`,
   };
 }

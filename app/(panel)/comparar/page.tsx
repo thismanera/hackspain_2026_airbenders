@@ -16,7 +16,6 @@ import { loadCompareSearchParams } from "@/lib/features/portfolio/search-params"
 import { CompararClient } from "./comparar-client";
 
 export const metadata: Metadata = {
-  title: "Comparar · Embat Flow",
   description: "Hasta tres empresas lado a lado: score, decisión, límite y precio.",
 };
 
