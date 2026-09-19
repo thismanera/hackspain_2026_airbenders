@@ -2,6 +2,7 @@
 
 import { SearchX } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useTransition } from "react";
 
 import { HotList } from "@/components/grifo/hot-list";
 import { PortfolioFilters } from "@/components/grifo/portfolio-filters";
@@ -17,6 +18,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { cn } from "@/lib/core/utils";
 import { usePortfolio, usePortfolioFilters, useSheetState } from "@/lib/features/portfolio/hooks";
 import { formatMonthLong } from "@/lib/features/portfolio/format";
 
@@ -38,7 +40,8 @@ const CLEARED = {
 } as const;
 
 export function CarteraClient() {
-  const [filters, setFilters] = usePortfolioFilters();
+  const [isPending, startTransition] = useTransition();
+  const [filters, setFilters] = usePortfolioFilters(startTransition);
   const { data } = usePortfolio(filters);
   const [, setSheet] = useSheetState();
 
@@ -48,7 +51,10 @@ export function CarteraClient() {
     void setSheet({ empresa, grupo: "", pestana: "decision" });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div
+      className={cn("flex flex-col gap-4 transition-opacity", isPending && "opacity-70")}
+      aria-busy={isPending}
+    >
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h1 className="text-xl font-semibold tracking-[-0.02em]">Cartera</h1>

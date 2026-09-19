@@ -1,6 +1,12 @@
 "use client";
 
-import { keepPreviousData, useQueries, useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQueries,
+  useQuery,
+  useSuspenseQueries,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { useQueryStates } from "nuqs";
 import type { TransitionStartFunction } from "react";
 
@@ -36,8 +42,13 @@ const SCORING_CADENCE = {
   gcTime: 24 * 60 * 60 * 1000,
 } as const;
 
-export function usePortfolioFilters() {
-  return useQueryStates(portfolioSearchParams);
+/**
+ * Filtros de la cartera. Con `startTransition`, cambiar un filtro no suspende la
+ * tabla que ya está en pantalla mientras llega la cartera filtrada: React
+ * conserva la vista anterior en vez de enseñar el esqueleto.
+ */
+export function usePortfolioFilters(startTransition?: TransitionStartFunction) {
+  return useQueryStates(portfolioSearchParams, startTransition ? { startTransition } : undefined);
 }
 
 /**
@@ -86,8 +97,9 @@ export function useAlertsState() {
   return useQueryStates(alertsSearchParams);
 }
 
-export function usePymeState() {
-  return useQueryStates(pymeSearchParams);
+/** Empresa y mes de la vista de empresa. Con `startTransition`, cambiar de empresa no vacía la vista. */
+export function usePymeState(startTransition?: TransitionStartFunction) {
+  return useQueryStates(pymeSearchParams, startTransition ? { startTransition } : undefined);
 }
 
 /**
@@ -150,11 +162,25 @@ export function useCompanyFiles(companyIds: string[], month: string) {
   });
 }
 
-export function useBenchmark(companyId: string, month: string) {
-  return useSuspenseQuery({
-    queryKey: portfolioKeys.benchmark(companyId, month),
-    queryFn: () => fetchBenchmark(companyId, month),
-    ...SCORING_CADENCE,
+/**
+ * Ficha y benchmark de una empresa a la vez (`/empresa`). Dos `useSuspenseQuery` seguidos
+ * van en cascada (el segundo no arranca hasta que el primero resuelve);
+ * `useSuspenseQueries` los lanza en paralelo.
+ */
+export function useCompanyFileWithBenchmark(companyId: string, month: string) {
+  return useSuspenseQueries({
+    queries: [
+      {
+        queryKey: portfolioKeys.company(companyId, month),
+        queryFn: () => fetchCompanyFile(companyId, month),
+        ...SCORING_CADENCE,
+      },
+      {
+        queryKey: portfolioKeys.benchmark(companyId, month),
+        queryFn: () => fetchBenchmark(companyId, month),
+        ...SCORING_CADENCE,
+      },
+    ],
   });
 }
 
