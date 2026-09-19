@@ -280,12 +280,22 @@ test("two companies over a small ceiling both come out as reducir with the group
   assert.equal(mes2[0].LVigente + mes2[1].LVigente, 120_000);
 });
 
-/** §13, propiedades 1 y 3 sobre todas las filas de un dataset. */
+/** §13, propiedades 1 y 3 sobre todas las filas de un dataset (+ menú y motivo, §7 y §10). */
 function compruebaPropiedades(nombre: string, rows: DecisionRow[]): void {
   const porEmpresa = new Map<string, DecisionRow[]>();
   for (const r of rows) {
     decisionRowSchema.parse(r);
     assert.ok(!r.elegible ? r.LVigente === 0 : true, `${nombre} ${r.company} ${r.month}: P1`);
+    // §7: sin menú no hay grifo que abrir, así que la fila no puede salir elegible.
+    assert.ok(
+      r.menu.length > 0 || !r.elegible,
+      `${nombre} ${r.company} ${r.month}: menú vacío con elegible = true`,
+    );
+    // §10: `motivo` es la razón por la que NO hay grifo; una fila elegible no lleva ninguna.
+    assert.ok(
+      !r.elegible || r.motivo === null,
+      `${nombre} ${r.company} ${r.month}: elegible con motivo "${r.motivo}"`,
+    );
     const lista = porEmpresa.get(r.company) ?? [];
     lista.push(r);
     porEmpresa.set(r.company, lista);

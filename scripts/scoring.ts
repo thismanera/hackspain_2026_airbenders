@@ -200,6 +200,8 @@ async function doBacktest() {
   for await (const row of lines<ScoreRow>(path.join(run, "scores.jsonl")))
     if (validation.has(row.groupId)) rows.push(row);
   const companies = new Set(rows.map((r) => r.company));
+  // Sin decisiones el bloque `decision` saldría vacío y el backtest mentiría por omisión.
+  if (!existsSync(path.join(run, "decisions.jsonl"))) throw new Error("run scoring:decide first");
   // Las métricas del jurado (§14) se miden sobre las mismas empresas que el backtest del score.
   const decisions: DecisionRow[] = [];
   for await (const d of lines<DecisionRow>(path.join(run, "decisions.jsonl")))

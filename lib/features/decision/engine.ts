@@ -151,26 +151,36 @@ function fila(
   // cierre es el del grupo, no una puerta de elegibilidad.
   const cerradoPorGrupo = e.elegible && d.accion === "cerrar";
   const motivoCierre = cerradoPorGrupo ? motivoGrupo : e.motivo;
+  // §7 + §10: "elegible" significa que hay grifo que abrir, así que un menú vacío nunca sale
+  // elegible y una fila elegible nunca lleva motivo. Con las seis puertas pasadas y `L_vigente`
+  // en cero (espera de reapertura o L = 0 por banda D / capacidad nula) el motivo lo pone la
+  // espera, no una puerta.
+  const elegible = e.elegible && T > 0 && opciones.length > 0;
+  const motivo = !e.elegible
+    ? e.motivo
+    : cerradoPorGrupo
+      ? motivoCierre
+      : T === 0
+        ? // la banda que agota el plazo es la peor de la actual y la prevista (§5, decisión 37):
+          // si la peor es la prevista, quien agota el plazo es la previsión, no el deterioro de hoy
+          esPeor(pred.bandaPred3m, banda(r.score))
+          ? `Previsión: banda ${pred.bandaPred3m} en 3 meses`
+          : `Deterioro estructural en banda ${peor(banda(r.score), pred.bandaPred3m)}`
+        : opciones.length > 0
+          ? null
+          : d.LVigente > 0
+            ? "Capacidad de cuota insuficiente para cualquier plazo"
+            : d.mesesParaReapertura !== null
+              ? `Reapertura en ${d.mesesParaReapertura} meses`
+              : "Límite a cero";
   return {
     company: r.company,
     month: r.month,
     groupId: r.groupId,
     motor: "v1",
     versionParametros: params.version,
-    elegible: e.elegible && T > 0,
-    motivo: !e.elegible
-      ? e.motivo
-      : cerradoPorGrupo
-        ? motivoCierre
-        : T === 0
-          ? // la banda que agota el plazo es la peor de la actual y la prevista (§5, decisión 37):
-            // si la peor es la prevista, quien agota el plazo es la previsión, no el deterioro de hoy
-            esPeor(pred.bandaPred3m, banda(r.score))
-            ? `Previsión: banda ${pred.bandaPred3m} en 3 meses`
-            : `Deterioro estructural en banda ${peor(banda(r.score), pred.bandaPred3m)}`
-          : opciones.length === 0 && d.LVigente > 0
-            ? "Capacidad de cuota insuficiente para cualquier plazo"
-            : null,
+    elegible,
+    motivo,
     puertasFallidas: e.puertasFallidas,
     banda: banda(r.score),
     bandaEfectiva: d.bandaEfectiva,

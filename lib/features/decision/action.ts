@@ -1,5 +1,5 @@
 import type { Elegibilidad } from "@/lib/features/decision/eligibility";
-import { bandaEfectiva, esPeor, limite, type Limite } from "@/lib/features/decision/limit";
+import { banda, bandaEfectiva, esPeor, limite, type Limite } from "@/lib/features/decision/limit";
 import { redondearAbajo, redondearArriba } from "@/lib/features/decision/money";
 import { DECISION_PARAMS as P, type Banda } from "@/lib/features/decision/params";
 import type { Accion, EstadoDecision } from "@/lib/features/decision/types";
@@ -86,7 +86,11 @@ export function decidirAccion(
   if (escalonesExtra > 0 && L < Lp)
     return { ...base, accion: "reducir", LVigente: L, causaReduccion: "grupo" };
 
-  if (esPeor(bandaPred, b) && prev.mesesPredPeorSeguidos + 1 >= P.reducirPrevMeses) {
+  // SOURCE §3.6 y decisión 37: la comparación es siempre contra la banda **actual**, no la
+  // efectiva. Si comparase con la efectiva, un deterioro estructural (o un escalón de
+  // cross-default) que ya bajó la banda taparía la señal de la previsión.
+  const bActual = banda(r.score);
+  if (esPeor(bandaPred, bActual) && prev.mesesPredPeorSeguidos + 1 >= P.reducirPrevMeses) {
     const LPred = limite(r, bandaPred).L;
     if (LPred < Lp)
       return {
@@ -97,7 +101,7 @@ export function decidirAccion(
       };
   }
 
-  if (L > P.ampliarRatio * Lp && r.direccion !== "deterioro" && !esPeor(bandaPred, b))
+  if (L > P.ampliarRatio * Lp && r.direccion !== "deterioro" && !esPeor(bandaPred, bActual))
     return { ...base, accion: "ampliar", LVigente: LAcotado };
 
   if (L < P.reducirRatio * Lp) {
@@ -122,7 +126,8 @@ export function siguienteEstado(
     mesesElegibleSeguidos: elegible ? prev.mesesElegibleSeguidos + 1 : 0,
     mesesReduccionSeguidos:
       prev.LPrev > 0 && d.L < P.reducirRatio * prev.LPrev ? prev.mesesReduccionSeguidos + 1 : 0,
-    mesesPredPeorSeguidos: esPeor(bandaPred, d.bandaEfectiva) ? prev.mesesPredPeorSeguidos + 1 : 0,
+    // Misma comparación que en `decidirAccion`: banda prevista contra la banda actual (§3.6).
+    mesesPredPeorSeguidos: esPeor(bandaPred, banda(r.score)) ? prev.mesesPredPeorSeguidos + 1 : 0,
     cerradoDesde: d.accion === "cerrar" ? r.month : d.accion === "abrir" ? null : prev.cerradoDesde,
     // El bloque de cross-default lo recalcula el motor (§9) con el mes del grupo ya cerrado.
     crossDefaultActivo: prev.crossDefaultActivo,
