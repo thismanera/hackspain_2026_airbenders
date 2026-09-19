@@ -31,11 +31,24 @@ export function bandaEfectiva(r: ScoreRow, escalonesExtra = 0): Banda {
   return bajarBanda(banda(r.score), estructural + escalonesExtra);
 }
 
+/**
+ * decision-engine §4 + decisión 40: la capacidad de cuota adversa la calcula **este** motor con
+ * **su** escenario de estrés (−10 % cobros / +5 % pagos, cobertura 1,3), no la de `ScoreRow`, que
+ * scoring calcula con −20 %/+10 % para D3 del aval de grupo. Son dos escenarios adversos distintos
+ * a propósito: el de scoring mide si el padre puede avalar (conservador sobre un dato ajeno), este
+ * mide cuánto se le puede prestar a la empresa sobre sus propios cobros, ya infravalorados por el
+ * 25 % de movimientos sin clasificar.
+ */
+export function capacidadCuotaAdv(r: ScoreRow): number {
+  const cajaAdv = P.estresCobros * r.cobrosOpMedia6m - P.estresPagos * r.pagosOpMedia6m;
+  return Math.max(0, cajaAdv / P.coberturaMin - r.servicioDeudaMedia6m);
+}
+
 export type Limite = { limiteCap: number; limiteOp: number; LBruto: number; L: number };
 
-/** decision-engine §4. La capacidad de cuota adversa viene calculada por scoring (mismos parámetros de estrés). */
+/** decision-engine §4. */
 export function limite(r: ScoreRow, b: Banda): Limite {
-  const limiteCap = r.capacidadCuotaAdv * P.mesesLimiteCap;
+  const limiteCap = capacidadCuotaAdv(r) * P.mesesLimiteCap;
   const limiteOp = P.anticipoPct * r.cobrosOpMedia3m * P.anticipoMeses;
   const factorC = Math.min(1, r.confianza / P.confRef);
   const LBruto = Math.min(limiteCap, limiteOp) * P.factorBanda[b] * factorC;

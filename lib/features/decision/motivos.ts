@@ -59,6 +59,7 @@ export function motivoAccion(
     causaCrossDefault?: string | null;
     bandaPred: Banda | null;
     mesesParaReapertura: number | null;
+    cierrePendiente?: boolean;
   },
 ): string {
   switch (accion) {
@@ -83,6 +84,9 @@ export function motivoAccion(
     case "cerrar":
       return ctx.motivoCierre ?? "No elegible";
     case "mantener":
+      // Decisión 42: el mes de gracia de una puerta blanda lo dice con todas las letras.
+      if (ctx.cierrePendiente)
+        return `Pendiente confirmar cierre: ${ctx.motivoCierre ?? "no elegible"}`;
       if (ctx.mesesParaReapertura !== null) return `Reapertura en ${ctx.mesesParaReapertura} meses`;
       if (ctx.causaReduccion === "confirmada") return "Pendiente confirmar bajada";
       return `Sin cambios: score ${Math.round(r.score)}, límite ${eur(ctx.LPrev)}`;

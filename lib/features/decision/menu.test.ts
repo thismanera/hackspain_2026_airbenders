@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { flujosCapacidad } from "@/lib/features/decision/__fixtures__/flujos";
 import { menu, plazoNatural, valida } from "@/lib/features/decision/menu";
 import { scoreRowFixture } from "@/lib/features/scoring/__fixtures__/score-row";
 
 test("sana fixture menu: amounts grow with tenor up to L, TAE grows, capped by T_max", () => {
   const r = scoreRowFixture({
-    capacidadCuotaAdv: 10_000,
+    ...flujosCapacidad(10_000),
     cobrosOpMedia3m: 100_000,
     confianza: 0.9,
     score: 82,
@@ -27,13 +28,13 @@ test("sana fixture menu: amounts grow with tenor up to L, TAE grows, capped by T
 });
 
 test("band D has no price, so it has no menu", () => {
-  const r = scoreRowFixture({ capacidadCuotaAdv: 10_000, cobrosOpMedia3m: 100_000, score: 40 });
+  const r = scoreRowFixture({ ...flujosCapacidad(10_000), cobrosOpMedia3m: 100_000, score: 40 });
   assert.deepEqual(menu(r, 120_000, 180, "D", "D"), []);
 });
 
 test("valida a request against the menu; plazo natural from C3", () => {
   const r = scoreRowFixture({
-    capacidadCuotaAdv: 10_000,
+    ...flujosCapacidad(10_000),
     cobrosOpMedia3m: 100_000,
     confianza: 0.9,
   });

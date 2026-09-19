@@ -1,17 +1,26 @@
+import type { Puerta } from "@/lib/features/decision/types";
 import { hashParams } from "@/lib/features/scoring/params";
 
 export type Banda = "A" | "B" | "C" | "D";
 
 /** docs/decision-engine.md §2. Ningún número suelto en código. */
 export const DECISION_PARAMS = {
-  // elegibilidad (decisión 18)
-  confMin: 0.5,
+  // elegibilidad (decisiones 18, 39)
+  confMin: 0.4,
   scoreMin: 45,
   rachaB2Max: 1,
   rachaDeficitMax: 2,
   C4Max: 0.4,
-  // capacidad y límite (11, 12): la capacidad de cuota adversa la calcula scoring con los mismos
-  // parámetros de estrés (PARAMS.estresCobros/estresPagos/coberturaMin) y llega en ScoreRow.
+  // cierre confirmado (decisión 42): las puertas blandas (confianza y la mitad de capacidad de
+  // `caja`) necesitan `cierreConfirmadoMeses` meses seguidos para cerrar; el resto cierra ya.
+  cierreConfirmadoMeses: 2,
+  puertasBlandas: ["historia", "caja"] as readonly Puerta[],
+  // capacidad y límite (11, 12, 40): el motor de decisión calcula **su** capacidad de cuota adversa
+  // con **su** estrés, distinto a propósito del de scoring (`PARAMS.estresCobros` 0,8 / 1,1), que
+  // alimenta D3 del aval de grupo. Ver decision-engine §4 y SOURCE §3.1.
+  estresCobros: 0.9,
+  estresPagos: 1.05,
+  coberturaMin: 1.3,
   mesesLimiteCap: 12,
   anticipoPct: 0.8,
   anticipoMeses: 3,
@@ -44,8 +53,10 @@ export const DECISION_PARAMS = {
   reducirPrevMeses: 2,
   histeresisPct: 0.25,
   reaperturaMeses: 2,
-  // grupo (17)
+  // grupo (17, 41)
   D1CrossDefault: 0.3,
+  /** Capacidad consolidada 0 (`L_grupo = 0`): en vez de cerrar, el grupo baja una banda (§9). */
+  techoCeroBajaBanda: true,
   // uso simulado para métricas (§14)
   usoSimulado: 0.6,
   plazoNaturalDefecto: 60,

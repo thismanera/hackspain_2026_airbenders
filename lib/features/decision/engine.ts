@@ -1,7 +1,7 @@
 import { decidirAccion, siguienteEstado, type Decision } from "@/lib/features/decision/action";
 import { elegibilidad, type Elegibilidad } from "@/lib/features/decision/eligibility";
 import { ajusteGrupo, limiteGrupo, type AjusteGrupo } from "@/lib/features/decision/group";
-import { banda, esPeor, peor } from "@/lib/features/decision/limit";
+import { banda, capacidadCuotaAdv, esPeor, peor } from "@/lib/features/decision/limit";
 import { menu, plazoNatural } from "@/lib/features/decision/menu";
 import { motivoAccion } from "@/lib/features/decision/motivos";
 import { DECISION_PARAMS as P, hashDecisionParams } from "@/lib/features/decision/params";
@@ -111,7 +111,15 @@ function aplicarGrupo(
     puertasFallidas: e.puertasFallidas,
     yaCerrada: prev.LPrev === 0,
   }));
-  if (!enGrupo) return { decisiones, caidas: [], afectadas: [], motivoGrupo: null };
+  if (!enGrupo)
+    return {
+      decisiones,
+      caidas: [],
+      afectadas: [],
+      afectadasTecho: [],
+      modo: null,
+      motivoGrupo: null,
+    };
   return ajusteGrupo(rows, decisiones, LGrupo);
 }
 
@@ -124,7 +132,8 @@ function aplicarGrupo(
 function aplicarTecho(d: Decision, LVigente: number, prev: EstadoDecision): Decision {
   if (LVigente === d.LVigente) return d;
   const ajustada: Decision = { ...d, LVigente };
-  if (LVigente === 0) return { ...ajustada, accion: "cerrar", causaReduccion: "grupo" };
+  if (LVigente === 0)
+    return { ...ajustada, accion: "cerrar", causaReduccion: "grupo", cierrePendiente: false };
   if (
     LVigente < prev.LPrev &&
     (d.accion === "abrir" || d.accion === "ampliar" || d.accion === "mantener")
@@ -182,9 +191,12 @@ function fila(
     elegible,
     motivo,
     puertasFallidas: e.puertasFallidas,
+    cierrePendiente: d.cierrePendiente,
     banda: banda(r.score),
     bandaEfectiva: d.bandaEfectiva,
-    capacidadCuotaAdv: r.capacidadCuotaAdv,
+    // Decisión 40: la capacidad que publica la ficha es la del motor de decisión, la misma con la
+    // que se han calculado el límite, la puerta `caja` y el menú.
+    capacidadCuotaAdv: capacidadCuotaAdv(r),
     limiteCap: d.limite.limiteCap,
     limiteOp: d.limite.limiteOp,
     L: d.L,
@@ -204,6 +216,7 @@ function fila(
       causaCrossDefault,
       bandaPred,
       mesesParaReapertura: d.mesesParaReapertura,
+      cierrePendiente: d.cierrePendiente,
     }),
     motivoGrupo,
     bandaPred3mUsada: bandaPred,
@@ -256,12 +269,23 @@ export function decideGroup(
 
     let candidatas = rows.map((r) => decide(r, 0));
     let ajuste = aplicarGrupo(rows, candidatas, LGrupo, enGrupo);
-    if (ajuste.afectadas.length) {
-      // §9: las hermanas de una caída bajan un escalón de banda y se recalcula el techo.
-      candidatas = candidatas.map((x) =>
-        ajuste.afectadas.includes(x.r.company) ? decide(x.r, 1) : x,
-      );
+    // §9 paso 2: los escalones de banda se acumulan y se topan en 2 — uno por la caída de una
+    // hermana (cross-default) y otro por el techo con capacidad consolidada 0 (decisión 41).
+    // Ninguno de los dos deriva un `cerrar`: bajan la banda y se recalcula el techo.
+    const techoCero = ajuste.modo === "bajaBanda" ? ajuste : null;
+    const escalones = new Map<string, number>();
+    for (const c of ajuste.afectadas) escalones.set(c, (escalones.get(c) ?? 0) + 1);
+    for (const c of ajuste.afectadasTecho) escalones.set(c, (escalones.get(c) ?? 0) + 1);
+    if (escalones.size) {
+      candidatas = candidatas.map((x) => {
+        const n = escalones.get(x.r.company);
+        return n ? decide(x.r, Math.min(2, n)) : x;
+      });
       ajuste = aplicarGrupo(rows, candidatas, LGrupo, enGrupo);
+      // El techo cero ya se ha cobrado su escalón: el motivo se conserva aunque el recálculo deje
+      // a algún miembro sin límite y la regla no vuelva a dispararse sobre las filas nuevas.
+      if (techoCero && ajuste.motivoGrupo === null)
+        ajuste = { ...ajuste, modo: techoCero.modo, motivoGrupo: techoCero.motivoGrupo };
     }
     // Con varias caídas manda la mayor del grupo por `D1` (empate: alfabético).
     const D1 = new Map(rows.map((r) => [r.company, r.D1]));
@@ -274,7 +298,7 @@ export function decideGroup(
     // Primero el estado de todas (§8) y luego el cross-default, que mira el mes ya cerrado.
     const cerradas = candidatas.map((x) => {
       const d = aplicarTecho(x.d, LVigentes.get(x.r.company) ?? x.d.LVigente, x.prev);
-      return { x, d, siguiente: siguienteEstado(x.prev, d, x.r, x.pred.bandaPred3m) };
+      return { x, d, siguiente: siguienteEstado(x.prev, d, x.r, x.pred.bandaPred3m, x.e) };
     });
     const siguientes = new Map(cerradas.map(({ x, siguiente }) => [x.r.company, siguiente]));
     for (const { x, d, siguiente } of cerradas) {

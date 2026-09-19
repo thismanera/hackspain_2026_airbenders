@@ -18,6 +18,11 @@ export type EstadoDecision = {
   causaCrossDefault: string | null;
   /** Meses seguidos con la bandera de cross-default encendida: a `reaperturaMeses` se levanta (§9). */
   mesesConCrossDefault: number;
+  /**
+   * Decisión 42: meses seguidos fallando **solo** puertas blandas (`historia`, o `caja` por
+   * capacidad). A `cierreConfirmadoMeses` el cierre se confirma; un mes suelto no cierra (§8).
+   */
+  mesesPuertaBlandaSeguidos: number;
 };
 
 export const ESTADO_INICIAL: EstadoDecision = {
@@ -30,6 +35,7 @@ export const ESTADO_INICIAL: EstadoDecision = {
   crossDefaultActivo: false,
   causaCrossDefault: null,
   mesesConCrossDefault: 0,
+  mesesPuertaBlandaSeguidos: 0,
 };
 
 /**
@@ -73,6 +79,11 @@ export type DecisionRow = {
   elegible: boolean;
   motivo: string | null;
   puertasFallidas: Puerta[];
+  /**
+   * Decisión 42: la empresa falla una puerta blanda pero el cierre espera confirmación. La fila
+   * sale `elegible = false` con `motivo` de la puerta y conserva `L_vigente = L_prev` un mes más.
+   */
+  cierrePendiente: boolean;
   banda: Banda;
   bandaEfectiva: Banda;
   capacidadCuotaAdv: number;

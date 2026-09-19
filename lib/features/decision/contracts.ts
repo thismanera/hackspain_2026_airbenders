@@ -32,6 +32,7 @@ const estado = z.object({
   crossDefaultActivo: z.boolean(),
   causaCrossDefault: z.string().nullable(),
   mesesConCrossDefault: z.number().int().min(0),
+  mesesPuertaBlandaSeguidos: z.number().int().min(0),
 });
 
 export const decisionRowSchema = z.object({
@@ -43,6 +44,7 @@ export const decisionRowSchema = z.object({
   elegible: z.boolean(),
   motivo: z.string().nullable(),
   puertasFallidas: z.array(z.enum(PUERTAS)),
+  cierrePendiente: z.boolean(),
   banda,
   bandaEfectiva: banda,
   capacidadCuotaAdv: money,

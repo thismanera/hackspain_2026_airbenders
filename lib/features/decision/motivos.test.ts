@@ -52,7 +52,7 @@ test("the five motivoAccion branches", () => {
   assert.equal(motivoAccion("cerrar", r, ctx()), "No elegible");
 });
 
-test("the three mantener variants", () => {
+test("the four mantener variants", () => {
   assert.equal(
     motivoAccion("mantener", r, ctx({ mesesParaReapertura: 2 })),
     "Reapertura en 2 meses",
@@ -66,6 +66,19 @@ test("the three mantener variants", () => {
   assert.equal(
     motivoAccion("mantener", r, ctx({ mesesParaReapertura: 1, causaReduccion: "confirmada" })),
     "Reapertura en 1 meses",
+  );
+  // decisión 42: el mes de gracia de una puerta blanda manda sobre todas las demás
+  assert.equal(
+    motivoAccion(
+      "mantener",
+      r,
+      ctx({
+        cierrePendiente: true,
+        motivoCierre: "Historial insuficiente: confianza 0,30 < 0,4",
+        mesesParaReapertura: 1,
+      }),
+    ),
+    "Pendiente confirmar cierre: Historial insuficiente: confianza 0,30 < 0,4",
   );
 });
 
@@ -101,8 +114,8 @@ test("the four causaReduccion variants", () => {
 
 test("motivoPuerta interpolates the parameters and reads C4 when the gate fails", () => {
   assert.equal(
-    motivoPuerta("historia", scoreRowFixture({ confianza: 0.4 }), null),
-    "Historial insuficiente: confianza 0,40 < 0,5",
+    motivoPuerta("historia", scoreRowFixture({ confianza: 0.3 }), null),
+    "Historial insuficiente: confianza 0,30 < 0,4",
   );
   assert.equal(
     motivoPuerta("estado", scoreRowFixture({ score: 40 }), null),
@@ -117,7 +130,7 @@ test("motivoPuerta interpolates the parameters and reads C4 when the gate fails"
     "3 meses seguidos en déficit",
   );
   assert.equal(
-    motivoPuerta("caja", scoreRowFixture({ capacidadCuotaAdv: 0 }), null),
+    motivoPuerta("caja", scoreRowFixture({ cobrosOpMedia6m: 0 }), null),
     "Caja estresada no cubre cuotas actuales",
   );
   assert.equal(

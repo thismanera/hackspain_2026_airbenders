@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { flujosCapacidad } from "@/lib/features/decision/__fixtures__/flujos";
 import { elegibilidad } from "@/lib/features/decision/eligibility";
 import { ESTADO_INICIAL, type EstadoDecision, type Puerta } from "@/lib/features/decision/types";
 import { scoreRowFixture } from "@/lib/features/scoring/__fixtures__/score-row";
@@ -16,6 +17,7 @@ test("a healthy row passes every gate", () => {
   assert.equal(e.elegible, true);
   assert.equal(e.motivo, null);
   assert.deepEqual(e.puertasFallidas, []);
+  assert.equal(e.cajaSoloCapacidad, false);
 });
 
 test("each gate fails on its own, with its own motivo", () => {
@@ -27,9 +29,9 @@ test("each gate fails on its own, with its own motivo", () => {
   }[] = [
     {
       puerta: "historia",
-      patch: { confianza: 0.4 },
+      patch: { confianza: 0.3 },
       prev: ESTADO_INICIAL,
-      motivo: /Historial insuficiente: confianza 0,40 < 0,5/,
+      motivo: /Historial insuficiente: confianza 0,30 < 0,4/,
     },
     {
       puerta: "estado",
@@ -51,7 +53,7 @@ test("each gate fails on its own, with its own motivo", () => {
     },
     {
       puerta: "caja",
-      patch: { capacidadCuotaAdv: 0 },
+      patch: flujosCapacidad(0),
       prev: ESTADO_INICIAL,
       motivo: /Caja estresada no cubre cuotas actuales/,
     },
@@ -78,11 +80,11 @@ test("each gate fails on its own, with its own motivo", () => {
 
 test("every threshold: the value at the limit passes, one notch worse fails", () => {
   const umbrales: { puerta: Puerta; pasa: Partial<ScoreRow>; falla: Partial<ScoreRow> }[] = [
-    { puerta: "historia", pasa: { confianza: 0.5 }, falla: { confianza: 0.49 } },
+    { puerta: "historia", pasa: { confianza: 0.4 }, falla: { confianza: 0.39 } },
     { puerta: "estado", pasa: { score: 45 }, falla: { score: 44.9 } },
     { puerta: "fiabilidad", pasa: { rachaB2: 1 }, falla: { rachaB2: 2 } },
     { puerta: "caja", pasa: { rachaDeficit: 2 }, falla: { rachaDeficit: 3 } },
-    { puerta: "caja", pasa: { capacidadCuotaAdv: 1 }, falla: { capacidadCuotaAdv: 0 } },
+    { puerta: "caja", pasa: flujosCapacidad(1), falla: flujosCapacidad(0) },
     { puerta: "clientes", pasa: { C4: 0.4 }, falla: { C4: 0.41 } },
     { puerta: "clientes", pasa: { C4: null }, falla: { C4: 0.41 } },
   ];
@@ -102,11 +104,11 @@ test("every threshold: the value at the limit passes, one notch worse fails", ()
 
 test("gates fail in the documented order and all failures are listed", () => {
   const r = scoreRowFixture({
-    confianza: 0.4,
+    confianza: 0.3,
     score: 40,
     rachaB2: 2,
     rachaDeficit: 3,
-    capacidadCuotaAdv: 0,
+    ...flujosCapacidad(0),
     C4: 0.5,
   });
   const e = elegibilidad(r, crossDefault);
@@ -119,5 +121,36 @@ test("gates fail in the documented order and all failures are listed", () => {
     "clientes",
     "grupo",
   ]);
-  assert.match(e.motivo!, /Historial insuficiente: confianza 0,40 < 0,5/);
+  assert.match(e.motivo!, /Historial insuficiente: confianza 0,30 < 0,4/);
+});
+
+test("decisión 40: la puerta `caja` mira la capacidad del motor de decisión, no la de la fila", () => {
+  // La fila trae `capacidadCuotaAdv: 0` (estrés de scoring) pero sus flujos dan capacidad > 0 con
+  // el estrés de decisión: la puerta pasa. Es exactamente el caso que la decisión 40 desbloquea.
+  const e = elegibilidad(
+    scoreRowFixture({ ...flujosCapacidad(10_000), capacidadCuotaAdv: 0 }),
+    ESTADO_INICIAL,
+  );
+  assert.equal(e.elegible, true);
+});
+
+test("decisión 42: `cajaSoloCapacidad` separa la mitad blanda de la puerta de la dura", () => {
+  const capacidad = elegibilidad(scoreRowFixture(flujosCapacidad(0)), ESTADO_INICIAL);
+  assert.deepEqual(capacidad.puertasFallidas, ["caja"]);
+  assert.equal(capacidad.cajaSoloCapacidad, true);
+
+  // Racha de déficit: puerta dura, aunque haya capacidad de sobra.
+  const racha = elegibilidad(
+    scoreRowFixture({ ...flujosCapacidad(10_000), rachaDeficit: 3 }),
+    ESTADO_INICIAL,
+  );
+  assert.deepEqual(racha.puertasFallidas, ["caja"]);
+  assert.equal(racha.cajaSoloCapacidad, false);
+
+  // Las dos condiciones caídas a la vez siguen siendo un fallo duro.
+  const ambas = elegibilidad(
+    scoreRowFixture({ ...flujosCapacidad(0), rachaDeficit: 3 }),
+    ESTADO_INICIAL,
+  );
+  assert.equal(ambas.cajaSoloCapacidad, false);
 });

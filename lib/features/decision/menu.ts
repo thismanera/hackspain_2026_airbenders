@@ -1,4 +1,5 @@
 import { coste, tae } from "@/lib/features/decision/interest";
+import { capacidadCuotaAdv } from "@/lib/features/decision/limit";
 import { redondearAbajo } from "@/lib/features/decision/money";
 import { DECISION_PARAMS as P, type Banda } from "@/lib/features/decision/params";
 import type { MenuOption } from "@/lib/features/decision/types";
@@ -13,12 +14,12 @@ export function menu(
   bandaPred: Banda,
 ): MenuOption[] {
   const out: MenuOption[] = [];
+  // Decisión 40: la capacidad de la región factible es la del motor de decisión (§4), no la de
+  // `ScoreRow`; si no, el menú vendería un plazo que el límite no respalda.
+  const capacidad = capacidadCuotaAdv(r);
   for (const plazo of P.plazosMenu) {
     if (plazo > TMax) break;
-    const cantidadMax = redondearAbajo(
-      Math.min(L, r.capacidadCuotaAdv * (plazo / 30)),
-      P.redondeoL,
-    );
+    const cantidadMax = redondearAbajo(Math.min(L, capacidad * (plazo / 30)), P.redondeoL);
     if (cantidadMax <= 0) continue;
     const t = tae(bEfectiva, plazo, r, bandaPred);
     if (t.tae === null) continue;

@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { flujosCapacidad } from "@/lib/features/decision/__fixtures__/flujos";
 import { decisionRowSchema } from "@/lib/features/decision/contracts";
 import {
   crossDefaultSiguiente,
   decideGroup,
   parametrosDecision,
 } from "@/lib/features/decision/engine";
+import { MOTIVO_TECHO_CERO } from "@/lib/features/decision/group";
 import { DECISION_PARAMS as P } from "@/lib/features/decision/params";
 import {
   ESTADO_INICIAL,
@@ -25,14 +27,14 @@ const grupo = {
 };
 
 /**
- * Techo del grupo del fixture (`limiteGrupo`, §9), derivado a mano:
- *   capacidad  = (0,8 × 1 000 000 − 1,1 × 600 000)/1,3 − 20 000 = 140 000/1,3 − 20 000 = 87 692,31
- *   limite_cap = 87 692,31 × 12 = 1 052 307,69   ·   limite_op = 0,8 × 1 000 000 × 3 = 2 400 000
+ * Techo del grupo del fixture (`limiteGrupo`, §9), derivado a mano con el estrés del motor de
+ * decisión (decisión 40: 0,9 / 1,05 / 1,3):
+ *   capacidad  = (0,9 × 1 000 000 − 1,05 × 600 000)/1,3 − 20 000 = 270 000/1,3 − 20 000 = 187 692,31
+ *   limite_cap = 187 692,31 × 12 = 2 252 307,69  ·  limite_op = 0,8 × 1 000 000 × 3 = 2 400 000
  *   score ponderado por cobros = 82 → banda A (factor 1); conf 0,9 → min(1; 0,9/0,6) = 1
- *   L_grupo = redondear_abajo(min(1 052 307,69; 2 400 000), 1000) = 1 052 000
- * (el plan traía 400 000 como marcador de posición; no sale de estos flujos).
+ *   L_grupo = redondear_abajo(min(2 252 307,69; 2 400 000), 1000) = 2 252 000
  */
-const L_GRUPO = 1_052_000;
+const L_GRUPO = 2_252_000;
 
 function serie(company: string, patch: (i: number) => Partial<ScoreRow>): ScoreRow[] {
   return CALENDAR.map((month, i) =>
@@ -41,9 +43,8 @@ function serie(company: string, patch: (i: number) => Partial<ScoreRow>): ScoreR
       month,
       groupId: "g",
       score: 82,
-      capacidadCuotaAdv: 10_000,
+      ...flujosCapacidad(10_000),
       cobrosOpMedia3m: 100_000,
-      cobrosOpMedia6m: 100_000,
       confianza: 0.9,
       D1: 0.5,
       ...grupo,
@@ -217,9 +218,8 @@ function serieTecho(company: string): ScoreRow[] {
       month,
       groupId: "g",
       score: 82,
-      capacidadCuotaAdv: 50_000,
+      ...flujosCapacidad(50_000),
       cobrosOpMedia3m: 1_000_000,
-      cobrosOpMedia6m: 100_000,
       confianza: 0.9,
       D1: 0.1,
       ...techo,
@@ -229,7 +229,7 @@ function serieTecho(company: string): ScoreRow[] {
 
 test("the group ceiling binds: it prorates, is flagged and the action follows the capped limit", () => {
   const rows = decideGroup([...serieTecho("a"), ...serieTecho("b")], params);
-  // capacidad_g = (0,8×300 000 − 1,1×100 000)/1,3 = 100 000 → limite_cap 1 200 000
+  // capacidad_g = (0,9×300 000 − 1,05×100 000)/1,3 = 126 923 → limite_cap 1 523 077
   // limite_op = 0,8 × 300 000 × 3 = 720 000 (manda) · banda A, conf 0,9 → sin recorte
   const LGrupo = 720_000;
   const porMes = new Map<string, number>();
@@ -259,9 +259,8 @@ test("two companies over a small ceiling both come out as reducir with the group
         month,
         groupId: "g",
         score: 82,
-        capacidadCuotaAdv: 10_000,
+        ...flujosCapacidad(10_000),
         cobrosOpMedia3m: 100_000,
-        cobrosOpMedia6m: 100_000,
         confianza: 0.9,
         D1: 0.1,
         servicioDeudaGrupoMedia6m: 0,
@@ -280,12 +279,95 @@ test("two companies over a small ceiling both come out as reducir with the group
   assert.equal(mes2[0].LVigente + mes2[1].LVigente, 120_000);
 });
 
+/** Grupo cuyos flujos consolidados no dan capacidad: pagos > cobros (decisión 41). */
+const sinCapacidadGrupo = {
+  cobrosOpGrupoMedia6m: 100_000,
+  pagosOpGrupoMedia6m: 200_000,
+  servicioDeudaGrupoMedia6m: 0,
+};
+
+function serieSinCapacidadGrupo(company: string): ScoreRow[] {
+  return CALENDAR.map((month) =>
+    scoreRowFixture({
+      company,
+      month,
+      groupId: "g",
+      score: 82,
+      ...flujosCapacidad(10_000),
+      cobrosOpMedia3m: 100_000,
+      confianza: 0.9,
+      D1: 0.1,
+      ...sinCapacidadGrupo,
+    }),
+  );
+}
+
+test("decisión 41: con capacidad consolidada 0 el grupo baja una banda y el grifo sigue abierto", () => {
+  const rows = decideGroup(
+    [...serieSinCapacidadGrupo("a"), ...serieSinCapacidadGrupo("b")],
+    params,
+  );
+  // L_grupo = min(0 × 12; 0,8 × 100 000 × 3) = 0: el prorrateo habría cerrado a las dos.
+  for (const r of rows) {
+    assert.equal(r.banda, "A");
+    assert.equal(r.bandaEfectiva, "B", `${r.company} ${r.month}`);
+    assert.equal(r.LVigente, 84_000, `${r.company} ${r.month}`); // 120 000 × factor banda B
+    assert.equal(r.motivoGrupo, MOTIVO_TECHO_CERO);
+    assert.notEqual(r.accion, "cerrar");
+    assert.ok(r.elegible, `${r.company} ${r.month}`);
+  }
+  const a = rows.filter((r) => r.company === "a");
+  assert.equal(a[0].accion, "abrir");
+  assert.equal(a[1].accion, "mantener");
+});
+
+test("decisión 42: una puerta blanda mantiene la línea un mes y cierra al siguiente", () => {
+  const rows = decideGroup(
+    serie("a", (i) => (i >= 2 ? { confianza: 0.3 } : {})),
+    params,
+  );
+  assert.equal(rows[1].accion, "mantener");
+  assert.equal(rows[1].cierrePendiente, false);
+  // mes 3: falla `historia`, pero el cierre espera confirmación
+  assert.equal(rows[2].accion, "mantener");
+  assert.equal(rows[2].cierrePendiente, true);
+  assert.equal(rows[2].elegible, false);
+  assert.equal(rows[2].LVigente, 120_000);
+  assert.equal(rows[2].L, 0);
+  assert.match(rows[2].motivo!, /Historial insuficiente/);
+  assert.match(rows[2].motivoAccion, /^Pendiente confirmar cierre: Historial insuficiente/);
+  assert.equal(rows[2].estado.mesesPuertaBlandaSeguidos, 1);
+  // mes 4: segundo mes seguido → cierre confirmado
+  assert.equal(rows[3].accion, "cerrar");
+  assert.equal(rows[3].cierrePendiente, false);
+  assert.equal(rows[3].LVigente, 0);
+  assert.equal(rows[3].estado.mesesPuertaBlandaSeguidos, 2);
+});
+
+test("decisión 42: una puerta dura cierra el mismo mes, sin mes de gracia", () => {
+  const rows = decideGroup(
+    serie("a", (i) => (i === 2 ? { rachaB2: 2 } : {})),
+    params,
+  );
+  assert.equal(rows[2].accion, "cerrar");
+  assert.equal(rows[2].cierrePendiente, false);
+  assert.equal(rows[2].LVigente, 0);
+  assert.equal(rows[2].estado.mesesPuertaBlandaSeguidos, 0);
+});
+
 /** §13, propiedades 1 y 3 sobre todas las filas de un dataset (+ menú y motivo, §7 y §10). */
 function compruebaPropiedades(nombre: string, rows: DecisionRow[]): void {
   const porEmpresa = new Map<string, DecisionRow[]>();
   for (const r of rows) {
     decisionRowSchema.parse(r);
-    assert.ok(!r.elegible ? r.LVigente === 0 : true, `${nombre} ${r.company} ${r.month}: P1`);
+    // §13 propiedad 1 con sus dos excepciones: el mes de gracia de una puerta blanda (decisión 42)
+    // y la fila que pasa las seis puertas pero se queda sin menú (§7: `T_max = 0` o capacidad por
+    // debajo del escalón de `redondeo_L` en todos los plazos). En los dos casos la línea viva no
+    // se cierra: lo que falta es grifo que abrir este mes, no solvencia.
+    assert.ok(
+      r.elegible || r.LVigente === 0 || r.cierrePendiente || r.puertasFallidas.length === 0,
+      `${nombre} ${r.company} ${r.month}: P1`,
+    );
     // §7: sin menú no hay grifo que abrir, así que la fila no puede salir elegible.
     assert.ok(
       r.menu.length > 0 || !r.elegible,
@@ -336,6 +418,17 @@ test("§13 properties 1 and 3 hold on every fixture", () => {
     ),
   );
   compruebaPropiedades("techo", decideGroup([...serieTecho("a"), ...serieTecho("b")], params));
+  compruebaPropiedades(
+    "techo_cero",
+    decideGroup([...serieSinCapacidadGrupo("a"), ...serieSinCapacidadGrupo("b")], params),
+  );
+  compruebaPropiedades(
+    "puerta_blanda",
+    decideGroup(
+      serie("a", (i) => (i >= 2 && i <= 5 ? { confianza: 0.3 } : {})),
+      params,
+    ),
+  );
   compruebaPropiedades(
     "estructural",
     decideGroup(

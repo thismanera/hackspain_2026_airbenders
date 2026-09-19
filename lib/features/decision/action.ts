@@ -33,7 +33,23 @@ export type Decision = {
   causaReduccion: CausaReduccion;
   mesesParaReapertura: number | null;
   escalonesExtra: number;
+  /** §8 + decisión 42: el cierre espera confirmación; la fila no es elegible pero mantiene línea. */
+  cierrePendiente: boolean;
 };
+
+/**
+ * Decisión 42: un fallo es **blando** si todas las puertas caídas están en `puertas_blandas` y,
+ * en el caso de `caja`, si falla solo por capacidad (la racha de déficit es dura). `estado`,
+ * `fiabilidad`, `clientes`, `grupo` y `racha_deficit > 2` cierran el mismo mes.
+ */
+export function falloBlando(e: Elegibilidad): boolean {
+  return (
+    e.puertasFallidas.length > 0 &&
+    e.puertasFallidas.every(
+      (p) => P.puertasBlandas.includes(p) && (p !== "caja" || e.cajaSoloCapacidad),
+    )
+  );
+}
 
 /**
  * decision-engine §8 con la decisión 37. `escalonesExtra` baja la banda por cross-default (§9).
@@ -57,11 +73,22 @@ export function decidirAccion(
     causaReduccion: null,
     mesesParaReapertura: null,
     escalonesExtra,
+    cierrePendiente: false,
   } as const;
 
   // No elegible: ni límite recomendado ni vigente (§13, propiedad 1). `limite` se conserva en
   // `limiteCap`/`limiteOp` porque la ficha enseña la capacidad aunque la puerta cierre.
-  if (!e.elegible) return { ...base, accion: "cerrar", L: 0, LVigente: 0 };
+  //
+  // Decisión 42: un fallo blando con línea viva espera `cierreConfirmadoMeses` meses seguidos
+  // antes de cerrar ("un mes no es tendencia"). El mes de gracia sale `mantener` con el límite
+  // anterior, `L = 0` (el motor ya no recomienda nada) y `cierre_pendiente = true`: la fila NO es
+  // elegible y su motivo sigue siendo el de la puerta. Sin línea que conservar no hay nada que
+  // esperar y el cierre es inmediato.
+  if (!e.elegible) {
+    if (falloBlando(e) && Lp > 0 && prev.mesesPuertaBlandaSeguidos + 1 < P.cierreConfirmadoMeses)
+      return { ...base, accion: "mantener", L: 0, LVigente: Lp, cierrePendiente: true };
+    return { ...base, accion: "cerrar", L: 0, LVigente: 0 };
+  }
 
   if (Lp === 0) {
     if (prev.cerradoDesde !== null && prev.mesesElegibleSeguidos + 1 < P.reaperturaMeses)
@@ -118,8 +145,10 @@ export function siguienteEstado(
   d: Decision,
   r: ScoreRow,
   bandaPred: Banda,
+  e: Elegibilidad,
 ): EstadoDecision {
-  const elegible = d.accion !== "cerrar";
+  // Un mes de gracia (decisión 42) no cuenta como mes elegible: la empresa no ha pasado las puertas.
+  const elegible = d.accion !== "cerrar" && !d.cierrePendiente;
   return {
     LPrev: d.LVigente,
     accionPrev: d.accion,
@@ -133,5 +162,7 @@ export function siguienteEstado(
     crossDefaultActivo: prev.crossDefaultActivo,
     causaCrossDefault: prev.causaCrossDefault,
     mesesConCrossDefault: prev.mesesConCrossDefault,
+    // El contador solo cuenta meses **seguidos** de fallo blando: un mes bueno lo reinicia.
+    mesesPuertaBlandaSeguidos: falloBlando(e) ? prev.mesesPuertaBlandaSeguidos + 1 : 0,
   };
 }
