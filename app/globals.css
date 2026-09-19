@@ -136,3 +136,28 @@
     @apply font-sans;
   }
 }
+
+/* Grafo de flujo del grupo: los guiones recorren la arista en el sentido en que
+   se transmite el efecto (el aval entra, el contagio tira). Solo cuando el
+   analista lo pide y nunca si el sistema prefiere movimiento reducido. */
+@keyframes flow-dash {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+
+.flow-edge[data-moving="true"] {
+  stroke-dasharray: 10 18;
+  animation: flow-dash 1.1s linear infinite;
+}
+
+.flow-edge[data-moving="true"][data-sense="drag"] {
+  animation-direction: reverse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-edge[data-moving="true"] {
+    animation: none;
+    stroke-dasharray: none;
+  }
+}
