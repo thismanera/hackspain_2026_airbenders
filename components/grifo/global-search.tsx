@@ -22,6 +22,9 @@ import { formatScore } from "@/lib/features/portfolio/format";
 import { fetchPortfolio, portfolioKeys } from "@/lib/features/portfolio/queries";
 import type { PortfolioSearchState } from "@/lib/features/portfolio/search-params";
 
+/** Resultados que caben en el diálogo sin scroll infinito: el resto se afina escribiendo. */
+const MAX_RESULTS = 40;
+
 const ALL: Omit<PortfolioSearchState, "mes"> = {
   q: "",
   estado: "todos",
@@ -38,6 +41,7 @@ const ALL: Omit<PortfolioSearchState, "mes"> = {
  */
 export function GlobalSearch() {
   const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState("");
   const [month] = useQueryState("mes", parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH));
   const router = useRouter();
   const filters: PortfolioSearchState = { ...ALL, mes: month };
@@ -60,14 +64,29 @@ export function GlobalSearch() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // La cartera entera son ~1.300 empresas: filtrar aquí y pintar solo las primeras
+  // evita montar un DOM enorme cada vez que se abre el diálogo.
+  const needle = term.trim().toUpperCase();
+  const rows = data
+    ? data.rows
+        .filter(
+          (row) =>
+            needle === "" ||
+            row.company.id.includes(needle) ||
+            row.company.groupId.includes(needle),
+        )
+        .slice(0, MAX_RESULTS)
+    : [];
   const groups = data
     ? [...new Map(data.rows.map((row) => [row.company.groupId, row.company.groupSize])).entries()]
-        .filter(([, size]) => size > 1)
+        .filter(([groupId, size]) => size > 1 && (needle === "" || groupId.includes(needle)))
         .sort(([a], [b]) => a.localeCompare(b))
+        .slice(0, MAX_RESULTS)
     : [];
 
   const go = (href: string) => {
     setOpen(false);
+    setTerm("");
     router.push(href);
   };
 
@@ -91,7 +110,7 @@ export function GlobalSearch() {
         title="Buscar"
         description="Empresa o grupo de la cartera"
       >
-        <CommandInput placeholder="Empresa o grupo…" />
+        <CommandInput placeholder="Empresa o grupo…" value={term} onValueChange={setTerm} />
         <CommandList>
           <CommandEmpty>
             {data ? "Nada con ese nombre en la cartera." : "Cargando la cartera…"}
@@ -99,7 +118,7 @@ export function GlobalSearch() {
           {data ? (
             <>
               <CommandGroup heading="Empresas">
-                {data.rows.map((row) => (
+                {rows.map((row) => (
                   <CommandItem
                     key={row.company.id}
                     value={`${row.company.id} ${row.company.groupId}`}

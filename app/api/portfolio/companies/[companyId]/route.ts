@@ -23,5 +23,6 @@ export async function GET(
   return scoringResponse(
     () => getCompanyFile(companyId, parsed.data.month),
     "Empresa no encontrada",
+    request,
   );
 }

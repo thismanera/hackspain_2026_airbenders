@@ -1,7 +1,7 @@
 "use client";
 
 import { Building2, HandCoins } from "lucide-react";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 import { AlertsTimeline } from "@/components/grifo/company/alerts-timeline";
 import { BandLadderCard } from "@/components/grifo/company/band-ladder-card";
@@ -40,8 +40,7 @@ import {
   formatScore,
 } from "@/lib/features/portfolio/format";
 import {
-  useBenchmark,
-  useCompanyFile,
+  useCompanyFileWithBenchmark,
   usePeers,
   usePymeState,
 } from "@/lib/features/portfolio/hooks";
@@ -62,8 +61,7 @@ function CompanyView({
   month: string;
   onSelectCompany: (companyId: string) => void;
 }) {
-  const { data: file } = useCompanyFile(companyId, month);
-  const { data: benchmark } = useBenchmark(companyId, month);
+  const [{ data: file }, { data: benchmark }] = useCompanyFileWithBenchmark(companyId, month);
   const { data: peers } = usePeers(month, "embat", companyId);
   const { requestedMonth } = useOptIn(companyId);
   const { latest } = file;
@@ -106,9 +104,7 @@ function CompanyView({
         <div className="flex flex-col gap-4 lg:col-span-2">
           <OutlookPanel month={latest} />
           <AlertsTimeline alerts={latest.alerts} />
-          {!latest.decision.eligible ? (
-            <GatesPanel gates={latest.decision.gates} />
-          ) : null}
+          {!latest.decision.eligible ? <GatesPanel gates={latest.decision.gates} /> : null}
         </div>
       </div>
 
@@ -138,8 +134,8 @@ function CompanyView({
           caption={
             ownCluster ? (
               <>
-                Estás en el grupo «{ownCluster.label}» con otras{" "}
-                {Math.max(0, ownCluster.size - 1)} empresas
+                Estás en el grupo «{ownCluster.label}» con otras {Math.max(0, ownCluster.size - 1)}{" "}
+                empresas
                 {ownCluster.medianScore !== null
                   ? ` (score mediano ${formatScore(ownCluster.medianScore)})`
                   : ""}
@@ -158,11 +154,15 @@ function CompanyView({
 }
 
 export function EmpresaClient() {
-  const [state, setState] = usePymeState();
+  const [isPending, startTransition] = useTransition();
+  const [state, setState] = usePymeState(startTransition);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div
+      className={cn("flex flex-col gap-4 transition-opacity", isPending && "opacity-70")}
+      aria-busy={isPending}
+    >
       <PageIntro
         title="Lo que ve la empresa antes de pedir nada"
         description="Score financiero, comparación con empresas parecidas y oferta preaprobada. Privado hasta que decidas solicitarlo."

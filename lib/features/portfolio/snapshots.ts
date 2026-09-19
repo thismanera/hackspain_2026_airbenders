@@ -36,7 +36,10 @@ import type {
   EngineMetrics,
   GroupPeer,
   MonthScore,
+  PortfolioListRow,
   PortfolioResponse,
+  PortfolioRow,
+  PortfolioSnapshotPayload,
 } from "./types";
 
 export const SNAPSHOT_KIND = {
@@ -135,16 +138,51 @@ export function* materialize(
   yield { kind: SNAPSHOT_KIND.meta, key: META_KEY, payload: meta };
 }
 
+function round(value: number, decimals: number): number {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
+function roundNullable(value: number | null, decimals: number): number | null {
+  return value === null ? null : round(value, decimals);
+}
+
+/** Lo que la tabla y el mapa pintan de una fila, con la precisión que se muestra. */
+export function listRow(row: PortfolioRow): PortfolioListRow {
+  const { reason: _reason, spark: _spark, ...rest } = row;
+  return {
+    ...rest,
+    score: round(row.score, 2),
+    confidence: round(row.confidence, 3),
+    trend3m: roundNullable(row.trend3m, 2),
+    share: round(row.share, 3),
+    trail: row.trail.map((point) => ({
+      month: point.month,
+      score: round(point.score, 2),
+      trend3m: round(point.trend3m, 2),
+    })),
+  };
+}
+
+/**
+ * La cartera materializada, recortada a lo que viaja al navegador. La fila
+ * completa (motivo, sparkline, decimales de coma flotante) triplica el JSON de
+ * una cartera de 1.300 empresas, y solo el CSV la necesita entera.
+ */
+export function leanPortfolio(full: PortfolioSnapshotPayload): PortfolioResponse {
+  return { ...full, rows: full.rows.map(listRow) };
+}
+
 /**
  * Cartera con filtros a partir de la cartera completa del mes y las filas
  * ligeras de los meses anteriores (solo hacen falta si hay filtro: la historia
  * arrastra el mismo filtro que la tabla).
  */
-export function portfolioFromSnapshot(
-  full: PortfolioResponse,
+export function portfolioFromSnapshot<T extends PortfolioResponse | PortfolioSnapshotPayload>(
+  full: T,
   filters: PortfolioFilters,
   liteByMonth: (month: string) => PortfolioLiteRow[],
-): PortfolioResponse {
+): T {
   if (!hasFilters(filters)) return full;
   const keep = matches(filters);
   const rows = full.rows.filter(keep);

@@ -4,6 +4,7 @@ import { Bell, BellRing, Clock, TrendingDown, TrendingUp } from "lucide-react";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
 import { EntitySheet } from "@/components/grifo/sheet/entity-sheet";
+import { ShowMore, useVisibleRows } from "@/components/grifo/show-more";
 import { PageIntro, StatCard } from "@/components/grifo/stat-card";
 import { MoneyDelta } from "@/components/grifo/table-figures";
 import {
@@ -82,10 +83,16 @@ export function AlertasClient() {
   const { data } = useAlerts(state.mes);
   const [, setSheet] = useSheetState();
 
-  const items =
+  const filtered =
     state.direccion === "todas"
       ? data.items
       : data.items.filter((item) => item.direction === state.direccion);
+  const {
+    visible: items,
+    hidden,
+    showMore,
+    showAll,
+  } = useVisibleRows(filtered, `${data.month}|${state.direccion}`);
   const anticipated = data.items.filter((item) => item.leadMonths > 0);
   const avgLead = anticipated.length
     ? anticipated.reduce((sum, item) => sum + item.leadMonths, 0) / anticipated.length
@@ -125,12 +132,7 @@ export function AlertasClient() {
           value={data.byDirection.deterioro}
           tone="watch"
         />
-        <StatCard
-          icon={TrendingUp}
-          label="Mejora"
-          value={data.byDirection.mejora}
-          tone="healthy"
-        />
+        <StatCard icon={TrendingUp} label="Mejora" value={data.byDirection.mejora} tone="healthy" />
         <StatCard
           icon={BellRing}
           label="Críticas"
@@ -145,7 +147,7 @@ export function AlertasClient() {
         />
       </div>
 
-      {items.length === 0 ? (
+      {filtered.length === 0 ? (
         <Empty className="bg-card rounded-xl border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -191,6 +193,8 @@ export function AlertasClient() {
               </li>
             ))}
           </ul>
+
+          <ShowMore hidden={hidden} onMore={showMore} onAll={showAll} noun="alertas" />
         </>
       )}
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { Search, X } from "lucide-react";
+import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,9 @@ import {
 import { ACCION, BANDA, DIRECCION, ESTADO } from "@/lib/features/portfolio/vocabulary";
 
 type Update = Partial<PortfolioSearchState>;
+
+/** Tiempo sin teclear antes de que la búsqueda viaje a la URL y al servidor. */
+const SEARCH_DEBOUNCE_MS = 250;
 
 const ESTADO_OPTIONS = [
   { value: "todos", label: "Todos los estados" },
@@ -89,6 +93,43 @@ function FilterSelect({
   );
 }
 
+/**
+ * El texto se escribe en local y se confirma al parar de teclear: cada cambio de
+ * `q` es una petición nueva de la cartera filtrada, no puede ir tecla a tecla.
+ * Si la URL cambia desde fuera ("Quitar filtros", atrás), el campo la sigue.
+ */
+function SearchInput({ value, onCommit }: { value: string; onCommit: (q: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  const [committed, setCommitted] = useState(value);
+  const timer = useRef(0);
+
+  // Un valor que no hemos confirmado nosotros viene de fuera: el campo lo adopta.
+  if (value !== committed) {
+    setCommitted(value);
+    setDraft(value);
+  }
+
+  const change = (next: string) => {
+    setDraft(next);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      setCommitted(next);
+      onCommit(next);
+    }, SEARCH_DEBOUNCE_MS);
+  };
+
+  return (
+    <Input
+      type="search"
+      value={draft}
+      onChange={(event) => change(event.target.value)}
+      placeholder="Buscar empresa o grupo"
+      aria-label="Buscar por identificador de empresa o de grupo"
+      className="h-8 pl-8"
+    />
+  );
+}
+
 export function PortfolioFilters({
   filters,
   onChange,
@@ -113,14 +154,7 @@ export function PortfolioFilters({
           aria-hidden
           className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
         />
-        <Input
-          type="search"
-          value={filters.q}
-          onChange={(event) => onChange({ q: event.target.value })}
-          placeholder="Buscar empresa o grupo"
-          aria-label="Buscar por identificador de empresa o de grupo"
-          className="h-8 pl-8"
-        />
+        <SearchInput value={filters.q} onCommit={(q) => onChange({ q })} />
       </div>
 
       <FilterSelect

@@ -278,6 +278,13 @@ export type PortfolioSummary = {
   };
 };
 
+/**
+ * Fila tal y como viaja a la tabla y al mapa: sin el motivo (solo lo lee el CSV)
+ * ni la sparkline (solo la llevan las filas de `hot`). Con ~1.300 empresas esos
+ * dos campos son un tercio del payload.
+ */
+export type PortfolioListRow = Omit<PortfolioRow, "reason" | "spark">;
+
 export type PortfolioResponse = {
   month: string;
   months: string[];
@@ -286,12 +293,15 @@ export type PortfolioResponse = {
   previous: PortfolioSummary | null;
   /** Mismo filtro, cada mes del calendario hasta el seleccionado, en orden. */
   history: PortfolioSummary[];
-  rows: PortfolioRow[];
+  rows: PortfolioListRow[];
   /** Las que más se han movido de verdad este mes, sin filtros, por rango. */
   hot: PortfolioRow[];
   /** Filas antes de aplicar filtros, para distinguir "cartera vacía" de "filtro vacío". */
   totalUnfiltered: number;
 };
+
+/** Lo que materializa `scoring:import` por mes: la misma respuesta con las filas completas. */
+export type PortfolioSnapshotPayload = Omit<PortfolioResponse, "rows"> & { rows: PortfolioRow[] };
 
 export type GroupPeer = {
   id: string;

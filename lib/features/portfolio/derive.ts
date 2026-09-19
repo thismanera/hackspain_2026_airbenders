@@ -28,8 +28,8 @@ import type {
   GroupsResponse,
   HotSignal,
   MonthScore,
-  PortfolioResponse,
   PortfolioRow,
+  PortfolioSnapshotPayload,
   PortfolioSummary,
   TrailPoint,
 } from "./types";
@@ -323,7 +323,7 @@ export function matches(filters: PortfolioFilters): (row: PortfolioLiteRow) => b
 export function portfolioFrom(
   dataset: SourceDataset,
   filters: PortfolioFilters = {},
-): PortfolioResponse {
+): PortfolioSnapshotPayload {
   const month = resolveMonth(filters.month);
   const keep = matches(filters);
 

@@ -23,5 +23,5 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: z.treeifyError(parsed.error) }, { status: 400 });
   }
 
-  return scoringResponse(() => getPortfolio(parsed.data), "Sin cartera");
+  return scoringResponse(() => getPortfolio(parsed.data), "Sin cartera", request);
 }

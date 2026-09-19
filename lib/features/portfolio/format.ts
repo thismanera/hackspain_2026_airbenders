@@ -43,7 +43,20 @@ const MONTHS_ES = [
   "diciembre",
 ];
 
-const MONTHS_ES_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const MONTHS_ES_SHORT = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+];
 
 export function formatEuros(value: number): string {
   return eur0.format(value);
@@ -78,6 +91,10 @@ export function formatMonths(value: number): string {
 
 export function formatScore(value: number): string {
   return int0.format(Math.round(value));
+}
+
+export function formatInt(value: number): string {
+  return int0.format(value);
 }
 
 /** Delta con signo explícito. El signo es parte del dato, no decoración. */
