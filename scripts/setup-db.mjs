@@ -111,7 +111,8 @@ async function main() {
 
   log("Generating Prisma Client and applying the schema.");
   run(pnpm, ["exec", "prisma", "generate"]);
-  run(pnpm, ["exec", "prisma", "db", "push"]);
+  // DB de desarrollo del hackathon: se reconstruye desde los CSV, así que aceptamos perder datos.
+  run(pnpm, ["exec", "prisma", "db", "push", "--accept-data-loss"]);
 
   if (!force && completedRunExists()) {
     log("A completed scoring run already exists. PostgreSQL is ready.");
@@ -122,6 +123,7 @@ async function main() {
   log(force ? "Rebuilding and importing scoring data." : "Building and importing scoring data.");
   run(pnpm, ["scoring:fit"]);
   run(pnpm, ["scoring:score"]);
+  run(pnpm, ["scoring:decide"]);
   run(pnpm, ["scoring:backtest"]);
   run(pnpm, ["scoring:import"]);
 

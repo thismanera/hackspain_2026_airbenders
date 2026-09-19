@@ -1,5 +1,10 @@
 # Motor de decisión — especificación para desarrollo v1.0
 
+La entrada autónoma se llama `scoreSolo`; no existe un campo numérico `score`
+en la fila TypeScript. La columna física conserva ese nombre mediante
+`@map("score")`. `scoreGrupo` y `estadoGrupo` describen el holding; las bandas
+y decisiones consumen `scoreSolo` y `estadoSolo`.
+
 > Implementa §3 de [`SOURCE.md`](./SOURCE.md) (decisiones 11, 12, 17-23 y
 > 37, validadas 19-09-2026). Sustituye a §8 de `scoring-engine.md`. Si algo
 > aquí contradice a `SOURCE.md`, manda `SOURCE.md` y se corrige esto.
@@ -24,22 +29,22 @@ fija el plazo natural (§6).
 Del contrato de `company_month_score` (scoring-engine §1). Campos que usa el
 motor de decisión, nada más:
 
-| Campo | Tipo | Origen |
-| --- | --- | --- |
-| `company_id`, `mes` | id, `YYYY-MM` | clave |
-| `group_id` | id | `companies.csv` |
-| `score` | 0-100 | con `aval_grupo` incluido |
-| `confianza` | 0-1 | |
-| `direccion` | `mejora \| estable \| deterioro` | §1.6 SOURCE |
-| `naturaleza` | `temporal \| estructural \| sin_cambio` | §1.6 SOURCE |
-| `racha_B2` | entero ≥ 0 | meses seguidos sin pagar obligación esperada |
-| `racha_deficit` | entero ≥ 0 | meses seguidos con `caja_op < 0` |
-| `C4` | 0-1 | vencido sin cobrar / vencido en 6 m |
-| `C3_dias` | entero o null | mediana días hasta cobro de clientes |
-| `cobros_op_media3m`, `cobros_op_media6m`, `pagos_op_media6m` | € | flujos §1.1 |
-| `servicio_deuda_media6m` | € | `debt_repayment + interest_charge` |
-| `D1` | 0-1 | peso de la empresa en el grupo |
-| `cobros_op_grupo_media6m`, `pagos_op_grupo_media6m`, `servicio_deuda_grupo_media6m` | € | flujos consolidados del grupo, sin traspasos intragrupo |
+| Campo                                                                               | Tipo                                    | Origen                                                  |
+| ----------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------- |
+| `company_id`, `mes`                                                                 | id, `YYYY-MM`                           | clave                                                   |
+| `group_id`                                                                          | id                                      | `companies.csv`                                         |
+| `score`                                                                             | 0-100                                   | con `aval_grupo` incluido                               |
+| `confianza`                                                                         | 0-1                                     |                                                         |
+| `direccion`                                                                         | `mejora \| estable \| deterioro`        | §1.6 SOURCE                                             |
+| `naturaleza`                                                                        | `temporal \| estructural \| sin_cambio` | §1.6 SOURCE                                             |
+| `racha_B2`                                                                          | entero ≥ 0                              | meses seguidos sin pagar obligación esperada            |
+| `racha_deficit`                                                                     | entero ≥ 0                              | meses seguidos con `caja_op < 0`                        |
+| `C4`                                                                                | 0-1                                     | vencido sin cobrar / vencido en 6 m                     |
+| `C3_dias`                                                                           | entero o null                           | mediana días hasta cobro de clientes                    |
+| `cobros_op_media3m`, `cobros_op_media6m`, `pagos_op_media6m`                        | €                                       | flujos §1.1                                             |
+| `servicio_deuda_media6m`                                                            | €                                       | `debt_repayment + interest_charge`                      |
+| `D1`                                                                                | 0-1                                     | peso de la empresa en el grupo                          |
+| `cobros_op_grupo_media6m`, `pagos_op_grupo_media6m`, `servicio_deuda_grupo_media6m` | €                                       | flujos consolidados del grupo, sin traspasos intragrupo |
 
 De `company_month_forecast` (forecast-engine §8), mismo mes:
 
@@ -115,14 +120,14 @@ function elegibilidad(fila, estado_prev, P):
 
 Motivos en texto (plantilla, sin LLM):
 
-| Puerta | Texto |
-| --- | --- |
-| historia | "Historial insuficiente: confianza {conf} < 0,5" |
-| estado | "Score {score} por debajo de 45" |
-| fiabilidad | "{racha} meses seguidos sin pagar obligaciones" |
-| caja | "Caja estresada no cubre cuotas actuales" / "{racha} meses seguidos en déficit" |
-| clientes | "{C4} % de facturas vencidas sin cobrar" |
-| grupo | "Cierre de {empresa} ({D1} % del grupo)" |
+| Puerta     | Texto                                                                           |
+| ---------- | ------------------------------------------------------------------------------- |
+| historia   | "Historial insuficiente: confianza {conf} < 0,5"                                |
+| estado     | "Score {score} por debajo de 45"                                                |
+| fiabilidad | "{racha} meses seguidos sin pagar obligaciones"                                 |
+| caja       | "Caja estresada no cubre cuotas actuales" / "{racha} meses seguidos en déficit" |
+| clientes   | "{C4} % de facturas vencidas sin cobrar"                                        |
+| grupo      | "Cierre de {empresa} ({D1} % del grupo)"                                        |
 
 ## 4. Paso 1 — Cantidad: límite L
 
@@ -206,10 +211,10 @@ El desglose guardado añade `prima_prevision`.
 **Plazo natural por uso** (no cambia la fórmula, solo sugiere la fila del
 menú a resaltar):
 
-| Uso | Plazo natural |
-| --- | --- |
+| Uso              | Plazo natural                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------- |
 | Anticipar cobros | `C3_dias` (mediana días hasta cobro) redondeado arriba al plazo del menú; sin dato → 60 d |
-| Aplazar pagos | plazo elegido por la empresa, ≤ `T_max` |
+| Aplazar pagos    | plazo elegido por la empresa, ≤ `T_max`                                                   |
 
 ## 7. Paso 4 — Región factible y menú
 

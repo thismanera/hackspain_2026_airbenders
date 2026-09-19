@@ -15,7 +15,8 @@ Next.js 16 (App Router), React 19, TypeScript 7, Prisma 7 (Postgres),
 TanStack Query 5, Tailwind 4, UI con [shadcn/ui](https://ui.shadcn.com),
 autenticación con [Better Auth](https://better-auth.com), estado de query
 params con [nuqs](https://nuqs.dev). Gestor de paquetes: **pnpm** (no uses
-npm/yarn, el lockfile es `pnpm-lock.yaml`).
+npm/yarn, el lockfile es `pnpm-lock.yaml`). Node 22 (ver `.nvmrc`); en las
+máquinas de este equipo, `fnm use 22`.
 
 ## Estructura del proyecto
 

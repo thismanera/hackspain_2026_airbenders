@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.28.1",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
@@ -15,12 +18,14 @@
     "db:down": "docker compose down",
     "scoring:fit": "node --import tsx scripts/scoring.ts fit",
     "scoring:score": "node --import tsx scripts/scoring.ts score",
+    "scoring:decide": "node --import tsx scripts/scoring.ts decide",
     "scoring:backtest": "node --import tsx scripts/scoring.ts backtest",
     "scoring:import": "node --conditions=react-server --import tsx scripts/scoring.ts import",
-    "lint": "cross-env NODE_OPTIONS=\"--import tsx\" oxlint --format unix",
-    "lint:fix": "cross-env NODE_OPTIONS=\"--import tsx\" oxlint --fix --format unix",
+    "lint": "cross-env NODE_OPTIONS=\"--import tsx\" oxlint --ignore-pattern \".claude/**\" --format unix",
+    "lint:fix": "cross-env NODE_OPTIONS=\"--import tsx\" oxlint --ignore-pattern \".claude/**\" --fix --format unix",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
+    "typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json",
     "prisma:seed": "tsx prisma/seed.ts",
     "auth:generate": "auth generate --config lib/core/auth.ts --output ./prisma/schema/auth.prisma --yes",
     "rename-project": "node scripts/rename-project.mjs",
