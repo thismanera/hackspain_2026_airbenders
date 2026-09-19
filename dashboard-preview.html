@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Grifo · Embat X-Ray</title>
+    <title>Embat Flow · X-Ray</title>
     <style>
       :root {
         --ink: #16261f;
@@ -103,6 +103,370 @@
       }
       .primary { border-color: var(--nav); color: var(--lime); background: var(--nav); font-weight: 700; }
       .ghost:hover { border-color: var(--line-strong); background: var(--surface-2); }
+
+      .boot {
+        position: fixed; inset: 0; z-index: 100;
+        display: none; flex-direction: column;
+        color: #e8f0ea; background: #0e1c16;
+      }
+      .boot.open { display: flex; }
+      .boot-top {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 22px 28px; flex-shrink: 0;
+      }
+      .boot-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: -.02em; }
+      .boot-brand b {
+        width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
+        background: var(--lime); color: var(--nav); font-size: 18px;
+      }
+      .boot-skip {
+        border: 0; background: transparent; color: #8fa198; font-size: 14px; font-weight: 700; cursor: pointer;
+        padding: 8px 10px;
+      }
+      .boot-skip:hover { color: white; }
+      .boot-stage {
+        flex: 1; display: grid; place-items: center; padding: 16px 32px 24px; min-height: 0; overflow-y: auto;
+      }
+      .boot-scene { width: min(760px, 100%); text-align: center; }
+      .boot-kicker {
+        color: var(--lime); font-size: 14px; font-weight: 850;
+        letter-spacing: .14em; text-transform: uppercase; margin-bottom: 20px;
+        opacity: 0; animation: bootIn .55s ease forwards;
+      }
+      .boot-scene h1 {
+        margin: 0 0 22px; font-size: clamp(32px, 4.4vw, 50px);
+        line-height: 1.12; letter-spacing: -.035em; font-weight: 850; text-wrap: balance;
+        opacity: 0; animation: bootIn .6s ease .12s forwards;
+      }
+      .boot-scene .lead {
+        margin: 0 auto; max-width: 640px; color: #c9d8cf; font-size: clamp(18px, 2vw, 21px); line-height: 1.5;
+        text-wrap: balance;
+        opacity: 0; animation: bootIn .6s ease .28s forwards;
+      }
+      .boot-pieces { display: grid; gap: 10px; margin: 28px auto 0; max-width: 520px; text-align: left; }
+      .boot-pieces article {
+        display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: center;
+        padding: 14px 16px; border-radius: 12px; background: #163025;
+        opacity: 0; transform: translateY(12px);
+        animation: bootIn .5s ease forwards;
+      }
+      .boot-pieces article:nth-child(1) { animation-delay: .35s; }
+      .boot-pieces article:nth-child(2) { animation-delay: .55s; }
+      .boot-pieces article:nth-child(3) { animation-delay: .75s; }
+      .boot-pieces i {
+        width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+        background: var(--nav); color: var(--lime); font-size: 12px; font-weight: 800; font-style: normal;
+      }
+      .boot-eyes {
+        display: grid; grid-template-columns: 1fr 18px 1fr; gap: 14px; align-items: center;
+        margin: 28px auto 0; max-width: 640px; text-align: left;
+        opacity: 0; animation: bootIn .55s ease .4s forwards;
+      }
+      .boot-eyes ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+      .boot-eyes li {
+        padding: 12px 14px; border-radius: 10px; background: #1a2f26;
+        color: #8fa198; font-size: 13px; font-weight: 650;
+      }
+      .boot-eyes .win {
+        padding: 18px 16px; border-radius: 14px; background: #17382c;
+        outline: 1px solid rgba(214,255,67,.35);
+      }
+      .boot-eyes .win b { display: block; color: var(--lime); font-size: 15px; margin-bottom: 8px; }
+      .boot-eyes .win p { margin: 0; color: #dce7e0; font-size: 13px; line-height: 1.45; }
+      .boot-eyes .vs { color: #5d7368; font-size: 12px; font-weight: 800; text-align: center; }
+      .boot-video {
+        width: min(560px, 100%); aspect-ratio: 16/9; margin: 22px auto 0;
+        border: 1px dashed #3d5449; border-radius: 16px; background: #13241c;
+        display: grid; place-items: center; gap: 6px; color: #8fa198;
+        opacity: 0; animation: bootIn .55s ease .35s forwards;
+      }
+      .boot-video strong { color: #dce7e0; font-size: 14px; }
+      .boot-video span { font-size: 12px; }
+      .boot-play {
+        width: 52px; height: 52px; border-radius: 50%; background: var(--lime); color: var(--nav);
+        display: grid; place-items: center; font-size: 18px; margin-bottom: 4px;
+      }
+      .boot-cta {
+        margin-top: 22px; opacity: 0; animation: bootIn .5s ease .5s forwards;
+      }
+      .boot-cta .primary {
+        height: 52px; padding: 0 26px; font-size: 17px;
+        background: var(--lime); color: var(--nav); border-color: var(--lime);
+      }
+      @keyframes bootIn { to { opacity: 1; transform: none; } }
+      .boot-nav {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 18px 28px 42px; flex-shrink: 0;
+      }
+      .boot-progress {
+        display: flex; flex-direction: column; align-items: center; gap: 8px;
+        position: relative;
+      }
+      .boot-dots { display: flex; gap: 8px; }
+      .boot-dots button {
+        width: 10px; height: 10px; padding: 0; border: 0; border-radius: 50%;
+        background: #365046; cursor: pointer; transition: width .2s ease, background .2s ease;
+      }
+      .boot-dots button.seen { background: #6f8a7c; }
+      .boot-dots button:hover { background: #a3b5ab; }
+      .boot-dots button.on { width: 28px; border-radius: 99px; background: var(--lime); }
+      .boot-step { color: #8fa198; font-size: 13px; font-weight: 700; letter-spacing: .02em; }
+      .boot-hint {
+        position: absolute; top: calc(100% + 6px); white-space: nowrap;
+        color: #5d7368; font-size: 12px; font-weight: 600;
+      }
+      .boot-back, .boot-next { height: 46px; padding: 0 22px; font-size: 16px; min-width: 130px; }
+      .boot-back {
+        border: 1px solid #365046; border-radius: 10px; background: transparent;
+        color: #c9d8cf; font-weight: 700; cursor: pointer;
+      }
+      .boot-back:hover { border-color: #6f8a7c; color: white; background: rgba(255,255,255,.04); }
+      .boot-next { justify-content: center; }
+      .boot-scene.wide { width:min(920px,100%); }
+      .boot-accent { color:var(--lime); }
+      .boot-big-number {
+        margin:28px 0 10px;color:var(--lime);font-size:clamp(72px,11vw,120px);
+        font-weight:900;letter-spacing:-.06em;line-height:.9;
+        opacity:0;animation:bootScale .7s cubic-bezier(.2,.8,.2,1) .28s forwards;
+      }
+      .boot-big-caption {
+        margin:0 auto;max-width:640px;color:#e8f0ea;font-size:clamp(18px,2vw,21px);font-weight:750;line-height:1.4;
+        opacity:0;animation:bootIn .5s ease .46s forwards;
+      }
+      @keyframes bootScale {
+        from {opacity:0;transform:scale(.82);}
+        to {opacity:1;transform:scale(1);}
+      }
+      .boot-timeline {
+        width:min(720px,100%);margin:44px auto 0;position:relative;
+        display:grid;grid-template-columns:repeat(4,1fr);gap:0;
+        opacity:0;animation:bootIn .55s ease .55s forwards;
+      }
+      .boot-timeline:before {
+        content:"";position:absolute;left:12.5%;right:12.5%;top:13px;height:2px;background:#365046;
+      }
+      .boot-timeline div {position:relative;padding-top:36px;color:#a3b5ab;font-size:15px;font-weight:700;line-height:1.3;}
+      .boot-timeline div:before {
+        content:"";position:absolute;top:7px;left:50%;width:13px;height:13px;border-radius:50%;
+        transform:translateX(-50%);background:#365046;border:2px solid #0e1c16;
+      }
+      .boot-timeline div:first-child {color:var(--lime);}
+      .boot-timeline div:first-child:before {background:var(--lime);box-shadow:0 0 0 6px rgba(214,255,67,.12);}
+      .boot-timeline div:last-child {color:#e8f0ea;}
+      .boot-timeline div:last-child:before {background:#e8f0ea;}
+      .gap-viz {
+        width:min(720px,100%);margin:34px auto 0;display:grid;grid-template-columns:170px 1fr 170px;
+        gap:14px;align-items:center;opacity:0;animation:bootIn .55s ease .42s forwards;
+      }
+      .gap-end {
+        padding:18px;border-radius:14px;background:#173026;text-align:left;border:1px solid #29463a;
+      }
+      .gap-end small {display:block;color:#8fa198;font-size:13px;text-transform:uppercase;letter-spacing:.08em;}
+      .gap-end b {display:block;margin-top:5px;font-size:19px;}
+      .gap-line {position:relative;height:58px;display:flex;align-items:center;}
+      .gap-line:before {
+        content:"";width:100%;height:8px;border-radius:8px;background:#243a30;
+      }
+      .gap-line:after {
+        content:"90 días sin esa caja";position:absolute;left:50%;top:0;transform:translateX(-50%);
+        white-space:nowrap;color:var(--lime);font-size:14px;font-weight:800;
+      }
+      .gap-pulse {
+        position:absolute;left:calc(50% - 7px);width:14px;height:14px;border-radius:50%;background:var(--lime);
+      }
+      .moat-flow {
+        width:min(880px,100%);margin:36px auto 0;display:grid;grid-template-columns:1fr 200px 1fr;
+        gap:32px;align-items:center;opacity:0;animation:bootIn .55s ease .4s forwards;
+      }
+      .source-stack {display:grid;gap:10px;}
+      .source-pill {
+        position:relative;padding:14px 18px;border-radius:12px;background:#172c23;border:1px solid #294037;
+        color:#c9d8cf;font-size:16px;font-weight:750;text-align:left;
+      }
+      .source-pill:after {
+        content:"";position:absolute;right:-33px;top:50%;width:32px;height:2px;
+        background:linear-gradient(90deg,#365046,var(--lime));
+      }
+      .source-stack.right .source-pill:after {
+        right:auto;left:-33px;background:linear-gradient(90deg,var(--lime),#365046);
+      }
+      .embat-core {
+        aspect-ratio:1;border-radius:50%;display:grid;place-items:center;position:relative;
+        background:var(--lime);color:var(--nav);font-size:26px;font-weight:900;
+        box-shadow:0 0 0 14px rgba(214,255,67,.08),0 0 60px rgba(214,255,67,.14);
+      }
+      .embat-core:after {
+        content:"vista completa";position:absolute;bottom:-36px;color:var(--lime);
+        font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;
+      }
+      .moat-note {
+        margin:52px auto 0;color:#e8f0ea;font-size:clamp(17px,1.9vw,20px);font-weight:700;
+        opacity:0;animation:bootIn .5s ease .72s forwards;
+      }
+      .proof-grid {
+        width:min(820px,100%);margin:34px auto 0;display:grid;grid-template-columns:1fr 1fr;
+        gap:16px;text-align:left;opacity:0;animation:bootIn .55s ease .38s forwards;
+      }
+      .proof-card {padding:26px 24px;border-radius:16px;background:#172a22;border:1px solid #294037;}
+      .proof-card.win {background:#15372a;border-color:rgba(214,255,67,.42);}
+      .proof-card small {display:block;color:#a3b5ab;font-size:13px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;}
+      .proof-card h3 {margin:12px 0 0;font-size:20px;line-height:1.3;}
+      .proof-money {display:flex;align-items:center;gap:10px;font-size:36px;font-weight:850;letter-spacing:-.04em;}
+      .proof-money del {color:#8fa198;text-decoration:none;}
+      .proof-money span {color:#5d7368;font-size:17px;}
+      .proof-money b {color:var(--lime);}
+      .proof-card p {margin:10px 0 0;color:#9db0a6;font-size:14px;line-height:1.5;}
+      .early-badge {
+        display:inline-flex;margin-top:16px;padding:9px 13px;border-radius:9px;
+        color:var(--lime);background:#203f31;font-size:14px;font-weight:800;
+      }
+      .final-lockup {
+        margin:30px auto 0;display:flex;flex-wrap:wrap;justify-content:center;gap:10px;
+        opacity:0;animation:bootIn .5s ease .36s forwards;
+      }
+      .final-lockup span {
+        padding:10px 16px;border:1px solid #365046;border-radius:999px;
+        color:#c9d8cf;font-size:16px;font-weight:700;
+      }
+      .boot-footnote {margin:18px 0 0;color:#8fa198;font-size:14px;}
+      .risk-bars {width:min(780px,100%);margin:34px auto 0;display:grid;gap:14px;text-align:left;}
+      .risk-row {display:grid;grid-template-columns:110px 1fr;gap:16px;align-items:center;}
+      .risk-row small {color:#a3b5ab;font-size:15px;font-weight:800;text-align:right;}
+      .risk-row.good small {color:var(--lime);}
+      .risk-track {
+        position:relative;height:46px;border-radius:10px;overflow:hidden;
+        background:#152520 repeating-linear-gradient(90deg,transparent 0 calc(100%/12 - 1px),#294037 calc(100%/12 - 1px) calc(100%/12));
+        border:1px solid #294037;
+      }
+      .risk-fill {position:absolute;inset:0 auto 0 0;display:block;}
+      .risk-row.bad .risk-fill {width:100%;background:linear-gradient(90deg,#4d2626,#6b2f2f);}
+      .risk-row.good .risk-fill {width:calc(100%/12);background:var(--lime);}
+      .risk-label {
+        position:absolute;top:50%;transform:translateY(-50%);left:16px;
+        font-size:15px;font-weight:800;white-space:nowrap;
+      }
+      .risk-row.bad .risk-label {color:#ffd2d2;}
+      .risk-row.good .risk-label {left:calc(100%/12 + 16px);color:#e8f0ea;}
+      .risk-punch {margin:34px auto 0;font-size:clamp(24px,2.6vw,32px);font-weight:850;letter-spacing:-.03em;}
+      .early-badge.big {margin-top:20px;padding:11px 16px;font-size:15px;}
+      .score-showcase {
+        width:min(720px,100%);margin:32px auto 0;padding:26px 30px;border-radius:18px;
+        display:grid;grid-template-columns:132px 1fr;gap:28px;align-items:center;text-align:left;
+        background:#15372a;border:1px solid rgba(214,255,67,.38);
+      }
+      .score-orb {
+        width:132px;height:132px;border-radius:50%;display:grid;place-items:center;
+        background:var(--lime);color:var(--nav);font-size:45px;font-weight:900;letter-spacing:-.06em;
+        box-shadow:0 0 0 10px rgba(214,255,67,.08);
+      }
+      .score-orb span {font-size:16px;letter-spacing:-.02em;margin-left:3px;}
+      .score-copy small {
+        display:block;color:var(--lime);font-size:13px;font-weight:850;
+        letter-spacing:.1em;text-transform:uppercase;
+      }
+      .score-copy h3 {margin:8px 0 8px;color:#f4f8f5;font-size:24px;line-height:1.25;}
+      .score-copy p {margin:0;color:#c9d8cf;font-size:17px;line-height:1.5;}
+      .score-chips {display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+      .score-chips span {
+        padding:9px 14px;border-radius:999px;background:#203f31;color:#f4f8f5;
+        font-size:15px;font-weight:750;
+      }
+      .ownership-card {
+        width:min(740px,100%);margin:32px auto 0;padding:26px 28px;border-radius:18px;
+        background:#172a22;border:1px solid #294037;text-align:left;
+      }
+      .ownership-list {display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+      .ownership-list div {padding:18px;border-radius:14px;background:#1d352a;color:#c9d8cf;font-size:15px;font-weight:650;line-height:1.4;}
+      .ownership-list b {display:block;margin-bottom:6px;color:var(--lime);font-size:19px;font-weight:850;}
+      .privacy-lock {
+        margin-top:16px;padding:16px 18px;border-radius:14px;display:flex;align-items:center;gap:14px;
+        background:#0f2119;color:#c9d8cf;font-size:17px;font-weight:600;line-height:1.4;
+      }
+      .privacy-lock b {color:var(--lime);font-weight:850;}
+      .privacy-lock i {
+        width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;
+        background:var(--lime);color:var(--nav);font-style:normal;font-size:15px;
+      }
+      .consent-flow {
+        width:min(860px,100%);margin:34px auto 0;display:grid;
+        grid-template-columns:1fr 38px 1fr 38px 1fr;gap:10px;align-items:stretch;text-align:left;
+      }
+      .consent-step {
+        padding:20px;border-radius:16px;background:#172a22;border:1px solid #294037;
+      }
+      .consent-step.active {background:#15372a;border-color:rgba(214,255,67,.45);}
+      .consent-step small {display:block;color:#8fa198;font-size:13px;font-weight:850;letter-spacing:.08em;text-transform:uppercase;}
+      .consent-step b {display:block;margin-top:10px;color:#f4f8f5;font-size:19px;line-height:1.25;}
+      .consent-step p {margin:8px 0 0;color:#a9bbb0;font-size:15px;line-height:1.45;}
+      .consent-step.active small,.consent-step.active b {color:var(--lime);}
+      .consent-arrow {color:#6f8a7c;font-size:24px;font-weight:900;text-align:center;align-self:center;}
+      .share-note {margin:24px auto 0;color:#a9bbb0;font-size:17px;font-weight:700;}
+      .share-note b {color:#f4f8f5;}
+      .outcome-grid {
+        width:min(820px,100%);margin:32px auto 0;display:grid;grid-template-columns:1fr 1fr;
+        gap:16px;text-align:left;
+      }
+      .outcome-card {padding:26px;border-radius:16px;background:#172a22;border:1px solid #294037;}
+      .outcome-card.good {background:#15372a;border-color:rgba(214,255,67,.42);}
+      .outcome-card small {display:block;color:#a3b5ab;font-size:13px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;}
+      .outcome-card.good small {color:var(--lime);}
+      .outcome-card h3 {margin:12px 0 8px;color:#f4f8f5;font-size:23px;line-height:1.25;}
+      .outcome-card p {margin:0;color:#c9d8cf;font-size:16px;line-height:1.5;}
+      .partner-note {margin:26px auto 0;color:#f4f8f5;font-size:clamp(18px,2vw,21px);font-weight:750;}
+      .boot-scene { animation:sceneReveal .32s ease; }
+      @keyframes sceneReveal {
+        from {opacity:0;transform:translateY(5px);}
+        to {opacity:1;transform:none;}
+      }
+      .boot-kicker,
+      .boot-scene h1,
+      .boot-scene .lead,
+      .boot-big-number,
+      .boot-big-caption,
+      .boot-timeline,
+      .gap-viz,
+      .moat-flow,
+      .moat-note,
+      .proof-grid,
+      .final-lockup,
+      .boot-cta {
+        opacity:1;
+        animation:none;
+        transform:none;
+      }
+      .proof-card.simple { text-align:center; }
+      .proof-card.simple .proof-money { justify-content:center; margin-top:18px; }
+      .boot-cta { margin-top: 30px; }
+      @media (max-width: 760px) {
+        .boot-top, .boot-nav { padding-left: 18px; padding-right: 18px; }
+        .boot-stage { padding: 8px 18px 16px; }
+        .boot-back, .boot-next { min-width: 0; padding: 0 16px; font-size: 15px; }
+        .boot-hint { display: none !important; }
+        .boot-timeline div { font-size: 13px; }
+        .moat-flow { grid-template-columns: 1fr 120px 1fr; gap: 22px; }
+        .source-pill { font-size: 14px; padding: 12px 12px; }
+        .source-pill:after { right: -23px; width: 22px; }
+        .source-stack.right .source-pill:after { left: -23px; }
+        .embat-core { font-size: 20px; }
+        .embat-core:after { font-size: 11px; bottom: -30px; }
+        .moat-note { margin-top: 44px; }
+        .proof-money { font-size: 30px; }
+        .risk-row { grid-template-columns: 1fr; gap: 6px; }
+        .risk-row small { text-align: left; }
+        .risk-label { font-size: 13px; }
+        .score-showcase { grid-template-columns:90px 1fr;gap:18px;padding:20px; }
+        .score-orb { width:90px;height:90px;font-size:34px; }
+        .score-orb span { font-size:13px; }
+        .score-copy h3 { font-size:20px; }
+        .outcome-card { padding:20px; }
+        .outcome-card h3 { font-size:20px; }
+      }
+      @media (max-width: 560px) {
+        .ownership-list,.outcome-grid { grid-template-columns:1fr; }
+        .consent-flow { grid-template-columns:1fr;gap:8px; }
+        .consent-step { min-height:0; }
+        .consent-arrow { transform:rotate(90deg);font-size:20px; }
+      }
 
       main { padding: 30px 30px 60px; max-width: 1560px; margin: 0 auto; }
       .page { display: none; animation: fade .2s ease; }
@@ -618,6 +982,8 @@
         .kpis { grid-template-columns: repeat(3,1fr); }
         .workspace-grid { grid-template-columns:1fr; }
         .side-insight { display:none; }
+        .boot-eyes { grid-template-columns: 1fr; }
+        .boot-eyes .vs { display: none; }
       }
       @media (max-width: 760px) {
         .app { grid-template-columns:1fr; }
@@ -653,13 +1019,14 @@
       <div class="shell">
         <header class="topbar">
           <div class="brandline">
-            <strong>Grifo</strong><span class="slash">/</span><span>Embat X-Ray</span>
+            <strong>Embat Flow</strong><span class="slash">/</span><span>X-Ray</span>
           </div>
           <div class="top-actions">
             <div class="search-wrap">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
               <input class="search" placeholder="Buscar holding o empresa…" />
             </div>
+            <button class="ghost" type="button" onclick="startBoot(true)">Qué es Embat Flow</button>
             <button class="ghost">Escenario demo⌄</button>
             <button class="primary">Exportar informe</button>
           </div>
@@ -667,7 +1034,7 @@
 
         <main>
           <section class="page active" id="portfolio">
-            <div class="page-head">
+            <div class="page-head" id="tourHead">
               <div>
                 <div class="eyebrow">Pulsómetro de cartera</div>
                 <h1>El crédito se recálcula cada mes</h1>
@@ -676,7 +1043,7 @@
               <select class="period"><option>Agosto 2026</option><option>Julio 2026</option></select>
             </div>
 
-            <div class="narrative">
+            <div class="narrative" id="tourNarrative">
               <div class="narrative-copy">
                 <span class="pulse"></span>
                 <span><b>12 holdings requieren revisión.</b> Quien presta lo ve meses antes de que se note en los papeles.</span>
@@ -684,7 +1051,7 @@
               <button class="primary" onclick="openDrawer()">Revisar prioridad →</button>
             </div>
 
-            <div class="kpis">
+            <div class="kpis" id="tourKpis">
               <article class="kpi hero">
                 <div class="kpi-top"><span>Exposición total</span><span class="delta">vs. jul</span></div>
                 <div class="kpi-value mono">€24,8M</div>
@@ -713,7 +1080,7 @@
             </div>
 
             <div class="workspace-grid">
-              <div class="panel">
+              <div class="panel" id="tourHoldings">
                 <div class="panel-head">
                   <div><h2>Holdings</h2><div style="color:var(--muted);font-size:11px;margin-top:3px">Ordenados por exposición en riesgo</div></div>
                   <div class="panel-tools">
@@ -824,7 +1191,7 @@
         <div class="entity-view active" id="companyView">
           <div class="tab-content active" data-content="decision" id="companyDecisionTab">
             <section class="finance-board" id="companyFinanceBoard"></section>
-            <section class="ai-summary">
+            <section class="ai-summary" id="tourAi">
               <div class="ai-head"><span class="ai-label">Qué tienes que saber</span><span class="ai-note">Lectura de la decisión · el LLM no calcula</span></div>
               <p id="companyAiDecision"></p>
               <div class="ai-actions"><span class="ai-note">Explica L, TAE y acción ya calculados</span><button class="ask-ai" onclick="showAiQuestion()">¿Qué tiene que mejorar? →</button></div>
@@ -1025,6 +1392,23 @@
       </div>
     </div>
 
+    <div class="boot open" id="boot" aria-hidden="false">
+      <div class="boot-top">
+        <div class="boot-brand"><b>F.</b> Embat Flow</div>
+        <button class="boot-skip" type="button" id="bootSkip" onclick="endBoot()">Saltar introducción</button>
+      </div>
+      <div class="boot-stage" id="bootStage"></div>
+      <div class="boot-nav">
+        <button class="boot-back" type="button" id="bootBack" onclick="prevBoot()">← Atrás</button>
+        <div class="boot-progress">
+          <div class="boot-dots" id="bootDots"></div>
+          <span class="boot-step" id="bootStep">1 de 8</span>
+          <span class="boot-hint" id="bootHint">También puedes usar las flechas ← → del teclado</span>
+        </div>
+        <button class="primary boot-next" type="button" id="bootNext" onclick="nextBoot()">Siguiente →</button>
+      </div>
+    </div>
+
     <script>
       const pageButtons = document.querySelectorAll("[data-page]");
       const pages = document.querySelectorAll(".page");
@@ -1108,6 +1492,7 @@
       }
       document.addEventListener("keydown", (event) => {
         if (event.key !== "Escape") return;
+        if (document.getElementById("boot").classList.contains("open")) return;
         if (document.getElementById("comparePicker").classList.contains("open")) {
           closeComparePicker();
           return;
@@ -1678,7 +2063,209 @@
           <p style="margin:0;color:var(--ink-2);font-size:12px;line-height:1.55">Si son del mismo holding, el techo es compartido. Si son de grupos distintos, cada límite vive solo.</p>`;
         box.insertAdjacentElement("afterend", demo);
       }
+      const BOOT_SCENES = [
+        {
+          next: "Siguiente",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">El problema</div>
+            <h1>Una empresa puede vender mucho<br>y aun así <span class="boot-accent">necesitar dinero.</span></h1>
+            <div class="boot-big-number">90 días</div>
+            <div class="boot-big-caption">pasan entre pagar a sus proveedores y cobrar de sus clientes</div>
+            <div class="boot-timeline">
+              <div>Paga al proveedor</div><div>30 días</div><div>60 días</div><div>El cliente paga</div>
+            </div>
+          </div>`
+        },
+        {
+          next: "Siguiente",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">Cómo se decide hoy</div>
+            <h1>El banco decide con las cuentas<br><span class="boot-accent">del año pasado.</span></h1>
+            <div class="boot-big-number">1 vez al año</div>
+            <div class="boot-big-caption">se revisa el crédito, aunque el negocio cambie cada mes</div>
+          </div>`
+        },
+        {
+          next: "Siguiente",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">Qué es Embat</div>
+            <h1>Las empresas ya usan Embat<br>para <span class="boot-accent">ver todo su dinero.</span></h1>
+            <p class="lead">Su tesorería al día: cada movimiento de sus cuentas bancarias y cada factura.</p>
+            <div class="moat-flow">
+              <div class="source-stack">
+                <div class="source-pill">Banco A</div>
+                <div class="source-pill">Banco B</div>
+                <div class="source-pill">Banco C</div>
+              </div>
+              <div class="embat-core">Embat</div>
+              <div class="source-stack right">
+                <div class="source-pill">Facturas</div>
+                <div class="source-pill">Cobros y pagos</div>
+                <div class="source-pill">Empresas del grupo</div>
+              </div>
+            </div>
+            <div class="moat-note">Un banco solo ve su cuenta. Embat ve la empresa completa.</div>
+          </div>`
+        },
+        {
+          next: "Siguiente",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">La idea</div>
+            <h1>Con esos datos, Embat Flow pone<br>a cada empresa <span class="boot-accent">una nota cada mes.</span></h1>
+            <div class="score-showcase">
+              <div class="score-orb">82<span>/100</span></div>
+              <div class="score-copy">
+                <small>Salud financiera</small>
+                <h3>Una nota de 0 a 100, siempre explicada</h3>
+                <p>Y de la nota sale una oferta de financiación:</p>
+                <div class="score-chips"><span>Cuánto</span><span>A qué plazo</span><span>A qué precio</span></div>
+              </div>
+            </div>
+          </div>`
+        },
+        {
+          next: "Siguiente",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">Primero, la empresa</div>
+            <h1>La nota es de la empresa.<br><span class="boot-accent">La ve ella. Nadie más.</span></h1>
+            <p class="lead">Sabe cómo está, por qué, y cuánto debería costarle financiarse.</p>
+            <div class="ownership-card">
+              <div class="ownership-list">
+                <div><b>Su nota</b>Cómo está su salud financiera</div>
+                <div><b>El porqué</b>Qué la sube y qué la baja</div>
+                <div><b>Su oferta</b>Cuánto, a qué plazo y a qué precio</div>
+              </div>
+              <div class="privacy-lock"><i>🔒</i><span><b>Nadie más ve sus datos.</b> Ni sus movimientos, ni sus facturas, ni su nota. Todo se queda en Embat.</span></div>
+            </div>
+          </div>`
+        },
+        {
+          next: "Siguiente",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">La empresa decide</div>
+            <h1>Solo se comparte si la empresa pulsa<br><span class="boot-accent">“Pedir financiación”.</span></h1>
+            <div class="consent-flow">
+              <div class="consent-step">
+                <small>1 · Privado</small>
+                <b>Ve su nota y su oferta</b>
+                <p>Todo se queda dentro de Embat.</p>
+              </div>
+              <div class="consent-arrow">→</div>
+              <div class="consent-step active">
+                <small>2 · Decide</small>
+                <b>Pide financiación</b>
+                <p>Solo entonces se comparte.</p>
+              </div>
+              <div class="consent-arrow">→</div>
+              <div class="consent-step">
+                <small>3 · Quien presta</small>
+                <b>Recibe nota y oferta</b>
+                <p>Un banco o fondo que pone el dinero.</p>
+              </div>
+            </div>
+            <div class="share-note">Se comparte la decisión. <b>Nunca sus movimientos, facturas ni saldos.</b></div>
+          </div>`
+        },
+        {
+          next: "Siguiente",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">Mientras dura el crédito</div>
+            <h1>El crédito se adapta a<br><span class="boot-accent">cómo va la empresa.</span></h1>
+            <div class="outcome-grid">
+              <div class="outcome-card good">
+                <small>Si mejora</small>
+                <h3>Más límite o mejor precio</h3>
+                <p>Sin esperar al cierre del año.</p>
+              </div>
+              <div class="outcome-card">
+                <small>Si empeora</small>
+                <h3>El límite baja poco a poco</h3>
+                <p>Antes de que sea un problema, para los dos.</p>
+              </div>
+            </div>
+            <div class="partner-note">Quien presta lo ve <span class="boot-accent">meses antes</span> que con las cuentas anuales.</div>
+          </div>`
+        },
+        {
+          next: "Entrar a Embat Flow",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">Embat Flow</div>
+            <h1>La empresa paga lo que merece.<br><span class="boot-accent">Quien presta, nunca a ciegas.</span></h1>
+            <div class="final-lockup">
+              <span>Una nota cada mes</span><span>Un crédito que se adapta</span><span>La empresa decide</span>
+            </div>
+            <div class="boot-cta">
+              <button class="primary" type="button" onclick="endBoot()">Entrar a Embat Flow →</button>
+            </div>
+            <p class="boot-footnote">Embat conecta a la empresa con quien presta. Embat no presta.</p>
+          </div>`
+        }
+      ];
+      let bootIndex = 0;
+      function startBoot(force) {
+        if (!force && sessionStorage.getItem("embat-flow-boot-v2")) {
+          endBoot(true);
+          return;
+        }
+        bootIndex = 0;
+        const boot = document.getElementById("boot");
+        boot.className = "boot open";
+        boot.setAttribute("aria-hidden", "false");
+        document.getElementById("bootDots").innerHTML = BOOT_SCENES
+          .map((_, i) => `<button type="button" aria-label="Ir al paso ${i + 1}" onclick="showBoot(${i})"></button>`)
+          .join("");
+        showBoot(0);
+      }
+      function showBoot(index) {
+        bootIndex = index;
+        const scene = BOOT_SCENES[index];
+        const total = BOOT_SCENES.length;
+        const first = index === 0;
+        const last = index === total - 1;
+        document.getElementById("bootStage").innerHTML = scene.html;
+        document.getElementById("bootNext").textContent = scene.next + " →";
+        document.getElementById("bootNext").style.visibility = last ? "hidden" : "visible";
+        document.getElementById("bootBack").style.visibility = first ? "hidden" : "visible";
+        document.getElementById("bootSkip").style.visibility = last ? "hidden" : "visible";
+        document.getElementById("bootStep").textContent = `${index + 1} de ${total}`;
+        document.getElementById("bootHint").style.display = first ? "" : "none";
+        document.querySelectorAll("#bootDots button").forEach((dot, i) => {
+          dot.classList.toggle("on", i === index);
+          dot.classList.toggle("seen", i < index);
+          if (i === index) dot.setAttribute("aria-current", "step");
+          else dot.removeAttribute("aria-current");
+        });
+        document.getElementById("bootStage").scrollTop = 0;
+      }
+      function nextBoot() {
+        if (bootIndex >= BOOT_SCENES.length - 1) {
+          endBoot();
+          return;
+        }
+        showBoot(bootIndex + 1);
+      }
+      function prevBoot() {
+        if (bootIndex <= 0) return;
+        showBoot(bootIndex - 1);
+      }
+      function endBoot(silent) {
+        if (!silent) sessionStorage.setItem("embat-flow-boot-v2", "1");
+        const boot = document.getElementById("boot");
+        boot.className = "boot";
+        boot.setAttribute("aria-hidden", "true");
+      }
+      document.addEventListener("keydown", (event) => {
+        if (!document.getElementById("boot").classList.contains("open")) return;
+        const onButton = event.target && event.target.tagName === "BUTTON";
+        if (event.key === "Escape") endBoot();
+        else if (event.key === "ArrowLeft" || event.key === "Backspace") { event.preventDefault(); prevBoot(); }
+        else if (event.key === "ArrowRight" || event.key === " " || (event.key === "Enter" && !onButton)) {
+          event.preventDefault();
+          nextBoot();
+        }
+      });
       renderCompareBoard();
+      startBoot(false);
     </script>
   </body>
 </html>
