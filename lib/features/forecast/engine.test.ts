@@ -9,6 +9,7 @@ import {
 import { forecastGroup } from "@/lib/features/forecast/engine";
 import type { ForecastGroupInput, MonthlyFlow } from "@/lib/features/forecast/types";
 import { FIXTURE_PERCENTILES } from "@/lib/features/scoring/__fixtures__/percentiles";
+import { PARAMS, VARIABLES } from "@/lib/features/scoring/params";
 import type { ScoreRow } from "@/lib/features/scoring/types";
 import { CALENDAR } from "@/lib/features/scoring/windows";
 
@@ -109,6 +110,49 @@ test("fixture grupo_arrastre: a sibling's decline lowers the subsidiary's aval a
     at(out, "h", 5).horizontes[3].cascadaPred.find((x) => x.id === "grupo")!.aportacion,
     0,
   );
+});
+
+test("a sibling without evidence in t stays out of the forecast D2", () => {
+  // Con los pesos D1 a 0 `d2Pred` usa la media simple: cada hermana contada mueve el D2 previsto.
+  const hermana = rowsFromSeries(
+    "h",
+    "g",
+    { A1: [0.3, 0.26, 0.22, 0.18, 0.14, 0.1], A3: [3, 2.6, 2.2, 1.8, 1.4, 1] },
+    { grupo: () => ({ D1: 0, D2: null, D3: null, D5: 0.02, confD: 0 }) },
+  );
+  const filial = rowsFromSeries(
+    "f",
+    "g",
+    { A1: Array(6).fill(0.02), A3: Array(6).fill(0.8) },
+    { grupo: (m) => ({ D1: 0.2, D2: hermana.rows[m].scoreSolo, D3: 3, D5: 0.15, confD: 1 }) },
+  );
+  // Tercera empresa sin cobros (D1 0) y sin confianza: no es evidencia del grupo (scoring §14).
+  const sinDatos = rowsFromSeries(
+    "x",
+    "g",
+    { A1: Array(6).fill(0.15) },
+    {
+      grupo: () => ({ D1: 0, D2: null, D3: null, D5: 0, confD: 0 }),
+      conf: Object.fromEntries(VARIABLES.map((id) => [id, 0])),
+    },
+  );
+  assert.ok(sinDatos.rows[5].confianza < PARAMS.confSinDatos, "la tercera empresa no tiene datos");
+  const d2Previsto = (out: ReturnType<typeof forecastGroup>) =>
+    at(out, "f", 5).horizontes[3].cascadaPred.find((x) => x.id === "grupo")!.raw;
+  const dos = d2Previsto(forecastGroup(input(filial, hermana), paramsFixture(), PCT));
+  const tres = d2Previsto(forecastGroup(input(filial, hermana, sinDatos), paramsFixture(), PCT));
+  assert.ok(dos! < filial.rows[5].D2!, "la hermana con datos sí arrastra el D2 previsto");
+  assert.equal(tres, dos);
+});
+
+test("duplicated company-month rows are rejected", () => {
+  const c = rowsFromSeries("c", "g", { A1: [0.15, 0.15] });
+  const dup: ForecastGroupInput = {
+    groupId: "g",
+    rows: [...c.rows, c.rows[1]],
+    flows: new Map([["c", c.flows]]),
+  };
+  assert.throws(() => forecastGroup(dup, paramsFixture(), PCT), /duplicada/);
 });
 
 test("property 1: score_pred within [0, 100] and p10 <= score_pred <= p90", () => {

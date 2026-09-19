@@ -1,6 +1,7 @@
 import { banda } from "@/lib/features/decision/limit";
 import { direccionPred, intervalo, probDeterioro } from "@/lib/features/forecast/interval";
 import {
+  FORECAST_PARAMS as P,
   type ForecastParameters,
   HORIZONTES,
   type Horizonte,
@@ -42,6 +43,8 @@ export function forecastGroup(
     if (i === -1) throw new Error(`forecastGroup: mes fuera del calendario (${r.month})`);
     const list =
       byCompany.get(r.company) ?? Array<ScoreRow | undefined>(CALENDAR.length).fill(undefined);
+    // Dos filas para el mismo empresa-mes serían dos verdades: el run está mal, no se elige una.
+    if (list[i]) throw new Error(`forecastGroup: fila duplicada (${r.company}, ${r.month})`);
     list[i] = r;
     byCompany.set(r.company, list);
   }
@@ -65,6 +68,9 @@ export function forecastGroup(
     // Segunda pasada: hermanas = las demás con evidencia en t (scoring §14), D2 previsto, aval, score.
     for (const c of present) {
       const me = byCompany.get(c)![t]!;
+      // Hermana con evidencia en `t`: `D1 > 0 ⟺ cobrosOp12m > 0` (D1 es el peso de sus cobros sobre
+      // el mismo denominador del grupo), o bien confianza suficiente aunque no facture. Sin hermanas
+      // `group.ts` deja `D2 = null` y `d2Pred` devuelve null, así que el aval previsto es 0.
       const hermanas = present.filter((o) => {
         if (o === c) return false;
         const r = byCompany.get(o)![t]!;
@@ -98,9 +104,13 @@ export function forecastGroup(
         groupId: input.groupId,
         versionParametros: params.version,
         horizontes,
-        direccionPred: direccionPred(horizontes[3].scorePred, me.score),
-        probDeterioro6m: probDeterioro(banda(me.score), horizontes[3].bandaPred, params.pDet),
-        sinTendencia: stage.get(c)![3].proy.sinTendencia,
+        direccionPred: direccionPred(horizontes[P.horizonteDecision].scorePred, me.score),
+        probDeterioro6m: probDeterioro(
+          banda(me.score),
+          horizontes[P.horizonteDecision].bandaPred,
+          params.pDet,
+        ),
+        sinTendencia: stage.get(c)![P.horizonteDecision].proy.sinTendencia,
         metodo: params.conectado ? "v1_proyeccion" : "desconectado",
       });
     }

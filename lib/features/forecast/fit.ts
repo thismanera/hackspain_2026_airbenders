@@ -100,48 +100,53 @@ export function fitForecast(input: FitInput): ForecastParameters {
   const residuos = tablaVacia();
   for (const h of HORIZONTES)
     for (const b of ORDEN) {
-      const e = pares
+      const errores = pares
         .filter((p) => p.h === h && banda(p.row.score) === b)
         .map((p) => p.real.score - p.f.horizontes[h].scorePred);
       residuos[h][b] = {
-        p10: Math.min(0, percentile(e, P.residuosPercentiles.bajo) ?? 0),
-        p90: Math.max(0, percentile(e, P.residuosPercentiles.alto) ?? 0),
+        p10: Math.min(0, percentile(errores, P.residuosPercentiles.bajo) ?? 0),
+        p90: Math.max(0, percentile(errores, P.residuosPercentiles.alto) ?? 0),
       };
     }
+  const p3 = pares.filter((p) => p.h === P.horizonteDecision);
   // P_det: evento de deterioro (scoring §13) en (t, t + ventanaEvento]; solo t con seguimiento observable.
   const eventos = new Map<string, number[]>();
-  for (const e of detectEvents(todas).filter((e) => e.kind === "deterioro")) {
-    const list = eventos.get(e.company) ?? [];
-    list.push(monthIndex(e.month));
-    eventos.set(e.company, list);
+  // Regla de oro §7: la tabla congelada solo ve ajuste. El detector mira 3 meses hacia delante, así
+  // que los eventos de los dos últimos meses de ajuste no son detectables y no deben inventarse.
+  const ajuste = todas.filter((r) => monthIndex(r.month) <= iCutoff);
+  for (const evento of detectEvents(ajuste).filter((x) => x.kind === "deterioro")) {
+    const list = eventos.get(evento.company) ?? [];
+    list.push(monthIndex(evento.month));
+    eventos.set(evento.company, list);
   }
   const conteo = new Map<string, { n: number; hits: number }>();
   const cuenta = (key: string, hit: boolean) => {
-    const c = conteo.get(key) ?? { n: 0, hits: 0 };
-    c.n++;
-    if (hit) c.hits++;
-    conteo.set(key, c);
+    const acumulado = conteo.get(key) ?? { n: 0, hits: 0 };
+    acumulado.n++;
+    if (hit) acumulado.hits++;
+    conteo.set(key, acumulado);
   };
-  for (const p of pares.filter((p) => p.h === 3)) {
+  for (const p of p3) {
     const t = monthIndex(p.f.month);
     if (t + P.ventanaEvento > iCutoff) continue;
-    const hit = (eventos.get(p.f.company) ?? []).some((e) => e > t && e <= t + P.ventanaEvento);
-    cuenta(`${banda(p.row.score)}|${p.f.horizontes[3].bandaPred}`, hit);
+    const hit = (eventos.get(p.f.company) ?? []).some(
+      (iEvento) => iEvento > t && iEvento <= t + P.ventanaEvento,
+    );
+    cuenta(`${banda(p.row.score)}|${p.f.horizontes[P.horizonteDecision].bandaPred}`, hit);
     cuenta(`${banda(p.row.score)}|*`, hit);
   }
   const pDet = pDetVacia();
   for (const b of ORDEN)
-    for (const c of ORDEN) {
-      const celda = conteo.get(`${b}|${c}`);
+    for (const columna of ORDEN) {
+      const celda = conteo.get(`${b}|${columna}`);
       const fila = conteo.get(`${b}|*`);
       const usada =
         celda && celda.n >= P.minObsCelda ? celda : fila && fila.n >= P.minObsCelda ? fila : null;
-      pDet[b][c] = usada ? usada.hits / usada.n : null;
+      pDet[b][columna] = usada ? usada.hits / usada.n : null;
     }
-  const p3 = pares.filter((p) => p.h === 3);
   const mae = (err: (p: Par) => number) =>
     p3.length ? p3.reduce((a, p) => a + Math.abs(err(p)), 0) / p3.length : null;
-  const mae3m = mae((p) => p.real.score - p.f.horizontes[3].scorePred);
+  const mae3m = mae((p) => p.real.score - p.f.horizontes[P.horizonteDecision].scorePred);
   const mae3mBaseline = mae((p) => p.real.score - p.row.score);
   const core = {
     paramsHash: base.paramsHash,

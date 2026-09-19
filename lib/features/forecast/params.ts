@@ -7,6 +7,8 @@ export type Horizonte = (typeof HORIZONTES)[number];
 /** docs/forecast-engine.md §2. Ningún número suelto en código. */
 export const FORECAST_PARAMS = {
   horizontes: HORIZONTES,
+  /** Horizonte que leen la decisión (§8) y la dirección/`P_det` (§5): el resto viaja igual. */
+  horizonteDecision: 3 satisfies Horizonte,
   ventanaTendencia: 6,
   minMesesTendencia: 4,
   /** `amortiguacion[i − 1]` multiplica la tendencia del mes `t + i` (§3.2). */
