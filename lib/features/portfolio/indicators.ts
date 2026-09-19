@@ -1,5 +1,5 @@
 /**
- * Catálogo de indicadores del score, tal y como los define docs/SOURCE.md §1.
+ * Catálogo de indicadores del score, tal y como los define docs/product/SOURCE.md §1.
  *
  * Cada variable lleva su lectura en lenguaje llano además de su id técnico: la
  * ficha enseña siempre la frase primero y el id (`A1`) como apoyo, nunca al

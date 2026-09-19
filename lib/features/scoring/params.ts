@@ -161,7 +161,7 @@ export const PARAMS = {
   estresPagos: 1.1,
   coberturaMin: 1.3,
   categoryConfidenceMin: 0.95,
-  // Excepción (decisión de diseño a revisitar, docs/SOURCE.md decisión 2): #12 asigna a estas dos
+  // Excepción (decisión de diseño a revisitar, docs/product/SOURCE.md decisión 2): #12 asigna a estas dos
   // categorías de regla una confianza fija de 0,90 sin precisión estimada.
   categoryConfidenceNuevas: 0.9,
   categoriasNuevas: ["debt_drawdown", "balance_adjustment"],

@@ -81,6 +81,12 @@ log "pnpm secundario: ejecutar `corepack pnpm@${SECONDARY_PNPM_VERSION} --versio
 
 log "Instalando dependencias JavaScript con pnpm ${PROJECT_PNPM_VERSION}."
 corepack pnpm install --frozen-lockfile
+if [[ -f .env ]]; then
+  log "Generando el cliente Prisma (sin modificar la base de datos)."
+  corepack pnpm prisma generate
+else
+  log "No hay .env; se omite Prisma generate hasta configurar DATABASE_URL."
+fi
 
 if (( RUN_CATEGORIES )); then
   if [[ -z "$PYTHON_BIN" ]]; then

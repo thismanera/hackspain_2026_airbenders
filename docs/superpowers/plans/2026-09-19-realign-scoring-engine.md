@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Sustituir la implementación de `lib/features/scoring/` (v0.2 legacy: 12 indicadores planos, solo EUR, decisión mezclada) por la especificada en `docs/SOURCE.md` §1 y `docs/scoring-engine.md` v1.0 (bloques A/B/C con 14 variables, ajuste de grupo, divisas, espejos sobre todas las categorías, categorías de #12), y sacar la lógica de límite/banda/acción a `lib/features/decision/` sin cambiar su comportamiento todavía.
+**Goal:** Sustituir la implementación de `lib/features/scoring/` (v0.2 legacy: 12 indicadores planos, solo EUR, decisión mezclada) por la especificada en `docs/product/SOURCE.md` §1 y `docs/engines/scoring-engine.md` v1.0 (bloques A/B/C con 14 variables, ajuste de grupo, divisas, espejos sobre todas las categorías, categorías de #12), y sacar la lógica de límite/banda/acción a `lib/features/decision/` sin cambiar su comportamiento todavía.
 
 **Architecture:** Pipeline por grupo empresarial: ingest (CSV → JSONL por grupo, importes ya en €) → espejos → flujos mensuales → variables → subnotas y agregación → ajuste de grupo → evolución y alertas → fila `ScoreRow` (contrato scoring-engine §10). Un módulo `decision/legacy.ts` recibe filas `ScoreRow` y produce `DecisionRow` con la lógica actual de Eric (movida, no reescrita); `decision-engine.md` se implementa en el plan siguiente. La app (API, Prisma, script) sigue funcionando de punta a punta al terminar cada tarea.
 
 **Tech Stack:** TypeScript (Node 20, `tsx`), `node:test` + `node:assert/strict` vía `pnpm test`, `zod` 4, `csv-parse`, Prisma 7 + Postgres, Python (`analysis/.venv`, pandas/pyarrow) solo para exportar el parquet de #12 a CSV.
 
-**Referencias que el implementador debe tener abiertas:** `docs/SOURCE.md` §1 y §5 (registro de decisiones), `docs/scoring-engine.md` (§2 parámetros, §3 normalización, §5 variables, §6-9, §10 contrato, §12 fixtures). Cuando este plan y la spec difieran, manda la spec y se corrige el plan.
+**Referencias que el implementador debe tener abiertas:** `docs/product/SOURCE.md` §1 y §5 (registro de decisiones), `docs/engines/scoring-engine.md` (§2 parámetros, §3 normalización, §5 variables, §6-9, §10 contrato, §12 fixtures). Cuando este plan y la spec difieran, manda la spec y se corrige el plan.
 
 **Convenciones del repo (AGENTS.md):** imports con alias `@/*`; `function` declarativa; sin `enum` (const maps / union types); `pnpm`, nunca npm; tests `*.test.ts` junto al código; `pnpm run typecheck` y `pnpm run lint` verdes antes de cada commit.
 
@@ -3105,8 +3105,8 @@ categorías reclasificadas generado con
 
 ```bash
 pnpm scoring:fit        # ingest por grupo, € y percentiles congelados
-pnpm scoring:score      # company_month_score (docs/scoring-engine.md §10)
-pnpm scoring:decide     # decisión legacy sobre las filas del score (docs/decision-engine.md, pendiente)
+pnpm scoring:score      # company_month_score (docs/engines/scoring-engine.md §10)
+pnpm scoring:decide     # decisión legacy sobre las filas del score (docs/engines/decision-engine.md, pendiente)
 pnpm scoring:backtest   # lead time, recall, falsas alarmas sobre validación
 pnpm scoring:import     # Postgres
 ```
@@ -3114,7 +3114,7 @@ pnpm scoring:import     # Postgres
 Normalmente basta con `pnpm db:setup`. Salida en `/api/scoring/companies`
 (`rows[].score` y `rows[].decision`), `/api/scoring/companies/[companyId]`,
 `/api/scoring/runs/[runId]` y `/api/scoring/export`. Lógica y decisiones en
-`docs/SOURCE.md`, `docs/scoring-engine.md` y `docs/decision-engine.md`.
+`docs/product/SOURCE.md`, `docs/engines/scoring-engine.md` y `docs/engines/decision-engine.md`.
 ```
 
 - [ ] **Step 5: Commit y PR**
@@ -3123,7 +3123,7 @@ Normalmente basta con `pnpm db:setup`. Salida en `/api/scoring/companies`
 git add README.md
 git commit -m "docs: describe scoring v1 pipeline"
 git push -u origin feat/realign-scoring
-gh pr create --base main --title "feat(scoring): realign engine with SOURCE (blocks, group, EUR, mirrors)" --body "Implements docs/scoring-engine.md v1.0. Decision logic moved unchanged to lib/features/decision/legacy.ts; decision-engine.md follows in a separate PR. Property checks on the real dataset: <pegar salida del paso 2>."
+gh pr create --base main --title "feat(scoring): realign engine with SOURCE (blocks, group, EUR, mirrors)" --body "Implements docs/engines/scoring-engine.md v1.0. Decision logic moved unchanged to lib/features/decision/legacy.ts; decision-engine.md follows in a separate PR. Property checks on the real dataset: <pegar salida del paso 2>."
 ```
 
 ---

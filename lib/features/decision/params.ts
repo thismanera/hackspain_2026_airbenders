@@ -3,7 +3,7 @@ import { hashParams } from "@/lib/features/scoring/params";
 
 export type Banda = "A" | "B" | "C" | "D";
 
-/** docs/decision-engine.md §2. Ningún número suelto en código. */
+/** docs/engines/decision-engine.md §2. Ningún número suelto en código. */
 export const DECISION_PARAMS = {
   // elegibilidad (decisiones 18, 39, 44)
   confMin: 0.4,

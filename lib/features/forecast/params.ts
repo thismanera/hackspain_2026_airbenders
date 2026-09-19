@@ -4,7 +4,7 @@ import { hashParams, PARAMS, type VariableId } from "@/lib/features/scoring/para
 export const HORIZONTES = [3, 6] as const;
 export type Horizonte = (typeof HORIZONTES)[number];
 
-/** docs/forecast-engine.md §2. Ningún número suelto en código. */
+/** docs/engines/forecast-engine.md §2. Ningún número suelto en código. */
 export const FORECAST_PARAMS = {
   /** Incremented when calibration or connection criteria change. */
   revision: 2,
