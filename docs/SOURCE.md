@@ -376,7 +376,7 @@ el jurado.
 | 14 | Grupo como ajuste sobre `score_solo`, no cuarto bloque | Founder Embat: riesgo de filial y grupo son interdependientes. El aval es propiedad de la relación, no de la empresa; como ajuste se ve en la cascada y se puede apagar. 94 % de la cartera está en grupos. | ✅ 19-09 |
 | 15 | `w_max = 0,4` · saturación 20 % · tope ±20 puntos | El grupo puede mover el score pero nunca sustituirlo: una filial mala con padre rico sigue siendo vigilada. | ✅ 19-09 |
 | 16 | Aval exige capacidad (D3); contagio no | El padre solo avala si tiene dinero. Un grupo débil arrastra siempre: hace barridos de caja. Asimetría deliberada. | ✅ 19-09 |
-| 17 | Techo de grupo y cross-default al 30 % | El aval no se cuenta dos veces entre filiales. Si cae quien sostiene el grupo, el aval desaparece. | ✅ 19-09 |
+| 17 | Techo de grupo y cross-default al 30 % | El aval no se cuenta dos veces entre filiales. Si cae quien sostiene el grupo, el aval desaparece. Real run 2026-09-19: en el 86 % de los grupo-mes la capacidad consolidada estresada es 0 (hermanas con pagos y pocos cobros clasificados), el techo cierra al único miembro solvente (p. ej. COMP_0545 banda A, límite propio 145 k€). A revisitar: opciones (i) techo solo si `L_grupo > 0`, con capacidad consolidada 0 bajar una banda en vez de cerrar; (ii) consolidar solo hermanas con confianza ≥ 0,5. | ✅ 19-09 · ⏳ revisitar techo |
 
 | 18 | Elegibilidad = 6 puertas duras, primera que falla es el motivo | Sí/no antes de cuánto: sin historia, en riesgo, con impago real, sin caja estresada, con clientes que no pagan o con el grupo cayendo, no se presta. Reglas explícitas y explicables, sin umbral de score compuesto. | ✅ 19-09 |
 | 19 | Región factible: `cantidad ≤ L` y `cantidad ≤ capacidad_cuota_adv × plazo_meses` | La empresa debe poder devolver lo prestado con caja estresada dentro del plazo. Es la dependencia central entre cantidad y plazo: corto → poco, largo → más pero más caro. | ✅ 19-09 |
@@ -407,3 +407,7 @@ categorías nuevas de #12. Y la cuota esperada de `debt_repayment`
 (scoring-engine §5.2), que usa `outstanding_balance` de
 `debt_schedule_config.csv` —una foto final— para el término de interés,
 en contra de la regla de «sin foto final»: desviación pequeña y aceptada.
+Y decisión 17, el techo de grupo: en el 86 % de los grupo-mes la capacidad
+consolidada estresada es 0 y el techo cierra al único miembro solvente;
+opciones (i) techo solo si `L_grupo > 0`, con capacidad consolidada 0 bajar
+una banda en vez de cerrar; (ii) consolidar solo hermanas con confianza ≥ 0,5.

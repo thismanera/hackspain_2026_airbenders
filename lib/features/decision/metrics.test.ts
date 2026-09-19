@@ -67,3 +67,12 @@ test("exposición evitada, ingresos simulados, oscilación, cierres falsos y lea
   assert.ok(Math.abs(m.oscilacion - 2 / 18) < 1e-9);
   assert.equal(m.cierresFalsos, 0);
 });
+
+test("la oscilación cuenta transiciones: seguir cerrada no es un cambio", () => {
+  const meses = CALENDAR.slice(0, 6);
+  const scores = meses.map((month) => scoreRowFixture({ month }));
+  const decisions = meses.map((month) => dec(month, "cerrar", 0));
+  const m = metricasDecision(scores, decisions);
+  assert.equal(m.cierres, 1);
+  assert.ok(Math.abs(m.oscilacion - 1 / 6) < 1e-9); // un cambio en 6 empresa-mes, no seis
+});

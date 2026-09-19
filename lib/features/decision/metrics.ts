@@ -14,7 +14,11 @@ export type MetricasDecision = {
   leadTimeCierreMediano: number | null;
 };
 
-/** decision-engine §14. Exposición evitada = Σ (L_vigente(t−3) − L_vigente(t)) sobre eventos de deterioro en t. */
+/**
+ * decision-engine §14. Exposición evitada = Σ (L_vigente(t−3) − L_vigente(t)) sobre eventos de
+ * deterioro en t. Oscilación = % de empresa-mes con un cambio de acción: un `cerrar` repetido no
+ * cuenta (la empresa ya estaba cerrada, el grifo no se ha movido) y `mantener` nunca cuenta.
+ */
 export function metricasDecision(scores: ScoreRow[], decisions: DecisionRow[]): MetricasDecision {
   const byKey = new Map(decisions.map((d) => [`${d.company}|${d.month}`, d]));
   const byCompany = new Map<string, DecisionRow[]>();
@@ -58,8 +62,10 @@ export function metricasDecision(scores: ScoreRow[], decisions: DecisionRow[]): 
       // Supuesto explícito de §14: se usa el `usoSimulado` del límite vigente al plazo natural.
       const op = d.menu.find((o) => o.plazo >= d.plazoNaturalAnticipo) ?? d.menu.at(-1);
       if (op) ingresos += (P.usoSimulado * d.LVigente * op.tae * op.plazo) / P.baseDias;
-      if (d.accion !== "mantener") cambios++;
-      if (d.accion === "cerrar" && (i === 0 || list[i - 1].accion !== "cerrar")) {
+      const cierreNuevo = d.accion === "cerrar" && (i === 0 || list[i - 1].accion !== "cerrar");
+      // Transiciones, no estados: seguir cerrada mes tras mes no es un cambio de acción.
+      if (d.accion !== "mantener" && (d.accion !== "cerrar" || cierreNuevo)) cambios++;
+      if (cierreNuevo) {
         cierres++; // solo el mes en que se cierra, no cada mes que sigue cerrado
         const t = monthIndex(d.month);
         const ev = eventosPorEmpresa.get(company) ?? [];

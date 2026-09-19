@@ -82,6 +82,21 @@ test("the four causaReduccion variants", () => {
   // "grupo" sin empresa causante es el prorrateo del techo, no un cross-default
   assert.match(causa("grupo"), /techo de grupo, A1 -3,2$/);
   assert.match(causa(null), /2 meses por debajo, A1 -3,2$/);
+  // el sufijo no repite la causa: con causa "grupo" se salta la contribución `grupo`
+  const conGrupo = scoreRowFixture({
+    deltaContrib: [
+      { id: "grupo", delta: 4.2 },
+      { id: "A1", delta: -3.21 },
+    ],
+  });
+  assert.match(
+    motivoAccion("reducir", conGrupo, ctx({ LVigente: 75_000, causaReduccion: "grupo" })),
+    /techo de grupo, A1 -3,2$/,
+  );
+  assert.match(
+    motivoAccion("reducir", conGrupo, ctx({ LVigente: 75_000, causaReduccion: "estructural" })),
+    /deterioro estructural, grupo \+4,2$/,
+  );
 });
 
 test("motivoPuerta interpolates the parameters and reads C4 when the gate fails", () => {

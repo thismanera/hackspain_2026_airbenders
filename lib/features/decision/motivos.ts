@@ -36,8 +36,11 @@ export function motivoPuerta(p: Puerta, r: ScoreRow, causaCrossDefault: string |
   }
 }
 
-function topDelta(r: ScoreRow): string {
-  const top = [...r.deltaContrib].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0];
+/** `excluir` evita repetir en el sufijo la causa que ya va en el texto ("techo de grupo, grupo +0,3"). */
+function topDelta(r: ScoreRow, excluir?: string): string {
+  const top = r.deltaContrib
+    .filter((c) => c.id !== excluir)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0];
   return top ? `${top.id} ${top.delta >= 0 ? "+" : ""}${dec(top.delta, 1)}` : "sin cambios";
 }
 
@@ -74,7 +77,8 @@ export function motivoAccion(
                 ? `cross-default de ${ctx.causaCrossDefault}`
                 : "techo de grupo"
               : "2 meses por debajo";
-      return `Límite baja de ${eur(ctx.LPrev)} a ${eur(ctx.LVigente)}: ${causa}, ${topDelta(r)}`;
+      const detalle = topDelta(r, ctx.causaReduccion === "grupo" ? "grupo" : undefined);
+      return `Límite baja de ${eur(ctx.LPrev)} a ${eur(ctx.LVigente)}: ${causa}, ${detalle}`;
     }
     case "cerrar":
       return ctx.motivoCierre ?? "No elegible";

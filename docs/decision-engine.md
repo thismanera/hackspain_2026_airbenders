@@ -344,6 +344,12 @@ function grupo(filas_grupo, decisiones, P):
   (`meses_con_cross_default`). Si la causante no tiene fila ese mes, la bandera
   se levanta (fail-open). Al levantarse, la empresa vuelve por el camino normal
   de reapertura.
+- **A revisitar** (run 2026-09-19): en el 86 % de los grupo-mes la capacidad
+  consolidada estresada es 0 (hermanas con pagos y pocos cobros clasificados) y
+  el techo cierra al único miembro solvente (p. ej. COMP_0545, banda A, límite
+  propio 145 k€). Opciones: (i) aplicar techo solo si `L_grupo > 0`, y con
+  capacidad consolidada 0 bajar una banda en vez de cerrar; (ii) consolidar solo
+  hermanas con `confianza ≥ 0,5`.
 
 ## 10. Salida: contrato
 
@@ -433,7 +439,7 @@ Tests de propiedades (sobre todas las filas del dataset):
 | --- | --- |
 | Exposición evitada | Σ `L_vigente(t−k)` de empresas que entran en `evento_deterioro` en `t`, con `k` = meses de antelación con que el motor cerró o redujo. Comparar contra un motor sin anticipación (solo banda por score sin dirección). |
 | Ingresos simulados | Σ `coste` asumiendo uso del 60 % del `L_vigente` al plazo natural. Supuesto explícito. |
-| Oscilación | % de empresa-mes con acción ≠ `mantener`. Objetivo < 20 %. |
+| Oscilación | % de empresa-mes con un cambio de acción; un `cerrar` repetido no cuenta. Objetivo < 20 %. |
 | Cierres falsos | cierres sin `evento_deterioro` en 6 meses / cierres. |
 | Lead time de cierre | mediana de meses entre primer `reducir` y `evento_deterioro`, **con y sin previsión** (decisión 38). |
 
