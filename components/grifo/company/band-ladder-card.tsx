@@ -1,5 +1,7 @@
 "use client";
 
+import { Network, Target } from "lucide-react";
+
 import { CompanyAvatar } from "@/components/grifo/company-avatar";
 import { StatusBadge } from "@/components/grifo/status-badge";
 import { Sparkline, TrendDelta } from "@/components/grifo/trend";
@@ -14,6 +16,7 @@ import {
   formatMonthShort,
   formatPercent,
   formatScore,
+  formatSigned,
 } from "@/lib/features/portfolio/format";
 import { indicator } from "@/lib/features/portfolio/indicators";
 import type {
@@ -41,10 +44,10 @@ function biggestLever(month: MonthScore, benchmark: BenchmarkResponse): Benchmar
 }
 
 const BANDS = [
-  { id: "D", min: 0, max: 45, color: "bg-status-risk" },
-  { id: "C", min: 45, max: 60, color: "bg-status-watch" },
-  { id: "B", min: 60, max: 75, color: "bg-status-healthy" },
-  { id: "A", min: 75, max: 100, color: "bg-primary" },
+  { id: "D", min: 0, max: 45 },
+  { id: "C", min: 45, max: 60 },
+  { id: "B", min: 60, max: 75 },
+  { id: "A", min: 75, max: 100 },
 ] as const;
 
 /** Cuatro peldaños iguales: el score se coloca dentro de su banda, no al % crudo. */
@@ -55,17 +58,76 @@ function markerLeft(score: number): number {
   const span = band.max - band.min || 1;
   const t = Math.min(1, Math.max(0, (clamped - band.min) / span));
   const percent = ((index + t) / BANDS.length) * 100;
-  return Math.min(96, Math.max(4, percent));
+  return Math.min(98, Math.max(2, percent));
+}
+
+const BAND_FILL = {
+  D: "bg-status-risk",
+  C: "bg-status-watch",
+  B: "bg-status-healthy",
+  A: "bg-primary",
+} as const;
+
+/**
+ * Medidor de banda: se llena desde la izquierda hasta donde llega el score, en
+ * vez de encender solo el peldaño en el que cae. Un tramo suelto iluminado a la
+ * derecha se lee como «le falta todo lo de la izquierda»; lo que hay que ver es
+ * cuánto camino lleva andado y cuánto le queda para la banda siguiente.
+ */
+function BandGauge({ score }: { score: number }) {
+  const band = deriveBanda(score);
+  const fill = markerLeft(score);
+
+  return (
+    <div>
+      <div className="relative h-2">
+        <div className="bg-muted absolute inset-0 overflow-hidden rounded-full">
+          <div
+            className={cn("h-full rounded-full transition-[width] duration-200", BAND_FILL[band])}
+            style={{ width: `${fill}%` }}
+          />
+        </div>
+        {/* Las fronteras de banda, marcadas sobre el propio medidor: sin ellas el
+            relleno es un porcentaje cualquiera y no se ve qué peldaño cruza. */}
+        {[1, 2, 3].map((step) => (
+          <span
+            key={step}
+            aria-hidden
+            className="bg-card absolute inset-y-0 w-px"
+            style={{ left: `${step * 25}%` }}
+          />
+        ))}
+        <span className="sr-only">
+          Score {formatScore(score)} de 100, banda {band}
+        </span>
+      </div>
+      <div className="mt-1.5 flex text-xs">
+        {BANDS.map((entry) => (
+          <span
+            key={entry.id}
+            className={cn(
+              "flex-1 text-center tabular-nums",
+              entry.id === band ? "text-foreground font-semibold" : "text-muted-foreground",
+            )}
+          >
+            {entry.id}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function BandLadderCard({
   file,
   benchmark,
   month,
+  className,
 }: {
   file: CompanyFileResponse;
   benchmark: BenchmarkResponse;
   month: string;
+  className?: string;
 }) {
   const { latest, company, history } = file;
   const currentBand = deriveBanda(latest.score);
@@ -73,6 +135,7 @@ export function BandLadderCard({
   const lever = biggestLever(latest, benchmark);
   const leverMeta = lever ? indicator(lever.indicator) : null;
   const currentBandInfo = BANDA[currentBand];
+  const group = latest.group;
   const spark = history
     .filter((entry) => entry.coverage.observedMonths > 0)
     .map((entry) => entry.score)
@@ -81,11 +144,15 @@ export function BandLadderCard({
   return (
     <Panel
       title={company.id}
-      description={[company.country, company.currency, company.groupSize > 1 ? company.groupId : null]
+      description={[
+        company.country,
+        company.currency,
+        company.groupSize > 1 ? company.groupId : null,
+      ]
         .filter(Boolean)
         .join(" · ")}
       aside={<StatusBadge estado={latest.estado} />}
-      className="flex flex-col"
+      className={cn("flex flex-col", className)}
       bodyClassName="flex flex-1 flex-col gap-4"
     >
       <div className="flex items-start justify-between gap-3">
@@ -98,9 +165,7 @@ export function BandLadderCard({
                 {formatScore(latest.score)}
               </span>
               <span className="text-muted-foreground text-sm">/ 100</span>
-              <span className="text-muted-foreground text-xs font-medium">
-                Banda {currentBand}
-              </span>
+              <span className="text-muted-foreground text-xs font-medium">Banda {currentBand}</span>
             </p>
           </div>
         </div>
@@ -114,42 +179,7 @@ export function BandLadderCard({
         </span>
       </div>
 
-      <div>
-        <div className="relative h-3.5">
-          <div className="absolute inset-x-0 top-1/2 flex h-2 -translate-y-1/2 gap-0.5">
-            {BANDS.map((band) => (
-              <div
-                key={band.id}
-                className={cn(
-                  "h-full flex-1 rounded-full",
-                  band.id === currentBand ? band.color : "bg-muted-foreground/15",
-                )}
-              />
-            ))}
-          </div>
-          <div
-            aria-hidden
-            className="bg-card ring-foreground pointer-events-none absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2"
-            style={{ left: `${markerLeft(latest.score)}%` }}
-          />
-          <span className="sr-only">
-            Score {formatScore(latest.score)}, banda {currentBand}
-          </span>
-        </div>
-        <div className="text-muted-foreground mt-1.5 flex gap-0.5 text-xs">
-          {BANDS.map((band) => (
-            <span
-              key={band.id}
-              className={cn(
-                "flex-1 text-center tabular-nums",
-                band.id === currentBand && "text-foreground font-semibold",
-              )}
-            >
-              {band.id}
-            </span>
-          ))}
-        </div>
-      </div>
+      <BandGauge score={latest.score} />
 
       {step ? (
         <p className="text-muted-foreground text-xs text-pretty">
@@ -169,12 +199,48 @@ export function BandLadderCard({
       )}
 
       {lever && leverMeta ? (
-        <p className="text-muted-foreground border-t pt-3 text-xs text-pretty">
-          <span className="text-foreground font-medium">Palanca: </span>
-          {leverMeta.label.toLowerCase()} (
-          {formatIndicatorValue(lever.raw, leverMeta.format)} frente a mediana{" "}
-          {formatIndicatorValue(lever.medianRaw, leverMeta.format)}).
-        </p>
+        <div className="border-t pt-3">
+          <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+            <Target aria-hidden className="size-3.5 shrink-0" />
+            Dónde más puedes mejorar
+          </p>
+          <p className="mt-1 text-xs text-pretty">
+            <span className="font-medium">{leverMeta.label}</span>
+            <span className="text-muted-foreground">
+              : {formatIndicatorValue(lever.raw, leverMeta.format)} · la mediana de tus pares es{" "}
+              {formatIndicatorValue(lever.medianRaw, leverMeta.format)}
+            </span>
+          </p>
+        </div>
+      ) : null}
+
+      {group ? (
+        <div className="mt-auto border-t pt-3">
+          <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+            <Network aria-hidden className="size-3.5 shrink-0" />
+            Tu grupo · <span className="font-mono">{group.groupId}</span>
+          </p>
+          <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs">
+            <span className="text-base leading-none font-semibold tabular-nums">
+              {formatScore(group.peerScore)}
+            </span>
+            <span className="text-muted-foreground">
+              score de {group.siblings === 1 ? "su hermana" : `sus ${group.siblings} hermanas`}
+            </span>
+            <span
+              className={cn(
+                "ml-auto shrink-0 font-medium tabular-nums",
+                Math.abs(group.adjustment) < 0.5
+                  ? "text-muted-foreground"
+                  : group.adjustment > 0
+                    ? "text-status-healthy-fg"
+                    : "text-status-risk-fg",
+              )}
+            >
+              {formatSigned(group.adjustment)} a tu nota
+            </span>
+          </div>
+        </div>
       ) : null}
     </Panel>
   );

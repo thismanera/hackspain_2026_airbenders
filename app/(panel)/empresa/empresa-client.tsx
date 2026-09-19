@@ -1,12 +1,12 @@
 "use client";
 
-import { Building2, HandCoins, PiggyBank } from "lucide-react";
+import { Building2, HandCoins } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState, useTransition } from "react";
 
 import { AlertsTimeline } from "@/components/grifo/company/alerts-timeline";
 import { BandLadderCard } from "@/components/grifo/company/band-ladder-card";
-import { BenchmarkExplorer, PeerLevers } from "@/components/grifo/company/benchmark-explorer";
+import { BenchmarkExplorer } from "@/components/grifo/company/benchmark-explorer";
 import { Cascade } from "@/components/grifo/company/cascade";
 import { CoveragePanel } from "@/components/grifo/company/coverage-panel";
 import { GatesPanel } from "@/components/grifo/company/gates";
@@ -15,15 +15,16 @@ import { LoanSimulator } from "@/components/grifo/company/loan-simulator";
 import { NegotiationReport } from "@/components/grifo/company/negotiation-report";
 import { OutlookPanel } from "@/components/grifo/company/outlook-panel";
 import {
-  RcaFindingsList,
+  RcaFindingsCard,
   RcaHoldingNote,
   RcaLead,
   RcaPlaybookList,
   RcaScenarios,
 } from "@/components/grifo/company/rca-panel";
+import { ConditionsTable } from "@/components/grifo/company/sheet-panels";
 import { CompanyPicker } from "@/components/grifo/company-picker";
-import { DetailRow, DetailStack } from "@/components/grifo/panel";
-import { PageIntro, StatCard } from "@/components/grifo/stat-card";
+import { DetailRow, DetailStack, Panel } from "@/components/grifo/panel";
+import { PageIntro } from "@/components/grifo/stat-card";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -32,6 +33,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/core/utils";
 import {
   formatDecimal,
@@ -45,126 +48,206 @@ import {
   useCompanyFileWithBenchmark,
   usePymeState,
 } from "@/lib/features/portfolio/hooks";
+import type { PymeTab } from "@/lib/features/portfolio/search-params";
 import { DIAGNOSTICO } from "@/lib/features/rca/vocabulary";
 
 /** Recharts fuera del bundle inicial: la oferta y el score no lo necesitan para hidratar. */
-const ScoreTrend = dynamic(() =>
-  import("@/components/grifo/company/score-trend").then((m) => m.ScoreTrend),
+const ForecastPanel = dynamic(
+  () => import("@/components/grifo/company/forecast-panel").then((m) => m.ForecastPanel),
+  { loading: () => <Skeleton className="h-64 w-full rounded-lg" /> },
+);
+const ScoreTrend = dynamic(
+  () => import("@/components/grifo/company/score-trend").then((m) => m.ScoreTrend),
+  { loading: () => <Skeleton className="h-64 w-full rounded-lg" /> },
 );
 
 /**
- * Vista de empresa: la oferta primero, el score al lado, la evidencia plegada.
- * Misma jerarquía que la cartera del partner — un lead, un acto, un stack.
+ * La serie del año largo y los dos puntos previstos, en la primera pantalla.
+ * Es el gráfico de la ficha del partner: la empresa merece ver de dónde viene y
+ * hacia dónde va sin abrir nada, y es lo único de esta vista que tiene tamaño
+ * suficiente para ordenar la mirada.
+ */
+function TrajectoryPanel({ file }: { file: Parameters<typeof LoanSimulator>[0]["file"] }) {
+  const forecast = file.latest.forecast;
+
+  return (
+    <Panel
+      title={forecast ? "De dónde vienes y hacia dónde vas" : "De dónde vienes"}
+      description={
+        forecast
+          ? "Score de los últimos meses y previsión a 3 y 6, con su rango. La oferta de este mes no depende de la previsión."
+          : "Score mes a mes desde que hay movimientos."
+      }
+      className="flex flex-col"
+      bodyClassName="flex-1"
+    >
+      {forecast ? <ForecastPanel file={file} inset /> : <ScoreTrend history={file.history} inset />}
+    </Panel>
+  );
+}
+
+/**
+ * Vista de empresa: arriba la trayectoria y la nota —lo que da tamaño y contexto
+ * de un vistazo—, y debajo, en pestañas, la oferta y la evidencia. Mismo reparto
+ * que la ficha del partner: una cabecera que no cambia y un solo cuerpo que sí.
  */
 function CompanyView({
   companyId,
   month,
+  tab,
+  onTabChange,
   onSelectCompany,
 }: {
   companyId: string;
   month: string;
+  tab: PymeTab;
+  onTabChange: (tab: PymeTab) => void;
   onSelectCompany: (companyId: string) => void;
 }) {
   const [{ data: file }, { data: benchmark }] = useCompanyFileWithBenchmark(companyId, month);
   const { latest } = file;
   const hasGroup = latest.group !== null && file.peers.length > 0;
+  const hasRca = file.rca !== null && file.rca !== undefined;
+  const current =
+    (tab === "grupo" && !hasGroup) || (tab === "revision" && !hasRca) ? "oferta" : tab;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 lg:grid-cols-3">
-        <LoanSimulator file={file} className="lg:col-span-2" />
+        <TrajectoryPanel file={file} />
         <BandLadderCard file={file} benchmark={benchmark} month={month} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <ScoreTrend history={file.history} className="lg:col-span-2" />
-        <PeerLevers benchmark={benchmark} />
-      </div>
+      <Tabs
+        value={current}
+        onValueChange={(value) => onTabChange(value as PymeTab)}
+        className="gap-0"
+      >
+        <TabsList variant="line" className="h-9 gap-4 border-b p-0">
+          <TabsTrigger value="oferta" className="px-0 text-sm after:!bottom-[-1px]">
+            Mi oferta
+          </TabsTrigger>
+          <TabsTrigger value="score" className="px-0 text-sm after:!bottom-[-1px]">
+            Mi score
+          </TabsTrigger>
+          {hasGroup ? (
+            <TabsTrigger value="grupo" className="px-0 text-sm after:!bottom-[-1px]">
+              Mi grupo
+            </TabsTrigger>
+          ) : null}
+          <TabsTrigger value="pares" className="px-0 text-sm after:!bottom-[-1px]">
+            Frente a pares
+          </TabsTrigger>
+          {hasRca ? (
+            <TabsTrigger value="revision" className="px-0 text-sm after:!bottom-[-1px]">
+              Mi revisión
+            </TabsTrigger>
+          ) : null}
+        </TabsList>
 
-      <DetailStack label="Evidencia">
-        <DetailRow title="Frente a empresas parecidas" aside={`${benchmark.cohort} de cohorte`}>
-          <BenchmarkExplorer inset benchmark={benchmark} />
-        </DetailRow>
-        <DetailRow title="De dónde sale el score" aside={formatScore(latest.score)}>
-          <Cascade inset month={latest} />
-        </DetailRow>
-        {file.rca ? (
-          <DetailRow
-            title="Cómo reaccionaste al último giro"
-            aside={DIAGNOSTICO[file.rca.diagnosticoRespuesta].label}
-          >
-            <div className="flex flex-col gap-4">
-              <RcaLead rca={file.rca} />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <RcaFindingsList title="Mejoras observadas" items={file.rca.aciertos} />
-                <RcaFindingsList title="Presiones a revisar" items={file.rca.errores} />
+        <TabsContent value="oferta" className="flex flex-col gap-4 pt-4">
+          <LoanSimulator file={file} />
+          <DetailStack label="Detalle de la oferta">
+            <DetailRow title="Qué ha cambiado este mes" aside="límite, TAE y plazo">
+              <div className="-mx-4 -my-3">
+                <ConditionsTable file={file} />
               </div>
-              <RcaScenarios rca={file.rca} />
-              {file.rca.playbook.mantener.length > 0 || file.rca.playbook.evitar.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {file.rca.playbook.mantener.length > 0 ? (
-                    <div>
-                      <h4 className="text-muted-foreground text-xs font-medium">Mantener</h4>
-                      <div className="mt-2">
-                        <RcaPlaybookList items={file.rca.playbook.mantener} />
-                      </div>
-                    </div>
-                  ) : null}
-                  {file.rca.playbook.evitar.length > 0 ? (
-                    <div>
-                      <h4 className="text-muted-foreground text-xs font-medium">Evitar</h4>
-                      <div className="mt-2">
-                        <RcaPlaybookList items={file.rca.playbook.evitar} />
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-              <RcaHoldingNote rca={file.rca} />
-            </div>
-          </DetailRow>
-        ) : null}
-        {latest.forecast ? (
-          <DetailRow
-            title="Si nada cambia"
-            aside={`${formatScore(latest.forecast.scoreSoloPred3m)} en 3 m`}
-          >
-            <OutlookPanel inset month={latest} />
-          </DetailRow>
-        ) : null}
-        <DetailRow title="Cobertura del dato" aside={formatPercent(latest.confidence, 0)}>
-          <CoveragePanel inset coverage={latest.coverage} confidence={latest.confidence} />
-        </DetailRow>
-        {latest.decision.eligible ? (
-          <DetailRow
-            title="Para llevar al banco"
-            aside={latest.decision.eligible ? "condiciones de este mes" : undefined}
-          >
-            <NegotiationReport inset file={file} />
-          </DetailRow>
-        ) : null}
-        {latest.alerts.length > 0 ? (
-          <DetailRow title="Alertas" aside={`${latest.alerts.length}`}>
-            <AlertsTimeline inset alerts={latest.alerts} />
-          </DetailRow>
-        ) : null}
-        {!latest.decision.eligible ? (
-          <DetailRow title="Por qué no hay línea">
-            <GatesPanel inset gates={latest.decision.gates} />
-          </DetailRow>
-        ) : null}
+            </DetailRow>
+            {latest.decision.eligible ? (
+              <DetailRow title="Para llevar al banco" aside="condiciones de este mes">
+                <NegotiationReport inset file={file} />
+              </DetailRow>
+            ) : (
+              <DetailRow title="Por qué no hay línea" aside={`${latest.decision.gates.length}`}>
+                <GatesPanel inset gates={latest.decision.gates} />
+              </DetailRow>
+            )}
+            {latest.alerts.length > 0 ? (
+              <DetailRow title="Alertas" aside={`${latest.alerts.length}`}>
+                <AlertsTimeline inset alerts={latest.alerts} />
+              </DetailRow>
+            ) : null}
+          </DetailStack>
+        </TabsContent>
+
+        <TabsContent value="score" className="flex flex-col gap-4 pt-4">
+          <Cascade bare month={latest} />
+          <DetailStack label="Detalle del score">
+            {latest.forecast ? (
+              <DetailRow
+                title="Si nada cambia"
+                aside={`${formatScore(latest.forecast.scoreSoloPred3m)} en 3 m`}
+              >
+                <OutlookPanel inset month={latest} />
+              </DetailRow>
+            ) : null}
+            <DetailRow title="Cobertura del dato" aside={formatPercent(latest.confidence, 0)}>
+              <CoveragePanel inset coverage={latest.coverage} confidence={latest.confidence} />
+            </DetailRow>
+          </DetailStack>
+        </TabsContent>
+
         {hasGroup && latest.group ? (
-          <DetailRow title="Tu grupo" aside={latest.group.groupId}>
+          <TabsContent value="grupo" className="flex flex-col gap-4 pt-4">
             <GroupPanel
-              inset
+              cards
               group={latest.group}
               peers={file.peers}
               month={month}
               onSelect={onSelectCompany}
             />
-          </DetailRow>
+          </TabsContent>
         ) : null}
-      </DetailStack>
+
+        <TabsContent value="pares" className="flex flex-col gap-4 pt-4">
+          <BenchmarkExplorer benchmark={benchmark} />
+        </TabsContent>
+
+        {hasRca && file.rca ? (
+          <TabsContent value="revision" className="flex flex-col gap-4 pt-4">
+            <Panel
+              title="Cómo reaccionaste al último giro"
+              description={DIAGNOSTICO[file.rca.diagnosticoRespuesta].label}
+            >
+              <RcaLead rca={file.rca} />
+            </Panel>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <RcaFindingsCard
+                title="Mejoras observadas"
+                items={file.rca.aciertos}
+                empty="Sin mejoras seleccionadas en el periodo."
+              />
+              <RcaFindingsCard
+                title="Presiones a revisar"
+                items={file.rca.errores}
+                empty="Sin presiones seleccionadas en el periodo."
+              />
+            </div>
+            {file.rca.errores.length > 0 ? (
+              <Panel title="Si se revierten las presiones seleccionadas">
+                <RcaScenarios rca={file.rca} />
+              </Panel>
+            ) : null}
+            <DetailStack label="Playbook">
+              {file.rca.playbook.mantener.length > 0 ? (
+                <DetailRow title="Qué mantener" aside={`${file.rca.playbook.mantener.length}`}>
+                  <RcaPlaybookList items={file.rca.playbook.mantener} />
+                </DetailRow>
+              ) : null}
+              {file.rca.playbook.evitar.length > 0 ? (
+                <DetailRow title="Qué evitar" aside={`${file.rca.playbook.evitar.length}`}>
+                  <RcaPlaybookList items={file.rca.playbook.evitar} />
+                </DetailRow>
+              ) : null}
+              {file.rca.contextoHolding.observacion ? (
+                <DetailRow title="Contexto de holding">
+                  <RcaHoldingNote rca={file.rca} />
+                </DetailRow>
+              ) : null}
+            </DetailStack>
+          </TabsContent>
+        ) : null}
+      </Tabs>
     </div>
   );
 }
@@ -196,24 +279,12 @@ export function EmpresaClient() {
         }
       />
 
-      {engineDecision ? (
-        <StatCard
-          icon={PiggyBank}
-          label="Lo que ahorra Embat Flow"
-          value={formatEurosCompact(engineDecision.avoidedExposure)}
-          tone="healthy"
-          hint={
-            engineDecision.closeLeadMedian === null
-              ? "Exposición evitada al anticipar cierres de línea, medido sobre la cartera."
-              : `Exposición evitada al anticipar cierres de línea con ${formatDecimal(engineDecision.closeLeadMedian)} meses de antelación, medido sobre la cartera.`
-          }
-        />
-      ) : null}
-
       {state.empresa ? (
         <CompanyView
           companyId={state.empresa}
           month={state.mes}
+          tab={state.pestana}
+          onTabChange={(pestana) => void setState({ pestana }, { history: "replace" })}
           onSelectCompany={(companyId) => void setState({ empresa: companyId })}
         />
       ) : (
@@ -233,6 +304,21 @@ export function EmpresaClient() {
           </Button>
         </Empty>
       )}
+
+      {/* Cifra de cartera, no de esta empresa: se queda al pie como nota de
+          producto, sin tarjeta ni icono que compitan con la oferta. */}
+      {engineDecision ? (
+        <p className="text-muted-foreground border-t pt-3 text-xs text-pretty">
+          Sobre toda la cartera, Embat Flow evita{" "}
+          <span className="text-foreground font-medium tabular-nums">
+            {formatEurosCompact(engineDecision.avoidedExposure)}
+          </span>{" "}
+          de exposición
+          {engineDecision.closeLeadMedian === null
+            ? " al anticipar cierres de línea."
+            : ` al anticipar cierres de línea con ${formatDecimal(engineDecision.closeLeadMedian)} meses de antelación.`}
+        </p>
+      ) : null}
 
       <CompanyPicker
         open={pickerOpen}
