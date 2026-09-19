@@ -65,6 +65,9 @@ export function HotList({
                 onClick={() => onOpenCompany(row.company.id)}
                 className="hover:bg-muted/40 focus-visible:ring-ring flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
               >
+                <span className="text-muted-foreground w-4 shrink-0 text-right text-xs tabular-nums">
+                  {row.hot?.rank}
+                </span>
                 <HotFlame direction={row.direction} className="size-4" />
                 <span className="flex min-w-0 flex-1 flex-col leading-tight">
                   <span className="flex items-center gap-2">

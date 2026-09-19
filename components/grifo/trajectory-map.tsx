@@ -1,48 +1,35 @@
 "use client";
 
-import { Flame, Pause, Play } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useEffect, useState, useTransition } from "react";
 
+import { ActionBadge } from "@/components/grifo/action-badge";
 import { Panel } from "@/components/grifo/panel";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/core/utils";
 import { CALENDAR, LATEST_MONTH } from "@/lib/features/portfolio/calendar";
 import { formatMonthShort, formatScore, formatSigned } from "@/lib/features/portfolio/format";
-import type { Accion, PortfolioRow } from "@/lib/features/portfolio/types";
+import type { PortfolioRow } from "@/lib/features/portfolio/types";
 import { ACCION } from "@/lib/features/portfolio/vocabulary";
 
 const W = 720;
-const H = 340;
-const PAD = { top: 18, right: 14, bottom: 30, left: 40 };
+const H = 360;
+const PAD = { top: 26, right: 16, bottom: 34, left: 16 };
 const PLOT_W = W - PAD.left - PAD.right;
 const PLOT_H = H - PAD.top - PAD.bottom;
 
-/** Umbrales de SOURCE: 45 y 70 separan los estados; ±6 separa estable de movimiento. */
-const SCORE_CUTS = [45, 70];
+/** Umbrales de SOURCE: 70 separa "sana" del resto; ±6 separa estable de movimiento. */
+const HEALTHY_CUT = 70;
 const TREND_CUT = 6;
 const MIN_TREND_AXIS = 10;
+const HOT_R = 8;
 
-const ACTION_COLOR = {
-  abrir: "var(--status-healthy)",
-  ampliar: "var(--status-healthy)",
-  mantener: "var(--status-none)",
-  reducir: "var(--status-watch)",
-  cerrar: "var(--status-risk)",
-} satisfies Record<Accion, string>;
-
-const LEGEND: Accion[] = ["abrir", "ampliar", "reducir", "cerrar"];
-
-/**
- * Misma regla que el badge: la tinta es para lo que cambia este mes; seguir
- * igual va en gris. Las hot llevan el color de su trayectoria, como el fuego.
- */
-function colorOf(row: PortfolioRow): string {
-  if (row.hot) {
-    return row.direction === "deterioro" ? "var(--status-risk)" : "var(--status-healthy)";
-  }
-  return row.changed ? ACTION_COLOR[row.action] : ACTION_COLOR.mantener;
-}
+const TONE = {
+  mejora: "var(--status-healthy)",
+  deterioro: "var(--status-risk)",
+  estable: "var(--status-none)",
+} satisfies Record<PortfolioRow["direction"], string>;
 
 const monthParser = parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH);
 const PLAY_INTERVAL_MS = 1100;
@@ -74,7 +61,6 @@ function useMonthPlayer(months: string[]) {
       setPlaying(false);
       return;
     }
-    // Al final del calendario, reproducir vuelve al principio de la estela.
     if (month === last) void setMonth(months[Math.max(0, months.length - 12)]!);
     setPlaying(true);
   };
@@ -82,11 +68,29 @@ function useMonthPlayer(months: string[]) {
   return { playing, toggle };
 }
 
+/** Dos hot casi encima se separan un poco en horizontal para que se lean los dos números. */
+function spread(points: { id: string; x: number; y: number }[]): Map<string, number> {
+  const gap = HOT_R * 2 + 2;
+  const placed: { x: number; y: number }[] = [];
+  const result = new Map<string, number>();
+  for (const point of points) {
+    let px = point.x;
+    for (let step = 1; step <= 12; step++) {
+      const free = !placed.some((prev) => Math.hypot(prev.x - px, prev.y - point.y) < gap);
+      if (free) break;
+      const side = step % 2 === 1 ? 1 : -1;
+      px = point.x + side * Math.ceil(step / 2) * gap;
+    }
+    placed.push({ x: px, y: point.y });
+    result.set(point.id, px);
+  }
+  return result;
+}
+
 /**
  * Cada empresa es un punto: a la derecha cuanto más sana hoy, arriba cuanto más
- * mejora en 3 meses. La estela son sus últimos 6 meses. El color es la acción
- * del motor; las "hot" van grandes y con fuego, el resto apagadas. Sin leyenda
- * de cuadrantes: los umbrales del motor ya dividen el tablero.
+ * mejora en 3 meses. Solo las "hot" llevan color y nombre; el resto es fondo.
+ * La estela de 6 meses aparece al pasar por una empresa, no todas a la vez.
  */
 export function TrajectoryMap({
   rows,
@@ -103,7 +107,6 @@ export function TrajectoryMap({
   const { playing, toggle } = useMonthPlayer(months);
 
   const plotted = rows.filter((row) => row.trend3m !== null);
-  const anyHot = plotted.some((row) => row.hot !== null);
   const maxTrend = Math.max(
     MIN_TREND_AXIS,
     ...plotted.flatMap((row) => row.trail.map((point) => Math.abs(point.trend3m))),
@@ -116,12 +119,16 @@ export function TrajectoryMap({
     PLOT_H / 2 -
     (Math.min(trendAxis, Math.max(-trendAxis, trend)) / trendAxis) * (PLOT_H / 2);
 
+  const hot = plotted.filter((row) => row.hot !== null);
+  const hotX = spread(
+    hot.map((row) => ({ id: row.company.id, x: x(row.score), y: y(row.trend3m!) })),
+  );
   const active = hovered ? plotted.find((row) => row.company.id === hovered) : undefined;
 
   return (
     <Panel
       title="Hoy y hacia dónde va"
-      description="Cada punto es una empresa; la estela, sus últimos seis meses."
+      description="Derecha: mejor score hoy. Arriba: mejora en tres meses."
       className={cn("flex flex-col", className)}
       bodyClassName="flex flex-1 flex-col gap-2 p-3"
       aside={
@@ -142,125 +149,114 @@ export function TrajectoryMap({
       }
     >
       <div className="relative" onMouseLeave={() => setHovered(null)}>
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          aria-hidden
-          className="h-auto w-full overflow-visible text-xs"
-        >
-          {/* Umbrales del motor: dónde cambia el estado y dónde empieza a moverse. */}
-          {SCORE_CUTS.map((cut) => (
-            <line
-              key={cut}
-              x1={x(cut)}
-              x2={x(cut)}
-              y1={PAD.top}
-              y2={PAD.top + PLOT_H}
-              stroke="var(--border)"
-            />
-          ))}
-          <line
-            x1={PAD.left}
-            x2={PAD.left + PLOT_W}
-            y1={y(0)}
-            y2={y(0)}
-            stroke="var(--foreground)"
-            strokeOpacity={0.35}
+        <svg viewBox={`0 0 ${W} ${H}`} aria-hidden className="h-auto w-full overflow-visible">
+          {/* Franja estable en el centro y la línea de "sana" a la derecha. */}
+          <rect
+            x={PAD.left}
+            y={y(TREND_CUT)}
+            width={PLOT_W}
+            height={y(-TREND_CUT) - y(TREND_CUT)}
+            fill="var(--muted)"
+            opacity={0.6}
           />
-          {[TREND_CUT, -TREND_CUT].map((cut) => (
-            <line
-              key={cut}
-              x1={PAD.left}
-              x2={PAD.left + PLOT_W}
-              y1={y(cut)}
-              y2={y(cut)}
-              stroke="var(--border)"
-              strokeDasharray="3 3"
-            />
-          ))}
+          <line x1={PAD.left} x2={PAD.left + PLOT_W} y1={y(0)} y2={y(0)} stroke="var(--border)" />
+          <line
+            x1={x(HEALTHY_CUT)}
+            x2={x(HEALTHY_CUT)}
+            y1={PAD.top}
+            y2={PAD.top + PLOT_H}
+            stroke="var(--border)"
+            strokeDasharray="4 4"
+          />
 
-          {/* Ejes: qué significa cada lado, en las palabras del reto. */}
-          <g fill="var(--muted-foreground)" fontSize={10}>
-            {[0, ...SCORE_CUTS, 100].map((tick) => (
-              <text key={tick} x={x(tick)} y={H - 16} textAnchor="middle" className="tabular-nums">
-                {tick}
-              </text>
-            ))}
-            <text x={PAD.left} y={H - 3} textAnchor="start">
-              Hoy débil
+          {/* Las cuatro esquinas dicen qué significa estar ahí. */}
+          <g fill="var(--muted-foreground)" fontSize={11}>
+            <text x={PAD.left} y={PAD.top - 10}>
+              Débiles que mejoran
             </text>
-            <text x={PAD.left + PLOT_W} y={H - 3} textAnchor="end">
-              Hoy sana
+            <text x={PAD.left + PLOT_W} y={PAD.top - 10} textAnchor="end">
+              Sanas que mejoran
             </text>
-            {[trendAxis, TREND_CUT, 0, -TREND_CUT, -trendAxis].map((tick) => (
-              <text
-                key={tick}
-                x={PAD.left - 6}
-                y={y(tick) + 3.5}
-                textAnchor="end"
-                className="tabular-nums"
-              >
-                {tick > 0 ? `+${tick}` : tick}
-              </text>
-            ))}
-            <text
-              transform={`translate(10 ${PAD.top + 4}) rotate(-90)`}
-              textAnchor="end"
-              fontWeight={500}
-            >
-              Va a mejor
+            <text x={PAD.left} y={H - 8}>
+              Débiles que caen
             </text>
-            <text
-              transform={`translate(10 ${PAD.top + PLOT_H - 4}) rotate(-90)`}
-              textAnchor="start"
-              fontWeight={500}
-            >
-              Va a peor
+            <text x={PAD.left + PLOT_W} y={H - 8} textAnchor="end">
+              Sanas que caen
+            </text>
+            <text x={PAD.left + PLOT_W} y={y(0) - 4} textAnchor="end" fontSize={10}>
+              estables
+            </text>
+            <text x={x(HEALTHY_CUT) + 4} y={PAD.top + 10} fontSize={10}>
+              score {HEALTHY_CUT}
             </text>
           </g>
 
-          {/* Estelas debajo, puntos encima: el hoy siempre tapa al ayer. */}
-          {plotted.map((row) => {
-            const dim = anyHot && row.hot === null && hovered !== row.company.id;
-            return (
+          {/* La estela solo de la empresa señalada: seis meses, del más viejo al de hoy. */}
+          {active && active.trail.length > 1 ? (
+            <g stroke={active.hot ? TONE[active.direction] : "var(--foreground)"}>
               <polyline
-                key={row.company.id}
-                points={row.trail.map((point) => `${x(point.score)},${y(point.trend3m)}`).join(" ")}
+                points={active.trail
+                  .map((point) => `${x(point.score)},${y(point.trend3m)}`)
+                  .join(" ")}
                 fill="none"
-                stroke={colorOf(row)}
                 strokeWidth={1.25}
                 strokeLinejoin="round"
                 strokeLinecap="round"
-                opacity={dim ? 0.18 : 0.45}
-                className="transition-opacity duration-300"
+                opacity={0.6}
               />
-            );
-          })}
-          {plotted.map((row) => {
-            const color = colorOf(row);
-            const hot = row.hot !== null;
-            const isHovered = hovered === row.company.id;
-            const dim = anyHot && !hot && !isHovered;
-            return (
-              <g
+              {active.trail.slice(0, -1).map((point) => (
+                <circle
+                  key={point.month}
+                  cx={x(point.score)}
+                  cy={y(point.trend3m)}
+                  r={2}
+                  fill="var(--card)"
+                  strokeWidth={1.25}
+                />
+              ))}
+            </g>
+          ) : null}
+
+          {/* El resto de la cartera, en gris: contexto, no protagonista. */}
+          {plotted
+            .filter((row) => row.hot === null)
+            .map((row) => (
+              <circle
                 key={row.company.id}
-                style={{ transform: `translate(${x(row.score)}px, ${y(row.trend3m!)}px)` }}
-                className="transition-[transform,opacity] duration-500 ease-out"
-                opacity={dim ? 0.45 : 1}
+                cx={x(row.score)}
+                cy={y(row.trend3m!)}
+                r={hovered === row.company.id ? 5 : 3.5}
+                fill={hovered === row.company.id ? "var(--foreground)" : "var(--status-none)"}
+                stroke="var(--card)"
+                strokeWidth={1.5}
+                className="transition-[cx,cy] duration-500 ease-out"
+              />
+            ))}
+
+          {/* Las hot: color de su trayectoria y el número que tienen en la lista de al lado. */}
+          {hot.map((row) => (
+            <g
+              key={row.company.id}
+              style={{
+                transform: `translate(${hotX.get(row.company.id) ?? x(row.score)}px, ${y(row.trend3m!)}px)`,
+              }}
+              className="transition-transform duration-500 ease-out"
+            >
+              <circle r={HOT_R} fill={TONE[row.direction]} stroke="var(--card)" strokeWidth={1.5} />
+              <text
+                y={3.5}
+                textAnchor="middle"
+                fontSize={10}
+                fontWeight={600}
+                fill="var(--card)"
+                className="tabular-nums"
               >
-                {hot || isHovered ? (
-                  <circle r={hot ? 10 : 8} fill="none" stroke={color} strokeOpacity={0.4} />
-                ) : null}
-                <circle r={hot ? 6 : 4.5} fill={color} stroke="var(--card)" strokeWidth={1.5} />
-                {hot ? (
-                  <Flame x={5} y={-17} width={12} height={12} color={color} strokeWidth={2.5} />
-                ) : null}
-              </g>
-            );
-          })}
+                {row.hot!.rank}
+              </text>
+            </g>
+          ))}
         </svg>
 
-        {/* Los puntos que se tocan son botones de verdad, encima del dibujo: con
-            teclado, con nombre y con la ficha a un clic. */}
         {plotted.map((row) => (
           <button
             key={row.company.id}
@@ -281,26 +277,14 @@ export function TrajectoryMap({
         {active ? (
           <div
             role="tooltip"
-            className="bg-popover text-popover-foreground pointer-events-none absolute z-10 w-max max-w-56 -translate-x-1/2 rounded-md border px-2.5 py-2 text-xs shadow-sm"
-            style={{
-              left: `${(x(active.score) / W) * 100}%`,
-              top: `${(y(active.trend3m!) / H) * 100}%`,
-              transform: `translate(-50%, ${active.trend3m! >= 0 ? "14px" : "calc(-100% - 14px)"})`,
-            }}
+            className={cn(
+              "bg-popover text-popover-foreground pointer-events-none absolute top-3 z-10 w-max max-w-56 rounded-md border px-2.5 py-2 text-xs shadow-sm",
+              active.score < 50 ? "right-3" : "left-3",
+            )}
           >
             <p className="flex items-center gap-2">
               <span className="font-mono font-medium">{active.company.id}</span>
-              <span
-                className="inline-block size-2 rounded-full"
-                style={{ background: colorOf(active) }}
-              />
-              <span>
-                {active.changed
-                  ? ACCION[active.action].label
-                  : active.action === "cerrar"
-                    ? "Sin línea"
-                    : "Sin cambio"}
-              </span>
+              <ActionBadge action={active.action} changed={active.changed} />
             </p>
             <p className="text-muted-foreground mt-0.5 tabular-nums">
               Score {formatScore(active.score)} · {formatSigned(active.trend3m!)} en 3 m
@@ -319,31 +303,34 @@ export function TrajectoryMap({
         ) : null}
       </div>
 
-      <ul className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-xs">
-        {LEGEND.map((action) => (
-          <li key={action} className="flex items-center gap-1.5">
-            <span
-              aria-hidden
-              className="inline-block size-2 rounded-full"
-              style={{ background: ACTION_COLOR[action] }}
-            />
-            {ACCION[action].label}
-          </li>
-        ))}
+      <ul className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs">
+        <li className="flex items-center gap-1.5">
+          <span
+            aria-hidden
+            className="inline-block size-2.5 rounded-full"
+            style={{ background: TONE.deterioro }}
+          />
+          Hot que cae
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span
+            aria-hidden
+            className="inline-block size-2.5 rounded-full"
+            style={{ background: TONE.mejora }}
+          />
+          Hot que mejora
+        </li>
         <li className="flex items-center gap-1.5">
           <span
             aria-hidden
             className="inline-block size-2 rounded-full"
-            style={{ background: ACTION_COLOR.mantener }}
+            style={{ background: TONE.estable }}
           />
-          Sin cambio
+          Resto de la cartera
         </li>
-        {anyHot ? (
-          <li className="flex items-center gap-1.5">
-            <Flame aria-hidden className="size-3" strokeWidth={2.5} />
-            Hot
-          </li>
-        ) : null}
+        <li className="ml-auto">
+          El número es su puesto en la lista; pasa por encima para ver seis meses.
+        </li>
       </ul>
     </Panel>
   );
