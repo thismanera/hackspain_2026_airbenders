@@ -14,6 +14,7 @@ import { OutlookPanel } from "@/components/grifo/company/outlook-panel";
 import { ScoreTrend } from "@/components/grifo/company/score-trend";
 import { CompanyPicker } from "@/components/grifo/company-picker";
 import { Figure, Panel } from "@/components/grifo/panel";
+import { PeerSpace } from "@/components/grifo/peers/peer-space";
 import { PageIntro } from "@/components/grifo/stat-card";
 import { StatusBadge } from "@/components/grifo/status-badge";
 import { TrendDelta } from "@/components/grifo/trend";
@@ -37,7 +38,12 @@ import {
   formatDecimal,
   formatScore,
 } from "@/lib/features/portfolio/format";
-import { useBenchmark, useCompanyFile, usePymeState } from "@/lib/features/portfolio/hooks";
+import {
+  useBenchmark,
+  useCompanyFile,
+  usePeers,
+  usePymeState,
+} from "@/lib/features/portfolio/hooks";
 import { indicator } from "@/lib/features/portfolio/indicators";
 import { useOptIn } from "@/lib/features/portfolio/opt-in";
 import type {
@@ -350,7 +356,13 @@ function CompanyView({
 }) {
   const { data: file } = useCompanyFile(companyId, month);
   const { data: benchmark } = useBenchmark(companyId, month);
+  const { data: peers } = usePeers(month, "embat", companyId);
   const { latest } = file;
+  const own = peers.points.find((point) => point.company === companyId);
+  const ownCluster =
+    own && own.cluster !== null
+      ? peers.clusters.find((cluster) => cluster.id === own.cluster)
+      : undefined;
 
   return (
     <div className="grid gap-4 lg:grid-cols-5">
@@ -383,6 +395,27 @@ function CompanyView({
         ) : null}
         <CoveragePanel coverage={latest.coverage} confidence={latest.confidence} />
       </div>
+
+      <PeerSpace
+        data={peers}
+        scope="embat"
+        focus={companyId}
+        title="Empresas como la tuya"
+        description="Tu punto lleva nombre; el resto son siluetas. La estela es tu último año."
+        className="lg:col-span-5"
+        caption={
+          ownCluster ? (
+            <>
+              Estás en el grupo «{ownCluster.label}» con otras {Math.max(0, ownCluster.size - 1)}{" "}
+              empresas
+              {ownCluster.medianScore !== null
+                ? ` (score mediano ${formatScore(ownCluster.medianScore)})`
+                : ""}
+              .
+            </>
+          ) : undefined
+        }
+      />
 
       <div className="lg:col-span-5">
         <Cascade month={latest} />

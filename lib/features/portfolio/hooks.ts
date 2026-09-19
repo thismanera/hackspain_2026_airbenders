@@ -10,6 +10,7 @@ import {
   fetchCompanyFile,
   fetchGroupFile,
   fetchGroups,
+  fetchPeers,
   fetchPortfolio,
   portfolioKeys,
 } from "./queries";
@@ -22,6 +23,7 @@ import {
   sheetSearchParams,
   type PortfolioSearchState,
 } from "./search-params";
+import type { Scope } from "./types";
 import { fetchScoringCompany, scoringKeys } from "@/lib/features/scoring/queries";
 
 // El score se recalcula una vez al mes: nada de refetch agresivo. Una hora de
@@ -114,6 +116,15 @@ export function useBacktest(month: string) {
   return useSuspenseQuery({
     queryKey: portfolioKeys.backtest(month),
     queryFn: () => fetchBacktest(month),
+    ...SCORING_CADENCE,
+  });
+}
+
+/** El cubo de pares. Con `companyId`, la vista de empresa: solo ella lleva nombre. */
+export function usePeers(month: string, scope: Scope, companyId?: string) {
+  return useSuspenseQuery({
+    queryKey: portfolioKeys.peers(month, scope, companyId),
+    queryFn: () => fetchPeers(month, scope, companyId),
     ...SCORING_CADENCE,
   });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Building2 } from "lucide-react";
+import { ArrowUpRight, Building2, Orbit } from "lucide-react";
 import Link from "next/link";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
@@ -233,16 +233,26 @@ export function CompanySheet({
               <span>{formatMonthShort(month)}</span>
             </SheetDescription>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            nativeButton={false}
-            render={<Link href={`/cartera/${company.id}?mes=${month}`} />}
-            className="shrink-0"
-          >
-            Ficha completa
-            <ArrowUpRight aria-hidden />
-          </Button>
+          <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              size="sm"
+              nativeButton={false}
+              render={<Link href={`/pares?empresas=${company.id}&mes=${month}`} />}
+            >
+              <Orbit aria-hidden />
+              Comparar
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              nativeButton={false}
+              render={<Link href={`/cartera/${company.id}?mes=${month}`} />}
+            >
+              Ficha completa
+              <ArrowUpRight aria-hidden />
+            </Button>
+          </div>
         </div>
 
         <TabsList variant="line" className="-mb-px h-9 gap-4 p-0">

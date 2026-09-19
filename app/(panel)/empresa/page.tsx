@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getQueryClient } from "@/lib/core/react-query";
 import { getCompanyFileLive } from "@/lib/features/portfolio/live";
 import { portfolioKeys } from "@/lib/features/portfolio/queries";
-import { getBenchmark, getCompanyFile } from "@/lib/features/portfolio/source";
+import { getBenchmark, getCompanyFile, getPeerMap } from "@/lib/features/portfolio/source";
 import { loadPymeSearchParams } from "@/lib/features/portfolio/search-params";
 
 import { EmpresaClient } from "./empresa-client";
@@ -39,6 +39,10 @@ export default async function EmpresaPage({
   if (file && benchmark) {
     queryClient.setQueryData(portfolioKeys.company(state.empresa, state.mes), file);
     queryClient.setQueryData(portfolioKeys.benchmark(state.empresa, state.mes), benchmark);
+    queryClient.setQueryData(
+      portfolioKeys.peers(state.mes, "embat", state.empresa),
+      getPeerMap({ month: state.mes, scope: "embat", company: state.empresa }),
+    );
   }
 
   return (
