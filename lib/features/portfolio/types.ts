@@ -137,18 +137,51 @@ export type MonthScore = {
   /** Contrato scoring real cuando la ficha procede de Prisma; los fixtures mantienen el formato v1. */
   scoreSolo?: number;
   scoreGrupo?: number;
-  forecast?: {
-    scoreSoloPred3m: number;
-    scoreGrupoPred3m: number;
-    scoreSoloPred6m: number;
-    scoreGrupoPred6m: number;
-    p10Solo3m: number;
-    p90Solo3m: number;
-    p10Grupo3m: number;
-    p90Grupo3m: number;
-    metodoSolo: string;
-    metodoGrupo: string;
-  } | null;
+  /** Previsión a 3 y 6 meses (docs/forecast-engine.md). `null` si el run no la trae. */
+  forecast?: Forecast | null;
+};
+
+/**
+ * Qué significa la previsión en euros (PRODUCT §10: convertir el score en
+ * dinero). Se compara la banda prevista a 3 meses con la de hoy y se traduce a
+ * límite, TAE e intereses de un año. Positivo = la empresa gana.
+ */
+export type ForecastImpact = {
+  bandNow: Banda;
+  bandPred: Banda;
+  limitNow: number;
+  /** Límite que tocaría con la banda prevista; 0 si la banda prevista es D. */
+  limitPred: number;
+  aprNow: number | null;
+  aprPred: number | null;
+  /** € al año de intereses que la empresa se ahorra (+) o paga de más (−). */
+  annualDelta: number;
+  /** Crédito que gana (+) o pierde (−). */
+  limitDelta: number;
+  tone: "mejora" | "deterioro" | "igual";
+};
+
+/** Lo que las pantallas necesitan de la previsión, ya aplanado. */
+export type Forecast = {
+  scoreSoloPred3m: number;
+  scoreGrupoPred3m: number;
+  scoreSoloPred6m: number;
+  scoreGrupoPred6m: number;
+  p10Solo3m: number;
+  p90Solo3m: number;
+  p10Grupo3m: number;
+  p90Grupo3m: number;
+  p10Solo6m: number;
+  p90Solo6m: number;
+  bandaSoloPred3m: Banda;
+  bandaSoloPred6m: Banda;
+  direccionPred: Direccion;
+  /** La serie era demasiado corta para una tendencia: la previsión repite el score. */
+  sinTendencia: boolean;
+  /** `desconectado` = modo sombra: la decisión de este mes no la usa (decisión 38). */
+  metodoSolo: string;
+  metodoGrupo: string;
+  impact: ForecastImpact;
 };
 
 export type CompanyMeta = {
@@ -217,6 +250,8 @@ export type PortfolioRow = {
   /** Últimos 6 meses con trend3m, el actual incluido, para la estela del mapa. */
   trail: TrailPoint[];
   hot: HotSignal | null;
+  /** Dónde estará en 3 meses si nada cambia, y qué le cuesta. `null` sin previsión. */
+  forecast: { score3m: number; band3m: Banda; impact: ForecastImpact } | null;
   /** D1: peso de la empresa dentro de su grupo. 1 si va sola. */
   share: number;
 };
@@ -234,7 +269,21 @@ export type PortfolioSummary = {
   exposure: number;
   /** Empresas cuya acción no es "mantener" este mes. */
   moved: number;
+  /** Previsión a 3 meses: cuántas cambian de banda y cuánto dinero hay en juego. */
+  forecast: {
+    bandUp: number;
+    bandDown: number;
+    /** Suma de `annualDelta`: positivo = las empresas ganan en conjunto. */
+    annualDelta: number;
+  };
 };
+
+/**
+ * Fila tal y como viaja a la tabla y al mapa: sin el motivo (solo lo lee el CSV)
+ * ni la sparkline (solo la llevan las filas de `hot`). Con ~1.300 empresas esos
+ * dos campos son un tercio del payload.
+ */
+export type PortfolioListRow = Omit<PortfolioRow, "reason" | "spark">;
 
 export type PortfolioResponse = {
   month: string;
@@ -244,12 +293,15 @@ export type PortfolioResponse = {
   previous: PortfolioSummary | null;
   /** Mismo filtro, cada mes del calendario hasta el seleccionado, en orden. */
   history: PortfolioSummary[];
-  rows: PortfolioRow[];
+  rows: PortfolioListRow[];
   /** Las que más se han movido de verdad este mes, sin filtros, por rango. */
   hot: PortfolioRow[];
   /** Filas antes de aplicar filtros, para distinguir "cartera vacía" de "filtro vacío". */
   totalUnfiltered: number;
 };
+
+/** Lo que materializa `scoring:import` por mes: la misma respuesta con las filas completas. */
+export type PortfolioSnapshotPayload = Omit<PortfolioResponse, "rows"> & { rows: PortfolioRow[] };
 
 export type GroupPeer = {
   id: string;

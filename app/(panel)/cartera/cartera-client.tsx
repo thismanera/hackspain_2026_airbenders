@@ -1,9 +1,10 @@
 "use client";
 
 import { SearchX } from "lucide-react";
+import dynamic from "next/dynamic";
+import { useTransition } from "react";
 
 import { HotList } from "@/components/grifo/hot-list";
-import { AccionBreakdown, EstadoEvolution } from "@/components/grifo/portfolio-charts";
 import { PortfolioFilters } from "@/components/grifo/portfolio-filters";
 import { PortfolioKpis } from "@/components/grifo/portfolio-summary";
 import { PortfolioTable } from "@/components/grifo/portfolio-table";
@@ -17,8 +18,17 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { cn } from "@/lib/core/utils";
 import { usePortfolio, usePortfolioFilters, useSheetState } from "@/lib/features/portfolio/hooks";
 import { formatMonthLong } from "@/lib/features/portfolio/format";
+
+/** Recharts fuera del bundle inicial: la tabla y los KPI no lo necesitan para hidratar. */
+const EstadoEvolution = dynamic(() =>
+  import("@/components/grifo/portfolio-charts").then((m) => m.EstadoEvolution),
+);
+const AccionBreakdown = dynamic(() =>
+  import("@/components/grifo/portfolio-charts").then((m) => m.AccionBreakdown),
+);
 
 const CLEARED = {
   q: "",
@@ -26,10 +36,12 @@ const CLEARED = {
   accion: "todas",
   direccion: "todas",
   banda: "todas",
+  prevision: "todas",
 } as const;
 
 export function CarteraClient() {
-  const [filters, setFilters] = usePortfolioFilters();
+  const [isPending, startTransition] = useTransition();
+  const [filters, setFilters] = usePortfolioFilters(startTransition);
   const { data } = usePortfolio(filters);
   const [, setSheet] = useSheetState();
 
@@ -39,7 +51,10 @@ export function CarteraClient() {
     void setSheet({ empresa, grupo: "", pestana: "decision" });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div
+      className={cn("flex flex-col gap-4 transition-opacity", isPending && "opacity-70")}
+      aria-busy={isPending}
+    >
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h1 className="text-xl font-semibold tracking-[-0.02em]">Cartera</h1>
@@ -110,6 +125,7 @@ export function CarteraClient() {
         <PortfolioTable
           rows={data.rows}
           month={data.month}
+          resetKey={JSON.stringify(filters)}
           onOpenCompany={openCompany}
           onOpenGroup={(grupo) => void setSheet({ empresa: "", grupo, pestana: "decision" })}
         />

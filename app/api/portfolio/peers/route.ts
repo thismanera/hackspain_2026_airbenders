@@ -26,8 +26,12 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: "La vista de empresa necesita `empresa`" }, { status: 400 });
   }
 
-  return scoringResponse(async () => {
-    const map = await getPeerMap({ month, scope, company: empresa });
-    return empresa && map.focus === null ? null : map;
-  }, "Empresa no encontrada");
+  return scoringResponse(
+    async () => {
+      const map = await getPeerMap({ month, scope, company: empresa });
+      return empresa && map.focus === null ? null : map;
+    },
+    "Empresa no encontrada",
+    request,
+  );
 }

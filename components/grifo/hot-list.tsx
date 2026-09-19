@@ -79,6 +79,9 @@ export function HotList({
                       ? `${row.hot.driver} ${formatSigned(row.hot.driverDelta)}`
                       : "Varias variables a la vez"}
                     {row.hot?.hasCritical ? " · alerta crítica" : ""}
+                    {row.forecast && row.forecast.impact.tone !== "igual"
+                      ? ` · en 3 m banda ${row.forecast.band3m}`
+                      : ""}
                   </span>
                 </span>
                 <Sparkline values={row.spark} direction={row.direction} className="shrink-0" />

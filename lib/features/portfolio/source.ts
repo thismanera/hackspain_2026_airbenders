@@ -30,6 +30,7 @@ import {
   benchmarkFromSnapshot,
   companyFileFromSnapshot,
   groupKey,
+  leanPortfolio,
   portfolioFromSnapshot,
   readingKey,
   SNAPSHOT_KIND,
@@ -45,6 +46,7 @@ import type {
   GroupsResponse,
   PeerMapResponse,
   PortfolioResponse,
+  PortfolioSnapshotPayload,
   Scope,
 } from "./types";
 
@@ -59,17 +61,37 @@ const cachedRun = unstable_cache(
   { revalidate: RUN_TTL_SECONDS, tags: ["portfolio-run"] },
 );
 
-const cachedSnapshot = unstable_cache(
-  async (runId: string, kind: SnapshotKind, key: string): Promise<Prisma.JsonValue | null> => {
-    const row = await prisma.portfolioSnapshot
-      .findUnique({
-        where: { runId_kind_key: { runId, kind, key } },
-        select: { payload: true },
-      })
-      .catch(unavailableIfUnreachable);
-    return row?.payload ?? null;
+async function readSnapshot(
+  runId: string,
+  kind: SnapshotKind,
+  key: string,
+): Promise<Prisma.JsonValue | null> {
+  const row = await prisma.portfolioSnapshot
+    .findUnique({
+      where: { runId_kind_key: { runId, kind, key } },
+      select: { payload: true },
+    })
+    .catch(unavailableIfUnreachable);
+  return row?.payload ?? null;
+}
+
+const cachedSnapshot = unstable_cache(readSnapshot, ["portfolio-snapshot"], {
+  revalidate: false,
+  tags: ["portfolio-snapshot"],
+});
+
+/**
+ * La cartera se cachea ya recortada: la fila materializada entera ronda los 2 MB
+ * por mes con 1.300 empresas, que es el tope por entrada de la caché de datos de
+ * Next; pasado ese tope la entrada se descarta en silencio y cada petición
+ * vuelve a Postgres.
+ */
+const cachedPortfolio = unstable_cache(
+  async (runId: string, month: string): Promise<PortfolioResponse | null> => {
+    const payload = await readSnapshot(runId, SNAPSHOT_KIND.portfolio, month);
+    return payload === null ? null : leanPortfolio(payload as PortfolioSnapshotPayload);
   },
-  ["portfolio-snapshot"],
+  ["portfolio-lean"],
   { revalidate: false, tags: ["portfolio-snapshot"] },
 );
 
@@ -89,16 +111,19 @@ async function snapshot<T>(kind: SnapshotKind, key: string): Promise<T | null> {
 /** Las filas por mes existen para todo el calendario; si falta una, el run está a medias. */
 async function monthly<T>(kind: SnapshotKind, requestedMonth?: string): Promise<T> {
   const found = await snapshot<T>(kind, resolveMonth(requestedMonth));
-  if (found === null) {
-    throw new ScoringUnavailableError(
-      "La ejecución vigente no tiene el panel materializado; ejecuta pnpm scoring:import",
-    );
-  }
-  return found;
+  return found ?? missingSnapshot();
 }
 
-export async function getPortfolio(filters: PortfolioFilters = {}): Promise<PortfolioResponse> {
-  const full = await monthly<PortfolioResponse>(SNAPSHOT_KIND.portfolio, filters.month);
+function missingSnapshot(): never {
+  throw new ScoringUnavailableError(
+    "La ejecución vigente no tiene el panel materializado; ejecuta pnpm scoring:import",
+  );
+}
+
+async function filtered<T extends PortfolioResponse>(
+  full: T,
+  filters: PortfolioFilters,
+): Promise<T> {
   if (!hasFilters(filters)) return full;
   // Con filtro, la historia se recalcula sobre las filas ligeras de los meses anteriores.
   const past = full.months.slice(0, full.months.indexOf(full.month));
@@ -107,6 +132,21 @@ export async function getPortfolio(filters: PortfolioFilters = {}): Promise<Port
   );
   const lite = new Map(past.map((month, i) => [month, rows[i] ?? []]));
   return portfolioFromSnapshot(full, filters, (month) => lite.get(month) ?? []);
+}
+
+export async function getPortfolio(filters: PortfolioFilters = {}): Promise<PortfolioResponse> {
+  const run = await currentRun();
+  const full = await cachedPortfolio(run.id, resolveMonth(filters.month));
+  return filtered(full ?? missingSnapshot(), filters);
+}
+
+/** Filas completas (motivo incluido) para el CSV; lectura directa, sin pasar por la caché. */
+export async function getPortfolioExport(
+  filters: PortfolioFilters = {},
+): Promise<PortfolioSnapshotPayload> {
+  const run = await currentRun();
+  const payload = await readSnapshot(run.id, SNAPSHOT_KIND.portfolio, resolveMonth(filters.month));
+  return filtered((payload as PortfolioSnapshotPayload | null) ?? missingSnapshot(), filters);
 }
 
 export async function getCompanyFile(

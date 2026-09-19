@@ -6,6 +6,7 @@
  */
 import { CALENDAR, LATEST_MONTH } from "./calendar";
 import type { CompanyDataset, Dataset } from "./dataset";
+import { matchesPrevision, rowForecast, summariseForecast, type Prevision } from "./forecast-rows";
 import { INDICATORS } from "./indicators";
 import type {
   Accion,
@@ -27,8 +28,8 @@ import type {
   GroupsResponse,
   HotSignal,
   MonthScore,
-  PortfolioResponse,
   PortfolioRow,
+  PortfolioSnapshotPayload,
   PortfolioSummary,
   TrailPoint,
 } from "./types";
@@ -41,6 +42,7 @@ export type PortfolioFilters = {
   accion?: Accion | "todas";
   direccion?: Direccion | "todas";
   banda?: Banda | "todas";
+  prevision?: Prevision | "todas";
 };
 
 /** Lo mínimo que necesitan las funciones puras: las empresas y, si lo hay, el backtest del motor. */
@@ -180,6 +182,7 @@ function rowFor(entry: CompanyDataset, month: string): PortfolioRow | null {
     trail,
     hot,
     share: current.group?.share ?? 1,
+    forecast: rowForecast(current),
   };
 }
 
@@ -217,7 +220,11 @@ function rankHot(rows: PortfolioRow[]): PortfolioRow[] {
 export type PortfolioLiteRow = Pick<
   PortfolioRow,
   "estado" | "action" | "direction" | "band" | "eligible" | "limit" | "changed"
-> & { company: Pick<PortfolioRow["company"], "id" | "groupId"> };
+> & {
+  company: Pick<PortfolioRow["company"], "id" | "groupId">;
+  /** Opcional: los snapshots materializados antes de la previsión no lo traen. */
+  forecast?: PortfolioRow["forecast"];
+};
 
 export function liteRow(row: PortfolioRow): PortfolioLiteRow {
   return {
@@ -229,6 +236,7 @@ export function liteRow(row: PortfolioRow): PortfolioLiteRow {
     eligible: row.eligible,
     limit: row.limit,
     changed: row.changed,
+    forecast: row.forecast,
   };
 }
 
@@ -259,7 +267,17 @@ export function summarise(month: string, rows: PortfolioLiteRow[]): PortfolioSum
     }
   }
 
-  return { month, total: rows.length, byEstado, byDireccion, byAccion, eligible, exposure, moved };
+  return {
+    month,
+    total: rows.length,
+    byEstado,
+    byDireccion,
+    byAccion,
+    eligible,
+    exposure,
+    moved,
+    forecast: summariseForecast(rows),
+  };
 }
 
 function rowsFor(companies: SourceDataset["companies"], month: string): PortfolioRow[] {
@@ -283,7 +301,8 @@ export function matches(filters: PortfolioFilters): (row: PortfolioLiteRow) => b
     (!filters.estado || filters.estado === "todos") &&
     (!filters.accion || filters.accion === "todas") &&
     (!filters.direccion || filters.direccion === "todas") &&
-    (!filters.banda || filters.banda === "todas");
+    (!filters.banda || filters.banda === "todas") &&
+    (!filters.prevision || filters.prevision === "todas");
   if (inactive) return ALL;
   const needle = filters.q?.trim().toLowerCase() ?? "";
   return (row) => {
@@ -296,6 +315,7 @@ export function matches(filters: PortfolioFilters): (row: PortfolioLiteRow) => b
       return false;
     }
     if (filters.banda && filters.banda !== "todas" && row.band !== filters.banda) return false;
+    if (!matchesPrevision(row, filters.prevision)) return false;
     return true;
   };
 }
@@ -303,7 +323,7 @@ export function matches(filters: PortfolioFilters): (row: PortfolioLiteRow) => b
 export function portfolioFrom(
   dataset: SourceDataset,
   filters: PortfolioFilters = {},
-): PortfolioResponse {
+): PortfolioSnapshotPayload {
   const month = resolveMonth(filters.month);
   const keep = matches(filters);
 

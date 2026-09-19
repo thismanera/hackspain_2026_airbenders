@@ -7,6 +7,8 @@ import { ActionBadge } from "@/components/grifo/action-badge";
 import { AlertsTimeline } from "@/components/grifo/company/alerts-timeline";
 import { Cascade } from "@/components/grifo/company/cascade";
 import { CoveragePanel } from "@/components/grifo/company/coverage-panel";
+import { ForecastImpactLine } from "@/components/grifo/company/forecast-impact";
+import { ForecastPanel } from "@/components/grifo/company/forecast-panel";
 import { GatesPanel } from "@/components/grifo/company/gates";
 import { GroupPanel } from "@/components/grifo/company/group-panel";
 import { OfferMenu } from "@/components/grifo/company/offer-menu";
@@ -26,6 +28,7 @@ import {
   formatEuros,
   formatMonthShort,
   formatPercent,
+  formatScore,
 } from "@/lib/features/portfolio/format";
 import {
   decisionNarrative,
@@ -119,6 +122,14 @@ function DecisionLead({ file }: { file: CompanyFileResponse }) {
             <FeaturedAlert alerts={alerts} />
           </div>
         ) : null}
+        {/* Anticipación: dónde estará en 3 meses y qué cuesta. En sombra (decisión 38):
+            informa y ordena la agenda, pero la decisión de arriba no depende de ella. */}
+        {file.latest.forecast ? (
+          <div className="border-t px-4 py-2.5">
+            <p className="text-muted-foreground text-xs">Anticipación a 3 meses</p>
+            <ForecastImpactLine forecast={file.latest.forecast} showAction className="mt-1" />
+          </div>
+        ) : null}
       </section>
     </>
   );
@@ -179,6 +190,14 @@ export function CompanyScoreTab({ file }: { file: CompanyFileResponse }) {
         <DetailRow title="Evolución del score">
           <ScoreTrend history={history} inset />
         </DetailRow>
+        {latest.forecast ? (
+          <DetailRow
+            title="Previsión a 3 y 6 meses"
+            aside={`${formatScore(latest.forecast.scoreSoloPred3m)} en 3 m · banda ${latest.forecast.bandaSoloPred3m}`}
+          >
+            <ForecastPanel file={file} inset />
+          </DetailRow>
+        ) : null}
         <DetailRow title="Cobertura del dato" aside={formatPercent(latest.confidence, 0)}>
           <CoveragePanel inset coverage={latest.coverage} confidence={latest.confidence} />
         </DetailRow>

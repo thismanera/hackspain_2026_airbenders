@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { SCORING_UNAVAILABLE } from "@/lib/features/portfolio/queries";
-import { getPortfolio, ScoringUnavailableError } from "@/lib/features/portfolio/source";
-import type { PortfolioResponse } from "@/lib/features/portfolio/types";
+import { getPortfolioExport, ScoringUnavailableError } from "@/lib/features/portfolio/source";
+import type { PortfolioSnapshotPayload } from "@/lib/features/portfolio/types";
 import { ACCION, DIRECCION, ESTADO, NATURALEZA } from "@/lib/features/portfolio/vocabulary";
 
 const querySchema = z.object({
@@ -48,9 +48,9 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   let month: string;
-  let rows: PortfolioResponse["rows"];
+  let rows: PortfolioSnapshotPayload["rows"];
   try {
-    ({ month, rows } = await getPortfolio(parsed.data));
+    ({ month, rows } = await getPortfolioExport(parsed.data));
   } catch (error) {
     if (error instanceof ScoringUnavailableError) {
       return Response.json({ error: error.message, code: SCORING_UNAVAILABLE }, { status: 503 });

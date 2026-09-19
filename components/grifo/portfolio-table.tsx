@@ -5,6 +5,7 @@ import type { MouseEvent } from "react";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
 import { CompanyAvatar } from "@/components/grifo/company-avatar";
+import { ShowMore, useVisibleRows } from "@/components/grifo/show-more";
 import { StatusBadge } from "@/components/grifo/status-badge";
 import {
   AlertFlag,
@@ -21,9 +22,46 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { PortfolioRow } from "@/lib/features/portfolio/types";
+import { IMPACT_TONE } from "@/components/grifo/company/forecast-impact";
+import { cn } from "@/lib/core/utils";
+import { formatEurosCompact, formatScore } from "@/lib/features/portfolio/format";
+import type { PortfolioListRow } from "@/lib/features/portfolio/types";
 
-function hrefFor(row: PortfolioRow, month: string): string {
+/**
+ * Dónde estará en 3 meses y qué le cuesta: score previsto, cambio de banda si lo
+ * hay, y euros al año. El texto dice lo mismo que el color (PRODUCT §8.6). La
+ * previsión va en sombra: informa, la acción de la fila no depende de ella.
+ */
+function ForecastCell({ row, align = "end" }: { row: PortfolioListRow; align?: "start" | "end" }) {
+  const forecast = row.forecast;
+  if (!forecast) return <span className="text-muted-foreground tabular-nums">—</span>;
+  const { impact } = forecast;
+  const money = impact.annualDelta;
+  return (
+    <span
+      className={cn("flex flex-col leading-tight", align === "end" ? "items-end" : "items-start")}
+    >
+      <span className="flex items-center gap-1.5">
+        <span className="font-medium tabular-nums">{formatScore(forecast.score3m)}</span>
+        <span className={cn("font-mono text-xs", IMPACT_TONE[impact.tone])}>
+          {impact.tone === "igual" ? forecast.band3m : `${impact.bandNow}→${impact.bandPred}`}
+        </span>
+      </span>
+      <span
+        className={cn(
+          "text-xs tabular-nums",
+          money === 0 ? "text-muted-foreground" : IMPACT_TONE[impact.tone],
+        )}
+      >
+        {money === 0
+          ? "mismo coste"
+          : `${money > 0 ? "+" : "−"}${formatEurosCompact(Math.abs(money))}/año`}
+      </span>
+    </span>
+  );
+}
+
+function hrefFor(row: PortfolioListRow, month: string): string {
   return `/cartera/${row.company.id}?mes=${month}`;
 }
 
@@ -40,7 +78,7 @@ function GroupTag({
   row,
   onOpenGroup,
 }: {
-  row: PortfolioRow;
+  row: PortfolioListRow;
   onOpenGroup?: (groupId: string) => void;
 }) {
   if (!onOpenGroup || row.company.groupSize <= 1) {
@@ -59,12 +97,14 @@ function GroupTag({
 }
 
 export function PortfolioTable({
-  rows,
+  rows: allRows,
   month,
+  resetKey,
   onOpenCompany,
   onOpenGroup,
-}: { rows: PortfolioRow[]; month: string } & Openers) {
-  const companyClick = (row: PortfolioRow) => (event: MouseEvent<HTMLAnchorElement>) => {
+}: { rows: PortfolioListRow[]; month: string; resetKey: string } & Openers) {
+  const { visible: rows, hidden, showMore, showAll } = useVisibleRows(allRows, resetKey);
+  const companyClick = (row: PortfolioListRow) => (event: MouseEvent<HTMLAnchorElement>) => {
     if (!onOpenCompany || !plainClick(event)) return;
     event.preventDefault();
     onOpenCompany(row.company.id);
@@ -76,13 +116,14 @@ export function PortfolioTable({
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[24%]">Empresa</TableHead>
-              <TableHead className="w-[11%]">Estado</TableHead>
-              <TableHead className="w-[9%] text-right">Score</TableHead>
-              <TableHead className="w-[10%] text-right">Δ 3 meses</TableHead>
-              <TableHead className="w-[12%] text-center">Límite</TableHead>
-              <TableHead className="w-[12%] text-right">Δ límite</TableHead>
-              <TableHead className="w-[22%]">Acción</TableHead>
+              <TableHead className="w-[20%]">Empresa</TableHead>
+              <TableHead className="w-[10%]">Estado</TableHead>
+              <TableHead className="w-[8%] text-right">Score</TableHead>
+              <TableHead className="w-[9%] text-right">Δ 3 meses</TableHead>
+              <TableHead className="w-[13%] text-right">Previsión 3 m</TableHead>
+              <TableHead className="w-[11%] text-center">Límite</TableHead>
+              <TableHead className="w-[11%] text-right">Δ límite</TableHead>
+              <TableHead className="w-[18%]">Acción</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -112,6 +153,9 @@ export function PortfolioTable({
                 </TableCell>
                 <TableCell className="text-right">
                   <DeltaFigure delta={row.trend3m} />
+                </TableCell>
+                <TableCell className="text-right">
+                  <ForecastCell row={row} />
                 </TableCell>
                 <TableCell className="text-center">
                   <MoneyFigure
@@ -170,6 +214,12 @@ export function PortfolioTable({
                   <DeltaFigure delta={row.trend3m} />
                 </dd>
               </div>
+              <div className="col-span-2">
+                <dt className="text-muted-foreground text-xs">Previsión 3 m</dt>
+                <dd>
+                  <ForecastCell row={row} align="start" />
+                </dd>
+              </div>
               <div>
                 <dt className="text-muted-foreground text-xs">Límite</dt>
                 <dd>
@@ -200,6 +250,8 @@ export function PortfolioTable({
           </li>
         ))}
       </ul>
+
+      <ShowMore hidden={hidden} onMore={showMore} onAll={showAll} noun="empresas" />
     </>
   );
 }
