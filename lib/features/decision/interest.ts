@@ -1,4 +1,4 @@
-import { banda, esPeor } from "@/lib/features/decision/limit";
+import { banda, esPeor, scoreForDecision } from "@/lib/features/decision/limit";
 import { DECISION_PARAMS as P, type Banda } from "@/lib/features/decision/params";
 import type { DecisionInput, DesgloseTae } from "@/lib/features/decision/types";
 
@@ -24,7 +24,7 @@ export function tae(bEfectiva: Banda, plazoDias: number, r: DecisionInput, banda
         : r.direccion === "deterioro"
           ? P.ajusteDeterioroPp
           : 0,
-    primaPrevision: esPeor(bandaPred, banda(r.score)) ? P.primaPrevisionPp : 0,
+    primaPrevision: esPeor(bandaPred, banda(scoreForDecision(r))) ? P.primaPrevisionPp : 0,
   };
   const total =
     desglose.base +

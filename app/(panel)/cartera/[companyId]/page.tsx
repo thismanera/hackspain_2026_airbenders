@@ -11,6 +11,7 @@ import { getQueryClient } from "@/lib/core/react-query";
 import { fetchCompanyFile, portfolioKeys } from "@/lib/features/portfolio/queries";
 import { loadCompanySearchParams } from "@/lib/features/portfolio/search-params";
 import { getCompanyFile } from "@/lib/features/portfolio/source";
+import { getCompanyFileLive } from "@/lib/features/portfolio/live";
 
 import { CompanyClient } from "./company-client";
 
@@ -34,7 +35,8 @@ export default async function CompanyPage({ params, searchParams }: Props) {
   ]);
 
   // Una empresa que no existe merece un 404 de verdad, no un panel de error.
-  if (!getCompanyFile(companyId, mes)) notFound();
+  const liveFile = await getCompanyFileLive(companyId, mes);
+  if (!liveFile && !getCompanyFile(companyId, mes)) notFound();
 
   const queryClient = getQueryClient();
   void queryClient.prefetchQuery({

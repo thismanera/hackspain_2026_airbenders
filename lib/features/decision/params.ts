@@ -61,6 +61,9 @@ export const DECISION_PARAMS = {
   // uso simulado para métricas (§14)
   usoSimulado: 0.6,
   plazoNaturalDefecto: 60,
+  revisionStage2PlazoDias: 60,
+  scorePredMinApertura: 45,
+  avalMatrizMin: 15,
 } as const;
 export type DecisionParams = typeof DECISION_PARAMS;
 

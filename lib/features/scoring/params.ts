@@ -29,7 +29,7 @@ type Anchor = readonly [raw: number, nota: number];
 type AnchoredScales = Partial<Record<VariableId, readonly Anchor[]>>;
 
 export const PARAMS = {
-  contratoVersion: "scoreSolo-holding-v4",
+  contratoVersion: "scoreSolo-holding-v5",
   mesInicio: "2024-09",
   mesFin: "2026-08",
   ventanaCorta: 6,
@@ -169,6 +169,17 @@ export const PARAMS = {
   alertaContagio: -10,
   vencidoAlto: 0.4,
   volatilidadPercentil: 0.8,
+  hardcoreRevolving: {
+    minMesesObservados: 3,
+    penalizacionA5: 20,
+  },
+  ewi: {
+    minIndicadoresRevision: 2,
+    a3CoberturaMin: 1.3,
+    c4Morosidad: 0.25,
+    revisionPlazoDias: 60,
+  },
+  gapCicloDiasEmbat: 30,
 } as const;
 export type Params = typeof PARAMS;
 

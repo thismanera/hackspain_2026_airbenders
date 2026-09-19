@@ -167,6 +167,30 @@ export function earlyWarning(
   return c6 !== null && c6 > 0 && (previousC6 === null || c6 > previousC6);
 }
 
+function evaluacionEwi(row: {
+  rachaB2: number;
+  C4: number | null;
+  deficitMes: boolean | null;
+  rachaDeficit: number;
+  variables: ScoreRow["variables"];
+}): ScoreRow["evaluacionEwi"] {
+  const a3 = row.variables.find((v) => v.id === "A3");
+  const c6 = row.variables.find((v) => v.id === "C6");
+  const ewis = {
+    ewi1ImpagoObligaciones: row.rachaB2 >= 1,
+    ewi2MorosidadComercial:
+      (row.C4 !== null && row.C4 > PARAMS.ewi.c4Morosidad) || (c6?.raw ?? 0) > 0,
+    ewi3TensionCobertura:
+      a3?.aplicable === true && a3.raw !== null && a3.raw < PARAMS.ewi.a3CoberturaMin,
+    ewi4DeficitPersistente: row.rachaDeficit >= 2,
+  };
+  return {
+    ewis,
+    revisionStage2Candidata:
+      Object.values(ewis).filter(Boolean).length >= PARAMS.ewi.minIndicadoresRevision,
+  };
+}
+
 export function trajectory(
   current: ScoreRow,
   previous: ScoreRow | undefined,
@@ -283,17 +307,20 @@ export function scoreGroup(input: GroupInput, params: Parameters): ScoreRow[] {
       // sigue siendo el total de cobros del grupo.
       const siblings = conEvidencia.filter((m) => m.company !== id);
       const d = groupVariables(me, siblings);
-      const profile = perfilGrupo(
-        me.capacidadNeta6m ?? 0,
-        me.A1,
-        me.cobrosOpMedia6m !== undefined && me.pagosOpMedia6m !== undefined
-          ? me.cobrosOpMedia6m - me.pagosOpMedia6m
-          : me.capacidadNeta6m,
-        d.D2,
-        d.D4,
-        me.rachaB2,
-        me.b2Observed,
-      );
+      const profile =
+        siblings.length === 0
+          ? ("estandar" as const)
+          : perfilGrupo(
+              me.capacidadNeta6m ?? 0,
+              me.A1,
+              me.cobrosOpMedia6m !== undefined && me.pagosOpMedia6m !== undefined
+                ? me.cobrosOpMedia6m - me.pagosOpMedia6m
+                : me.capacidadNeta6m,
+              d.D2,
+              d.D4,
+              me.rachaB2,
+              me.b2Observed,
+            );
       const ajusteBase = ajusteHolding(me, siblings, d.D2, d.D5);
       const scoreGrupoPropuesto = Math.min(100, Math.max(0, s.scoreSolo + ajusteBase));
       const ajuste = Number(
@@ -439,7 +466,33 @@ export function scoreGroup(input: GroupInput, params: Parameters): ScoreRow[] {
         senales,
         alertas,
         cobertura: { ...s.extras.cobertura, nHermanasConDatos: siblings.length },
+        evaluacionEwi: {
+          revisionStage2Candidata: false,
+          ewis: {
+            ewi1ImpagoObligaciones: false,
+            ewi2MorosidadComercial: false,
+            ewi3TensionCobertura: false,
+            ewi4DeficitPersistente: false,
+          },
+        },
+        gapCicloDias: null,
+        recomendacionEmbat: null,
+        requiereAvalMatriz: ajuste >= 15,
+        alertaPignoracionCaja: ajuste <= -15,
       };
+      row.evaluacionEwi = evaluacionEwi({
+        rachaB2: row.rachaB2,
+        C4: row.C4,
+        deficitMes: row.deficitMes,
+        rachaDeficit: row.rachaDeficit,
+        variables: row.variables,
+      });
+      const b3 = row.variables.find((v) => v.id === "B3")?.raw ?? null;
+      row.gapCicloDias = row.C3dias !== null && b3 !== null ? Math.round(row.C3dias - b3) : null;
+      row.recomendacionEmbat =
+        row.gapCicloDias !== null && row.gapCicloDias > PARAMS.gapCicloDiasEmbat
+          ? `Gap comercial de +${row.gapCicloDias} días: cobras más tarde de lo que pagas. Activa anticipo de facturas en Embat.`
+          : null;
       row.patronTrayectoria = trajectory(
         row,
         prev,

@@ -151,6 +151,12 @@ function blockA(ctx: Ctx, hasLine: boolean, scheduleMonthly: number): Block {
   )
     rachaDeficit++;
   const current = ctx.history[ctx.t];
+  const observed6 = w6.filter((f) => f?.observed);
+  const hardcoreRevolving =
+    hasLine &&
+    observed6.length >= PARAMS.hardcoreRevolving.minMesesObservados &&
+    observed6.every((f) => f!.dispCredito > 0) &&
+    observed6.every((f) => f!.amortCredito === 0);
   return {
     vars: {
       A1: val(divide(caja6, cobros6), cTx),
@@ -177,7 +183,10 @@ function blockA(ctx: Ctx, hasLine: boolean, scheduleMonthly: number): Block {
         ? divide(current.cobrosOp - current.pagosOp, current.cobrosOp)
         : null,
     },
-    cobertura: { tieneCuotas: servicio6 > 0 || scheduleMonthly > 0 },
+    cobertura: {
+      tieneCuotas: servicio6 > 0 || scheduleMonthly > 0,
+      hardcoreRevolving,
+    },
   };
 }
 
@@ -307,6 +316,7 @@ export function computeVariables(input: VariableInput): { vars: VariableSet; ext
       tieneCuotas: false,
       C4Estimado: true,
       importesExcluidosEur: s(w6, "excluido"),
+      hardcoreRevolving: false,
       ...a.cobertura,
       ...b.cobertura,
       ...c.cobertura,

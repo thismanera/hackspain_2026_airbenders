@@ -9,6 +9,7 @@ import { CoveragePanel } from "@/components/grifo/company/coverage-panel";
 import { DecisionPanel } from "@/components/grifo/company/decision-panel";
 import { GatesPanel } from "@/components/grifo/company/gates";
 import { GroupPanel } from "@/components/grifo/company/group-panel";
+import { ForecastPanel } from "@/components/grifo/company/forecast-panel";
 import { OfferMenu } from "@/components/grifo/company/offer-menu";
 import { ScoreTrend } from "@/components/grifo/company/score-trend";
 import { StatusBadge } from "@/components/grifo/status-badge";
@@ -82,6 +83,7 @@ export function CompanyClient({ companyId, month }: { companyId: string; month: 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="flex flex-col gap-4 lg:col-span-2">
           <ScoreTrend history={history} />
+          <ForecastPanel companyId={companyId} month={month} />
           <Cascade month={latest} />
         </div>
 

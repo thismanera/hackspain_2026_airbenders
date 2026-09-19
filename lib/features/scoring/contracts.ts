@@ -126,6 +126,19 @@ export const scoreRowSchema = z.object({
   pagosOpGrupoMedia6m: finite,
   servicioDeudaGrupoMedia6m: finite,
   scoreGrupo: nota,
+  evaluacionEwi: z.object({
+    revisionStage2Candidata: z.boolean(),
+    ewis: z.object({
+      ewi1ImpagoObligaciones: z.boolean(),
+      ewi2MorosidadComercial: z.boolean(),
+      ewi3TensionCobertura: z.boolean(),
+      ewi4DeficitPersistente: z.boolean(),
+    }),
+  }),
+  gapCicloDias: nullable,
+  recomendacionEmbat: z.string().nullable(),
+  requiereAvalMatriz: z.boolean(),
+  alertaPignoracionCaja: z.boolean(),
   deficitMes: z.boolean().nullable(),
   margenMes: nullable,
   senales: z.object({
@@ -166,6 +179,7 @@ export const scoreRowSchema = z.object({
     C4Estimado: z.boolean(),
     importesExcluidosEur: finite.min(0),
     nHermanasConDatos: count,
+    hardcoreRevolving: z.boolean(),
   }),
 }) satisfies z.ZodType<ScoreRow>;
 export type ScoreRowDTO = z.infer<typeof scoreRowSchema>;

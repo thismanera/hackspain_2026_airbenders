@@ -63,6 +63,11 @@ export const decisionRowSchema = z.object({
   motivoAccion: z.string(),
   motivoGrupo: z.string().nullable(),
   bandaPred3mUsada: banda.nullable(),
+  bandaPredGrupo3mUsada: banda.nullable(),
+  scorePredSolo3m: finite.nullable(),
+  scorePredGrupo3m: finite.nullable(),
+  condicionAvalMatriz: z.boolean(),
+  revisionStage2Candidata: z.boolean(),
   estado,
 }) satisfies z.ZodType<DecisionRow>;
 export type DecisionRowDTO = z.infer<typeof decisionRowSchema>;

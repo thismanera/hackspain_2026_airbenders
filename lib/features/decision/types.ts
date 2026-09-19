@@ -11,7 +11,7 @@ export type { Banda };
  * Qué entra: el score autónomo (`ScoreRow.scoreSolo` → `score`) y sus pilares (`subscores`), la
  * confianza, el estado autónomo (`estadoSolo` → `estado`) y la tendencia (`direccion`,
  * `naturaleza`, `tendScore3m`, `tend3m`), los **tipos** de alerta, lo que define al grupo
- * (`D1`, `D5`, `ajusteHolding` → `avalGrupo`) y **una** variable de escala en euros, `tamano`
+ * (`D1`, `D5`, `ajusteHolding`) y **una** variable de escala en euros, `tamano`
  * (= `cobrosOpMedia3m`). El holding ya está en `scoreGrupo`; la decisión no lo vuelve a aplicar.
  *
  * Qué NO entra, y por qué: los flujos a 6 meses, `capacidadCuotaAdv`, `rachaB2`, `rachaDeficit`,
@@ -38,8 +38,15 @@ export type DecisionInput = {
   alertas: AlertTipo[];
   D1: number;
   D5: number;
-  /** `ScoreRow.ajusteHolding`: puntos de aval/contagio ya aplicados en `scoreGrupo`. */
-  avalGrupo: number;
+  /** `ScoreRow.ajusteHolding`: puntos de apoyo/contagio ya aplicados en `scoreGrupo`. */
+  ajusteHolding: number;
+  /** Nota de la empresa con apoyo/contagio del holding ya aplicado. */
+  scoreGrupo: number;
+  estadoGrupo: Estado;
+  requiereAvalMatriz: boolean;
+  alertaPignoracionCaja: boolean;
+  revisionStage2Candidata: boolean;
+  scoreDecision?: number;
   /** Única variable en euros del contrato: escala del anticipo (`cobrosOpMedia3m`). */
   tamano: number;
 };
@@ -103,12 +110,23 @@ export type MenuOption = {
 };
 
 /** Entrada opcional del forecast-engine (§1). Sin previsión: `metodo = "desconectado"` y `bandaPred3m = banda`. */
-export type PrevisionInput = {
+export type PrevisionTarget = {
   bandaPred3m: Banda;
   scorePred3m: number | null;
   direccionPred: Direccion | null;
   probDeterioro6m: number | null;
   metodo: "v1_proyeccion" | "v2_modelo" | "desconectado";
+};
+export type PrevisionInput = PrevisionTarget & {
+  solo?: PrevisionTarget;
+  grupo?: PrevisionTarget;
+  ajusteHoldingPred3m?: number;
+};
+export type PrevisionObjetivo = PrevisionInput;
+export type PrevisionDual = {
+  solo: PrevisionObjetivo;
+  grupo: PrevisionObjetivo;
+  ajusteHoldingPred3m: number;
 };
 
 /** Contrato decision-engine §10. */
@@ -142,6 +160,11 @@ export type DecisionRow = {
   motivoAccion: string;
   motivoGrupo: string | null;
   bandaPred3mUsada: Banda | null;
+  bandaPredGrupo3mUsada: Banda | null;
+  scorePredSolo3m: number | null;
+  scorePredGrupo3m: number | null;
+  condicionAvalMatriz: boolean;
+  revisionStage2Candidata: boolean;
   estado: EstadoDecision;
 };
 
