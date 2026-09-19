@@ -15,6 +15,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
 import { EmbatMark } from "@/components/grifo/embat-mark";
+import { SidebarRequestLine } from "@/components/grifo/sidebar-request-line";
 import { readViewMode, type ViewMode } from "@/components/grifo/view-mode";
 import {
   Sidebar,
@@ -159,7 +160,7 @@ export function AppSidebar() {
       <SidebarHeader className="border-b px-4 py-3">
         <Link href="/cartera" className="flex items-center gap-2.5 rounded-md">
           <EmbatMark size={28} />
-          <span className="text-sm font-semibold leading-tight">Embat Flow</span>
+          <span className="text-sm leading-tight font-semibold">Embat Flow</span>
         </Link>
       </SidebarHeader>
 
@@ -172,12 +173,21 @@ export function AppSidebar() {
         <Suspense fallback={<StaticNav sections={sections} />}>
           <LiveNav sections={sections} />
         </Suspense>
+
+        {/* El acto va pegado al pie, justo encima de la línea que cierra la
+            barra: es lo último que se ve y no se va con el scroll. */}
+        <Suspense fallback={null}>
+          <SidebarRequestLine className="mt-auto" />
+        </Suspense>
       </SidebarContent>
 
       <SidebarFooter className="border-t">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Cambiar entre vista de empresa y de partner" render={<Link href="/vista" />}>
+            <SidebarMenuButton
+              tooltip="Cambiar entre vista de empresa y de partner"
+              render={<Link href="/vista" />}
+            >
               <ArrowLeftRight aria-hidden className="size-4" />
               <span>Cambiar de vista</span>
             </SidebarMenuButton>
