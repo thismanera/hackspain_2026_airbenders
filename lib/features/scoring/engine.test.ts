@@ -331,6 +331,13 @@ test("C6 only warns when a returned-receipt ratio is new or increasing", () => {
   assert.equal(earlyWarning(80, withC6(null), [], false, 0, null, 0.1), true);
 });
 
+test("early warning detects an accumulated three-month fall at the inclusive threshold", () => {
+  const three = scoreRowFixture({ scoreSolo: 80 });
+  assert.equal(earlyWarning(72, undefined, [], false, 0, null, null, three), true);
+  assert.equal(earlyWarning(72.1, undefined, [], false, 0, null, null, three), false);
+  assert.equal(earlyWarning(72, undefined, [], false, 0, null, null), false);
+});
+
 test("non-structural deterioration has an explicit temporal trajectory", () => {
   const current = scoreRowFixture({ direccion: "deterioro", scoreSolo: 60 });
   const previous = scoreRowFixture({ direccion: "estable", scoreSolo: 64 });

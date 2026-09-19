@@ -4,15 +4,30 @@ import type {
   CanalRca,
   DecisionPostInflexion,
   DiagnosticoRespuesta,
+  ProductoSugerido,
 } from "@/lib/features/rca/types";
 import { VARIABLES, type VariableId } from "@/lib/features/scoring/params";
 import type { Contribution, ScoreRow } from "@/lib/features/scoring/types";
 
-const UMBRAL_VARIABLE = 1.5;
 const UMBRAL_HOLDING = 2;
 const EPSILON = 1e-9;
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
-const RCA_VARIABLES = ["A1", "A2", "A3", "A4", "A5", "B1", "B2", "B3", "C3", "C4", "C6"] as const;
+const RCA_VARIABLES = [
+  "A1",
+  "A2",
+  "A3",
+  "A4",
+  "A5",
+  "B1",
+  "B2",
+  "B3",
+  "C1",
+  "C2",
+  "C3",
+  "C4",
+  "C5",
+  "C6",
+] as const;
 type RcaVariable = (typeof RCA_VARIABLES)[number];
 
 type DecisionMetadata = {
@@ -107,6 +122,26 @@ const DICCIONARIO_DECISIONES = {
       "Utilizar confirming o acuerdos de aplazamiento antes de demorar pagos unilateralmente",
     canal: "financiero",
   },
+  C1: {
+    acierto: "Reducción observada de la concentración de clientes",
+    error: "Aumento observado de la concentración de clientes",
+    leccionAcierto: "Una cartera de clientes más diversificada reduce la dependencia comercial",
+    leccionError:
+      "La concentración de clientes aumenta la exposición a una sola relación comercial",
+    accionAcierto: "Mantener límites de exposición y seguimiento por cliente",
+    accionError: "Revisar límites de cliente y priorizar la diversificación de la cartera",
+    canal: "comercial",
+  },
+  C2: {
+    acierto: "Reducción observada de la concentración de proveedores",
+    error: "Aumento observado de la concentración de proveedores",
+    leccionAcierto: "Una red de proveedores más diversificada reduce la dependencia de suministro",
+    leccionError:
+      "La concentración de proveedores aumenta la exposición a interrupciones de suministro",
+    accionAcierto: "Mantener alternativas activas para los proveedores críticos",
+    accionError: "Revisar alternativas de suministro y acuerdos con proveedores clave",
+    canal: "comercial",
+  },
   C4: {
     acierto: "Reducción observada del peso de facturas vencidas sin cobrar",
     error: "Aumento observado del peso de facturas vencidas sin cobrar",
@@ -114,6 +149,15 @@ const DICCIONARIO_DECISIONES = {
     leccionError: "La acumulación de vencidos prolonga el desfase de tesorería",
     accionAcierto: "Mantener el seguimiento temprano de vencimientos y reclamaciones",
     accionError: "Revisar límites de cliente y valorar anticipo de las facturas elegibles",
+    canal: "comercial",
+  },
+  C5: {
+    acierto: "Reducción observada de la volatilidad de cobros",
+    error: "Aumento observado de la volatilidad de cobros",
+    leccionAcierto: "Una entrada de caja más predecible facilita la planificación operativa",
+    leccionError: "La volatilidad de cobros dificulta anticipar la caja disponible",
+    accionAcierto: "Mantener previsiones de cobro y seguimiento de desviaciones",
+    accionError: "Revisar el calendario de cobros y reservar caja para meses irregulares",
     canal: "comercial",
   },
   C3: {
@@ -146,6 +190,24 @@ const DICCIONARIO_DECISIONES = {
     canal: "holding",
   },
 } as const satisfies Readonly<Record<RcaVariable | "holding", DecisionMetadata>>;
+
+const PRODUCTOS_SUGERIDOS = {
+  A1: "ninguno",
+  A2: "ninguno",
+  A3: "reestructuracion_deuda",
+  A4: "reestructuracion_deuda",
+  A5: "reestructuracion_deuda",
+  B1: "ninguno",
+  B2: "ninguno",
+  B3: "embat_confirming",
+  C1: "ninguno",
+  C2: "ninguno",
+  C3: "embat_factoring",
+  C4: "embat_factoring",
+  C5: "ninguno",
+  C6: "gestion_cobros",
+  holding: "cortafuegos_holding",
+} as const satisfies Readonly<Record<RcaVariable | "holding", ProductoSugerido>>;
 
 type Finding = {
   decision: DecisionPostInflexion;
@@ -188,10 +250,14 @@ function hasComparableEvidence(rows: ScoreRow[], id: RcaVariable): boolean {
   return contributions.every((item) => Math.abs(item!.pesoEfectivo - weight) <= EPSILON);
 }
 
-function finding(id: RcaVariable, delta: number): Finding | null {
+function finding(id: RcaVariable, origin: Contribution, destination: Contribution): Finding | null {
   const meta = DICCIONARIO_DECISIONES[id];
   const order = VARIABLES.indexOf(id);
-  if (delta >= UMBRAL_VARIABLE)
+  const delta = destination.aportacion - origin.aportacion;
+  const deltaSubnota = destination.subnota! - origin.subnota!;
+  const threshold = Math.max(0.3, 1.5 * (destination.pesoEfectivo / 0.1));
+  const material = Math.abs(delta) >= threshold || Math.abs(deltaSubnota) >= 25;
+  if (material && delta > EPSILON)
     return {
       rawDelta: delta,
       order,
@@ -199,13 +265,14 @@ function finding(id: RcaVariable, delta: number): Finding | null {
         variable: id,
         canal: meta.canal,
         tipo: "acierto_mitigante",
+        productoSugerido: PRODUCTOS_SUGERIDOS[id],
         deltaPuntos: rounded(delta),
         descripcion: meta.acierto,
         leccionAprendida: meta.leccionAcierto,
         accionRecomendada: meta.accionAcierto,
       },
     };
-  if (delta <= -UMBRAL_VARIABLE)
+  if (material && delta < -EPSILON)
     return {
       rawDelta: delta,
       order,
@@ -213,6 +280,7 @@ function finding(id: RcaVariable, delta: number): Finding | null {
         variable: id,
         canal: meta.canal,
         tipo: "error_agravante",
+        productoSugerido: PRODUCTOS_SUGERIDOS[id],
         deltaPuntos: rounded(delta),
         descripcion: meta.error,
         leccionAprendida: meta.leccionError,
@@ -232,6 +300,7 @@ function holdingContext(delta: number): AnalisisPostInflexion["contextoHolding"]
         variable: "holding",
         canal: "holding",
         tipo: "acierto_mitigante",
+        productoSugerido: PRODUCTOS_SUGERIDOS.holding,
         deltaPuntos,
         descripcion: meta.acierto,
         leccionAprendida: meta.leccionAcierto,
@@ -245,6 +314,7 @@ function holdingContext(delta: number): AnalisisPostInflexion["contextoHolding"]
         variable: "holding",
         canal: "holding",
         tipo: "error_agravante",
+        productoSugerido: PRODUCTOS_SUGERIDOS.holding,
         deltaPuntos,
         descripcion: meta.error,
         leccionAprendida: meta.leccionError,
@@ -323,7 +393,7 @@ export function analizarReaccionPostInflexion(
     if (!hasComparableEvidence(period, id)) return [];
     const origin = contributionAt(start, id)!;
     const destination = contributionAt(current, id)!;
-    const result = finding(id, destination.aportacion - origin.aportacion);
+    const result = finding(id, origin, destination);
     return result ? [result] : [];
   });
   const sortByImpact = (a: Finding, b: Finding) =>
@@ -336,6 +406,13 @@ export function analizarReaccionPostInflexion(
     .sort(sortByImpact);
   if (!Number.isFinite(start.aportacionGrupo) || !Number.isFinite(current.aportacionGrupo))
     throw new Error("RCA: aportación de holding no finita");
+  const scoreRecuperableEstimado = Math.min(
+    100,
+    rounded(
+      current.scoreSolo + errores.reduce((total, item) => total + Math.abs(item.rawDelta), 0),
+    ),
+  );
+  const drenajeHolding = Math.max(0, -current.aportacionGrupo);
 
   const result: AnalisisPostInflexion = {
     company: current.company,
@@ -345,11 +422,10 @@ export function analizarReaccionPostInflexion(
     scoreEnInflexion: start.scoreSolo,
     scoreActual: current.scoreSolo,
     deltaScoreTotal: rounded(current.scoreSolo - start.scoreSolo),
-    scoreRecuperableEstimado: Math.min(
+    scoreRecuperableEstimado,
+    scoreRecuperableGrupoEstimado: Math.min(
       100,
-      rounded(
-        current.scoreSolo + errores.reduce((total, item) => total + Math.abs(item.rawDelta), 0),
-      ),
+      rounded(scoreRecuperableEstimado + drenajeHolding),
     ),
     tipoInflexion: inflexion.tipo,
     detonanteOriginal: {

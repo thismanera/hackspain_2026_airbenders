@@ -1,10 +1,18 @@
 export type TipoDecision = "acierto_mitigante" | "error_agravante";
 export type CanalRca = "operativo" | "financiero" | "comercial" | "holding";
+export type ProductoSugerido =
+  | "embat_factoring"
+  | "embat_confirming"
+  | "reestructuracion_deuda"
+  | "cortafuegos_holding"
+  | "gestion_cobros"
+  | "ninguno";
 
 export type DecisionPostInflexion = {
   variable: string;
   canal: CanalRca;
   tipo: TipoDecision;
+  productoSugerido: ProductoSugerido;
   /** Cambio de aportación entre el origen de la inflexión y el mes analizado. */
   deltaPuntos: number;
   /** Evidencia observada en el scoring; no atribuye causalidad ni una decisión de gestión. */
@@ -38,6 +46,8 @@ export type AnalisisPostInflexion = {
   deltaScoreTotal: number;
   /** Escenario contable si las pérdidas autónomas seleccionadas vuelven al origen. */
   scoreRecuperableEstimado: number;
+  /** Escenario contable adicional si se elimina el drenaje actual del holding. */
+  scoreRecuperableGrupoEstimado: number;
   tipoInflexion: "pico_bajista" | "suelo_alcista";
   detonanteOriginal: {
     id: string;

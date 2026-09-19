@@ -11,6 +11,14 @@ export const decisionPostInflexionSchema = z
     variable: z.string().min(1),
     canal: z.enum(["operativo", "financiero", "comercial", "holding"]),
     tipo: z.enum(["acierto_mitigante", "error_agravante"]),
+    productoSugerido: z.enum([
+      "embat_factoring",
+      "embat_confirming",
+      "reestructuracion_deuda",
+      "cortafuegos_holding",
+      "gestion_cobros",
+      "ninguno",
+    ]),
     deltaPuntos: finite,
     descripcion: z.string().min(1),
     leccionAprendida: z.string().min(1),
@@ -50,6 +58,7 @@ export const analisisPostInflexionSchema = z
     scoreActual: score,
     deltaScoreTotal: finite,
     scoreRecuperableEstimado: score,
+    scoreRecuperableGrupoEstimado: score,
     tipoInflexion: z.enum(["pico_bajista", "suelo_alcista"]),
     detonanteOriginal: z.object({
       id: z.string().min(1),
@@ -95,6 +104,12 @@ export const analisisPostInflexionSchema = z
         code: "custom",
         path: ["deltaScoreTotal"],
         message: "debe coincidir con la variación del score autónomo",
+      });
+    if (analysis.scoreRecuperableGrupoEstimado < analysis.scoreRecuperableEstimado)
+      ctx.addIssue({
+        code: "custom",
+        path: ["scoreRecuperableGrupoEstimado"],
+        message: "no puede ser inferior al escenario autónomo",
       });
     analysis.aciertos.forEach((decision, index) => {
       if (decision.tipo !== "acierto_mitigante")

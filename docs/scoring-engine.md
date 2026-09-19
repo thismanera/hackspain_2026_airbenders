@@ -1,6 +1,6 @@
 # Motor de scoring — especificación para desarrollo v1.0
 
-> Estado implementado: contrato `scoreSolo-holding-v6`. `scoreSolo` es la única nota
+> Estado implementado: contrato `scoreSolo-holding-v7`. `scoreSolo` es la única nota
 > autónoma; `scoreGrupo` añade el contexto de holding mediante `ajusteHolding`. Los
 > parámetros y artefactos de versiones anteriores no deben interpretarse con este contrato.
 
@@ -33,6 +33,10 @@ punto, y actualiza `antelacionMeses` sin desplazar el origen por un nuevo extrem
 dirección. Un giro contrario confirmado sustituye el origen; una ausencia mensual o la ruptura
 del extremo invalida la memoria. `diagnosticoMejora` puede estar liderado por A1, A2, B1, B2 o
 C4 y siempre exige la tendencia y continuidad documentadas.
+
+La alerta temprana añade una comprobación acumulada: una caída autónoma de al menos 8 puntos
+entre el mes actual y exactamente tres meses antes activa `alertaTempranaDeterioro`, además de las
+reglas mensual, déficit, C4 y C6.
 
 ## 1. Entradas
 
@@ -71,6 +75,7 @@ Todos los números viven en la tabla de parámetros con `version_parametros`
 | Fiabilidad                       | `recurrencia_min` (meses presentes de 6)                         | 3                                            | 6        |
 |                                  | `subnota_racha_1` / `decaimiento_meses`                          | 70 / 3                                       | 7        |
 | Evolución                        | `umbral_direccion` (puntos en 3 m)                               | 6                                            | 10       |
+|                                  | `caida_acumulada_3m_alerta` (puntos)                             | 8                                            | 10       |
 |                                  | `persistencia_estructural` (meses)                               | 2                                            | 10       |
 |                                  | `min_variables_estructural`                                      | 2                                            | 10       |
 |                                  | `delta_aportacion_min` (puntos)                                  | 1                                            | 10       |
@@ -416,17 +421,17 @@ racha_B2      = B2(t)
 
 ## 9. Alertas de señal
 
-| Tipo                        | Regla                                                                                                 | Persistencia     |
-| --------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------- |
-| `deterioro`                 | `direccion == deterioro`                                                                              | 2 meses seguidos |
-| `deterioro_estructural`     | `naturaleza == estructural` y deterioro                                                               | inmediata        |
-| `recuperacion`              | `direccion == mejora`                                                                                 | 2 meses seguidos |
-| `deficit_persistente`       | `caja_op < 0`                                                                                         | 3 meses seguidos |
-| `impago_obligaciones`       | `B2 ≥ 2`                                                                                              | inmediata        |
-| `vencido_alto`              | `C4 > 0,40`                                                                                           | 1 mes            |
-| `alerta_temprana_deterioro` | caída autónoma ≤ −4, primer déficit tras cuatro meses positivos, salto C4 > 0,15 o C6 nuevo/creciente | 1 mes            |
-| `contagio_grupo`            | `ajusteHolding ≤ −10`                                                                                 | 1 mes            |
-| `datos_insuficientes`       | `confianza < 0,3`                                                                                     | 1 mes            |
+| Tipo                        | Regla                                                                                                                                            | Persistencia     |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
+| `deterioro`                 | `direccion == deterioro`                                                                                                                         | 2 meses seguidos |
+| `deterioro_estructural`     | `naturaleza == estructural` y deterioro                                                                                                          | inmediata        |
+| `recuperacion`              | `direccion == mejora`                                                                                                                            | 2 meses seguidos |
+| `deficit_persistente`       | `caja_op < 0`                                                                                                                                    | 3 meses seguidos |
+| `impago_obligaciones`       | `B2 ≥ 2`                                                                                                                                         | inmediata        |
+| `vencido_alto`              | `C4 > 0,40`                                                                                                                                      | 1 mes            |
+| `alerta_temprana_deterioro` | caída autónoma mensual ≤ −4, caída acumulada a tres meses ≤ −8, primer déficit tras cuatro meses positivos, salto C4 > 0,15 o C6 nuevo/creciente | 1 mes            |
+| `contagio_grupo`            | `ajusteHolding ≤ −10`                                                                                                                            | 1 mes            |
+| `datos_insuficientes`       | `confianza < 0,3`                                                                                                                                | 1 mes            |
 
 Cada alerta guarda `desde_mes` (primer mes en que la regla se cumple sin
 interrupción). Las alertas de **acción** (abrir, reducir, cerrar) no son de
