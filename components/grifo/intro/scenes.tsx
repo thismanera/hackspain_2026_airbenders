@@ -597,9 +597,7 @@ export const SCENES: Scene[] = [
     kicker: "Quién financia",
     heroVisual: (
       <div className="intro-rise flex justify-center">
-        <span className="bg-muted text-foreground flex size-12 items-center justify-center rounded-full">
-          <Handshake className="size-6" strokeWidth={1.75} />
-        </span>
+        <Handshake className="text-foreground size-10" strokeWidth={1.75} />
       </div>
     ),
     title: (
