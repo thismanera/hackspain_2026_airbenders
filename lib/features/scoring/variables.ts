@@ -304,6 +304,7 @@ export function computeVariables(input: VariableInput): { vars: VariableSet; ext
       tieneLineaCredito: input.hasLine,
       tieneCuotas: false,
       C4Estimado: true,
+      importesExcluidosEur: s(w6, "excluido"),
       ...a.cobertura,
       ...b.cobertura,
       ...c.cobertura,

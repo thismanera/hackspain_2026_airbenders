@@ -65,6 +65,7 @@ export function scoreRowFixture(partial: Partial<ScoreRow> = {}): ScoreRow {
       tieneLineaCredito: false,
       tieneCuotas: true,
       C4Estimado: true,
+      importesExcluidosEur: 0,
       nHermanasConDatos: 0,
     },
     ...partial,

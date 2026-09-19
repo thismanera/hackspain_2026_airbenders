@@ -94,6 +94,8 @@ export type Extras = {
     tieneLineaCredito: boolean;
     tieneCuotas: boolean;
     C4Estimado: boolean;
+    /** Suma 6m del importe € excluido por producto desconocido o no operativo (§10). */
+    importesExcluidosEur: number;
   };
 };
 

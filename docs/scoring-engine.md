@@ -298,7 +298,8 @@ correcto; una cancelada después también, que no lo es). Se marca
 
 ### 5.4 Bloque D — Grupo (no pondera; ajusta en §7)
 
-Con `G` = empresas del grupo con fila en `t`, `H = G \ {empresa}`:
+Con `G` = empresas del grupo con evidencia de 12 meses en `t` (§14),
+`H = G \ {empresa}`:
 
 ```text
 D1 peso_grupo   = Σ12m cobros_op / Σ12m cobros_op_grupo                          ; grupo de 1 → 1
@@ -510,6 +511,11 @@ evento_recuperacion(t) = 3 meses seguidos con caja_op ≥ 0 desde t, precedidos 
      evolución (necesita filas t−1, t−3) → alertas
      persistir company_month_score[t]
 ```
+
+Las hermanas de `t` son las empresas del grupo con evidencia de 12 meses en
+`t` (`Σ12m cobros_op > 0` o `confianza ≥ conf_sin_datos`), no las que tienen
+fila en `t`: un mes vacío suelto no puede sacar a una hermana de D1-D5 ni
+hacer parpadear el aval.
 
 Cada tabla intermedia se persiste; cada etapa es reproducible sin las
 posteriores.

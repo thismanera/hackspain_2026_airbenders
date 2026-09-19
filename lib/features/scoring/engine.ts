@@ -1,4 +1,4 @@
-import { aggregate, estado } from "@/lib/features/scoring/aggregate";
+import { aggregate, estado, type Aggregated } from "@/lib/features/scoring/aggregate";
 import { computeAlerts, deltas, direccion, naturaleza } from "@/lib/features/scoring/evolution";
 import { groupFlows, monthlyFlows } from "@/lib/features/scoring/flows";
 import { avalGrupo, groupVariables, type GroupMember } from "@/lib/features/scoring/group";
@@ -17,7 +17,7 @@ import type {
   Tx,
 } from "@/lib/features/scoring/types";
 import { computeVariables, type VariableInput } from "@/lib/features/scoring/variables";
-import { CALENDAR, monthIndex, window } from "@/lib/features/scoring/windows";
+import { CALENDAR, window } from "@/lib/features/scoring/windows";
 
 export type GroupInput = {
   groupId: string;
@@ -46,9 +46,11 @@ export type Prepared = {
  */
 export function prepareGroup(input: GroupInput): Map<string, Prepared> {
   const mirrors = pairMirrors(input.txs, input.products);
+  const byCompany = new Map<string, Tx[]>(input.companies.map((c) => [c.id, []]));
+  for (const t of input.txs) byCompany.get(t.company)?.push(t);
   const out = new Map<string, Prepared>();
   for (const c of input.companies) {
-    const txs = input.txs.filter((t) => t.company === c.id);
+    const txs = byCompany.get(c.id)!;
     const own = [...input.products.values()].filter((p) => p.company === c.id);
     const hasLine = own.some((p) => p.type === "lineofcredit");
     const flows = monthlyFlows(c.id, txs, input.products, mirrors, hasLine);
@@ -64,6 +66,9 @@ export function prepareGroup(input: GroupInput): Map<string, Prepared> {
   }
   return out;
 }
+
+/** Variables A-C más su agregación: lo que cada empresa aporta a la segunda pasada del mes. */
+type Staged = ReturnType<typeof computeVariables> & Aggregated;
 
 export function variablesAt(p: Prepared, t: number): ReturnType<typeof computeVariables> {
   const input: VariableInput = {
@@ -106,7 +111,7 @@ export function scoreGroup(input: GroupInput, params: Parameters): ScoreRow[] {
 
   for (let t = 0; t < CALENDAR.length; t++) {
     const month = CALENDAR[t];
-    const stage = new Map<string, ReturnType<typeof variablesAt> & ReturnType<typeof aggregate>>();
+    const stage = new Map<string, Staged>();
     for (const [id, p] of prepared) {
       const v = variablesAt(p, t);
       stage.set(id, {
@@ -128,12 +133,17 @@ export function scoreGroup(input: GroupInput, params: Parameters): ScoreRow[] {
         intragrupoOut12m: s.extras.intragrupoOut12m,
       });
     const gw6 = window(ghistory, t, 6);
+    // Hermanas = miembros con evidencia de 12 meses en `t`, no con fila en `t` (§14): un mes vacío
+    // suelto no puede sacar a una hermana del grupo y hacer parpadear D1-D5 y el aval.
+    const conEvidencia = [...members.values()].filter(
+      (m) => m.cobrosOp12m > 0 || m.confianza >= PARAMS.confSinDatos,
+    );
     for (const [id, s] of stage) {
       const p = prepared.get(id)!;
       const me = members.get(id)!;
-      const siblings = [...members.values()].filter(
-        (m) => m.company !== id && prepared.get(m.company)!.history[t],
-      );
+      // Quien queda fuera tiene `cobrosOp12m === 0`, así que el denominador de D1 sobre esta lista
+      // sigue siendo el total de cobros del grupo.
+      const siblings = conEvidencia.filter((m) => m.company !== id);
       const d = groupVariables(me, siblings);
       const aval = avalGrupo(s.scoreSolo, d.D2, d.D3, d.D5);
       const score = Math.min(100, Math.max(0, s.scoreSolo + aval));
@@ -142,9 +152,11 @@ export function scoreGroup(input: GroupInput, params: Parameters): ScoreRow[] {
         {
           id: "grupo",
           raw: d.D2,
-          subnota: 50,
+          subnota: d.D2 ?? 50,
           conf: d.confD,
-          aportacion: aval,
+          // Aval efectivamente aplicado (tras el clip de `score`), para que `Σ aportaciones ==
+          // score` sea exacto; `aval_grupo` conserva el valor bruto.
+          aportacion: score - s.scoreSolo,
           umbralSano: null,
           sano: null,
         },
@@ -228,5 +240,3 @@ export function scoreGroup(input: GroupInput, params: Parameters): ScoreRow[] {
   }
   return [...rowsBy.values()].flat();
 }
-
-export { monthIndex };
