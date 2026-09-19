@@ -79,7 +79,7 @@ export function PortfolioTable({ rows, month }: { rows: PortfolioRow[]; month: s
     <>
       {/* Escritorio: tabla densa. La fila entera es un enlace real, así que el
           teclado, el clic central y "abrir en pestaña nueva" funcionan solos. */}
-      <div className="bg-card hidden overflow-hidden rounded-lg border lg:block">
+      <div className="bg-card hidden overflow-hidden rounded-xl border lg:block">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -178,7 +178,7 @@ export function PortfolioTable({ rows, month }: { rows: PortfolioRow[]; month: s
           con scroll horizontal no se tría ni con el pulgar ni en un iPad. */}
       <ul className="flex flex-col gap-2 lg:hidden">
         {rows.map((row) => (
-          <li key={row.company.id} className="bg-card relative rounded-lg border p-3">
+          <li key={row.company.id} className="bg-card relative rounded-xl border p-3">
             <div className="flex items-start justify-between gap-3">
               <Link
                 href={hrefFor(row, month)}

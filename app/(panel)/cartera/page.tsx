@@ -60,7 +60,15 @@ export default async function CarteraPage({
 function CarteraSkeleton() {
   return (
     <div className="flex flex-col gap-4">
-      <Skeleton className="h-[7.5rem] rounded-lg" />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <Skeleton key={index} className="h-36 rounded-xl" />
+        ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Skeleton className="h-72 rounded-xl lg:col-span-2" />
+        <Skeleton className="h-72 rounded-xl" />
+      </div>
       <div className="flex flex-wrap gap-2">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-8 w-40" />
@@ -68,7 +76,7 @@ function CarteraSkeleton() {
         <Skeleton className="h-8 w-44" />
         <Skeleton className="h-8 w-36" />
       </div>
-      <div className="bg-card overflow-hidden rounded-lg border">
+      <div className="bg-card overflow-hidden rounded-xl border">
         <Skeleton className="h-10 rounded-none" />
         {Array.from({ length: 10 }, (_, index) => (
           <div key={index} className="flex items-center gap-4 border-t px-4 py-3">

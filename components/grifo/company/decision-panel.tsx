@@ -19,7 +19,7 @@ export function DecisionPanel({ decision, changed }: { decision: Decision; chang
   return (
     <section
       aria-labelledby="decision-title"
-      className="bg-card flex flex-col gap-5 rounded-lg border p-4 md:p-5 lg:flex-row lg:items-start lg:gap-8"
+      className="bg-card flex flex-col gap-5 rounded-xl border p-4 md:p-5 lg:flex-row lg:items-start lg:gap-8"
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
