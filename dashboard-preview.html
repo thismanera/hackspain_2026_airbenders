@@ -110,6 +110,9 @@
         color: #e8f0ea; background: #0e1c16;
       }
       .boot.open { display: flex; }
+      .boot.video .boot-top, .boot.video .boot-nav { display: none; }
+      .boot.video .boot-stage { padding: 48px 64px; }
+      .boot.video .boot-scene { animation: none; }
       .boot-top {
         display: flex; justify-content: space-between; align-items: center;
         padding: 22px 28px; flex-shrink: 0;
@@ -2202,14 +2205,15 @@
         }
       ];
       let bootIndex = 0;
+      const BOOT_VIDEO_MODE = new URLSearchParams(location.search).get("modo") === "video";
       function startBoot(force) {
-        if (!force && sessionStorage.getItem("embat-flow-boot-v2")) {
+        if (!force && !BOOT_VIDEO_MODE && sessionStorage.getItem("embat-flow-boot-v2")) {
           endBoot(true);
           return;
         }
         bootIndex = 0;
         const boot = document.getElementById("boot");
-        boot.className = "boot open";
+        boot.className = BOOT_VIDEO_MODE ? "boot open video" : "boot open";
         boot.setAttribute("aria-hidden", "false");
         document.getElementById("bootDots").innerHTML = BOOT_SCENES
           .map((_, i) => `<button type="button" aria-label="Ir al paso ${i + 1}" onclick="showBoot(${i})"></button>`)
