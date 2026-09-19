@@ -86,7 +86,7 @@ async function completedRunExists(databaseUrl) {
   await client.connect();
   try {
     const { rows } = await client.query(
-      "SELECT EXISTS (SELECT 1 FROM score_runs r WHERE r.status = 'complete' AND EXISTS (SELECT 1 FROM company_month_forecasts f WHERE f.\"runId\" = r.id));",
+      "SELECT EXISTS (SELECT 1 FROM score_runs r WHERE r.status = 'complete' AND EXISTS (SELECT 1 FROM portfolio_snapshots s WHERE s.\"runId\" = r.id AND s.kind = 'meta'));",
     );
     return rows[0].exists === true;
   } finally {

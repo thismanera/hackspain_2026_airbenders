@@ -27,9 +27,23 @@ model ScoreRun {
   completedAt      DateTime?
   scores           CompanyMonthScore[]
   forecasts        CompanyMonthForecast[]
+  snapshots        PortfolioSnapshot[]
 
   @@index([status, completedAt])
   @@map("score_runs")
+}
+
+/// Respuestas del panel ya consolidadas por ejecución (cartera por mes, ficha por
+/// empresa, cohorte, pares...): la UI lee una fila, no recalcula sobre 30k filas.
+model PortfolioSnapshot {
+  runId   String
+  kind    String
+  key     String
+  run     ScoreRun @relation(fields: [runId], references: [id])
+  payload Json
+
+  @@id([runId, kind, key])
+  @@map("portfolio_snapshots")
 }
 
 model CompanyMonthScore {

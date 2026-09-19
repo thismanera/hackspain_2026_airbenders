@@ -72,7 +72,7 @@ const DIRECTION_PRIORITY: Record<Direccion, number> = {
   mejora: 2,
 };
 
-function resolveMonth(requestedMonth?: string): string {
+export function resolveMonth(requestedMonth?: string): string {
   return requestedMonth && CALENDAR.includes(requestedMonth) ? requestedMonth : LATEST_MONTH;
 }
 
@@ -213,7 +213,26 @@ function rankHot(rows: PortfolioRow[]): PortfolioRow[] {
   return top;
 }
 
-function summarise(month: string, rows: PortfolioRow[]): PortfolioSummary {
+/** Lo que necesitan filtro y resumen de una fila; la cartera materializada guarda solo esto por mes pasado. */
+export type PortfolioLiteRow = Pick<
+  PortfolioRow,
+  "estado" | "action" | "direction" | "band" | "eligible" | "limit" | "changed"
+> & { company: Pick<PortfolioRow["company"], "id" | "groupId"> };
+
+export function liteRow(row: PortfolioRow): PortfolioLiteRow {
+  return {
+    company: { id: row.company.id, groupId: row.company.groupId },
+    estado: row.estado,
+    action: row.action,
+    direction: row.direction,
+    band: row.band,
+    eligible: row.eligible,
+    limit: row.limit,
+    changed: row.changed,
+  };
+}
+
+export function summarise(month: string, rows: PortfolioLiteRow[]): PortfolioSummary {
   const byEstado: Record<Estado, number> = { sana: 0, vigilar: 0, riesgo: 0, sin_datos: 0 };
   const byDireccion: Record<Direccion, number> = { mejora: 0, estable: 0, deterioro: 0 };
   const byAccion: Record<Accion, number> = {
@@ -252,7 +271,20 @@ function rowsFor(companies: SourceDataset["companies"], month: string): Portfoli
   return rows;
 }
 
-function matches(filters: PortfolioFilters): (row: PortfolioRow) => boolean {
+const ALL = () => true;
+
+export function hasFilters(filters: PortfolioFilters): boolean {
+  return matches(filters) !== ALL;
+}
+
+export function matches(filters: PortfolioFilters): (row: PortfolioLiteRow) => boolean {
+  const inactive =
+    !filters.q?.trim() &&
+    (!filters.estado || filters.estado === "todos") &&
+    (!filters.accion || filters.accion === "todas") &&
+    (!filters.direccion || filters.direccion === "todas") &&
+    (!filters.banda || filters.banda === "todas");
+  if (inactive) return ALL;
   const needle = filters.q?.trim().toLowerCase() ?? "";
   return (row) => {
     if (needle && !`${row.company.id} ${row.company.groupId}`.toLowerCase().includes(needle)) {
@@ -290,14 +322,7 @@ export function portfolioFrom(
   const summary = history[history.length - 1];
   const previous = history.length > 1 ? history[history.length - 2] : null;
 
-  rows.sort((a, b) => {
-    const byAction = priorityOf(a) - priorityOf(b);
-    if (byAction !== 0) return byAction;
-    const byDirection = DIRECTION_PRIORITY[a.direction] - DIRECTION_PRIORITY[b.direction];
-    if (byDirection !== 0) return byDirection;
-    if (a.score !== b.score) return a.score - b.score;
-    return a.company.id.localeCompare(b.company.id);
-  });
+  rows.sort(compareRows);
 
   return {
     month,
@@ -309,6 +334,37 @@ export function portfolioFrom(
     hot,
     totalUnfiltered: all.length,
   };
+}
+
+function compareRows(a: PortfolioRow, b: PortfolioRow): number {
+  const byAction = priorityOf(a) - priorityOf(b);
+  if (byAction !== 0) return byAction;
+  const byDirection = DIRECTION_PRIORITY[a.direction] - DIRECTION_PRIORITY[b.direction];
+  if (byDirection !== 0) return byDirection;
+  if (a.score !== b.score) return a.score - b.score;
+  return a.company.id.localeCompare(b.company.id);
+}
+
+/** Hermanas de grupo con dato ese mes, de mejor a peor score. */
+export function groupPeersAt(
+  companies: SourceDataset["companies"],
+  entry: CompanyDataset,
+  month: string,
+): GroupPeer[] {
+  const peers: GroupPeer[] = [];
+  for (const other of companies.values()) {
+    if (other.meta.groupId !== entry.meta.groupId || other.meta.id === entry.meta.id) continue;
+    const peerMonth = pointAt(other, month);
+    if (!peerMonth) continue;
+    peers.push({
+      id: other.meta.id,
+      score: peerMonth.score,
+      estado: peerMonth.estado,
+      share: peerMonth.group?.share ?? 0,
+    });
+  }
+  peers.sort((a, b) => b.score - a.score);
+  return peers;
 }
 
 export function companyFileFrom(
@@ -323,20 +379,6 @@ export function companyFileFrom(
   const index = indexAt(entry, month);
   if (index === -1) return null;
 
-  const peers: GroupPeer[] = [];
-  for (const other of dataset.companies.values()) {
-    if (other.meta.groupId !== entry.meta.groupId || other.meta.id === companyId) continue;
-    const peerMonth = pointAt(other, month);
-    if (!peerMonth) continue;
-    peers.push({
-      id: other.meta.id,
-      score: peerMonth.score,
-      estado: peerMonth.estado,
-      share: peerMonth.group?.share ?? 0,
-    });
-  }
-  peers.sort((a, b) => b.score - a.score);
-
   return {
     company: entry.meta,
     month,
@@ -344,7 +386,7 @@ export function companyFileFrom(
     latest: entry.months[index],
     previous: index > 0 ? entry.months[index - 1] : null,
     history: entry.months.slice(0, index + 1),
-    peers,
+    peers: groupPeersAt(dataset.companies, entry, month),
   };
 }
 
@@ -798,19 +840,61 @@ export function benchmarkFrom(
   const month = resolveMonth(requestedMonth);
   const mine = pointAt(entry, month);
   if (!mine) return null;
+  return benchmarkAgainst(mine, cohortAt(dataset.companies, month));
+}
 
+/**
+ * La cohorte de un mes reducida a lo que el benchmark necesita: scores y subnotas
+ * ordenados (percentil por búsqueda binaria) y mediana del dato bruto por indicador.
+ */
+export type CohortStats = {
+  month: string;
+  size: number;
+  scores: number[];
+  indicators: Record<string, { subscores: number[]; medianRaw: number | null }>;
+};
+
+export function cohortAt(companies: SourceDataset["companies"], month: string): CohortStats {
   const cohort: MonthScore[] = [];
-  for (const other of dataset.companies.values()) {
+  for (const other of companies.values()) {
     const point = pointAt(other, month);
     if (point && point.coverage.observedMonths >= 3) cohort.push(point);
   }
-
-  const rows: BenchmarkRow[] = INDICATORS.map((meta) => {
-    const own = mine.contributions.find((item) => item.indicator === meta.id);
+  const indicators: CohortStats["indicators"] = {};
+  for (const meta of INDICATORS) {
     const peers = cohort
       .map((point) => point.contributions.find((item) => item.indicator === meta.id))
       .filter((item): item is Contribution => item !== undefined && item.raw !== null);
-    if (!own || own.raw === null || peers.length === 0) {
+    indicators[meta.id] = {
+      subscores: peers.map((item) => item.subscore).sort((a, b) => a - b),
+      medianRaw: median(peers.map((item) => item.raw as number)),
+    };
+  }
+  return {
+    month,
+    size: cohort.length,
+    scores: cohort.map((point) => point.score).sort((a, b) => a - b),
+    indicators,
+  };
+}
+
+/** Cuántos valores de una lista ordenada quedan por debajo de `value`. */
+function countBelow(sorted: number[], value: number): number {
+  let low = 0;
+  let high = sorted.length;
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    if (sorted[mid] < value) low = mid + 1;
+    else high = mid;
+  }
+  return low;
+}
+
+export function benchmarkAgainst(mine: MonthScore, cohort: CohortStats): BenchmarkResponse {
+  const rows: BenchmarkRow[] = INDICATORS.map((meta) => {
+    const own = mine.contributions.find((item) => item.indicator === meta.id);
+    const peers = cohort.indicators[meta.id];
+    if (!own || own.raw === null || !peers || peers.subscores.length === 0) {
       return {
         indicator: meta.id,
         raw: own?.raw ?? null,
@@ -820,25 +904,25 @@ export function benchmarkFrom(
         gapToMedian: null,
       };
     }
-    const worse = peers.filter((item) => item.subscore < own.subscore).length;
-    const medianRaw = median(peers.map((item) => item.raw as number));
+    const worse = countBelow(peers.subscores, own.subscore);
+    const medianRaw = peers.medianRaw;
     return {
       indicator: meta.id,
       raw: own.raw,
       subscore: own.subscore,
-      percentile: Math.round((worse / peers.length) * 100) / 100,
+      percentile: Math.round((worse / peers.subscores.length) * 100) / 100,
       medianRaw,
       gapToMedian: medianRaw === null ? null : Math.round((own.raw - medianRaw) * 10000) / 10000,
     };
   });
 
-  const scoresBelow = cohort.filter((point) => point.score < mine.score).length;
+  const scoresBelow = countBelow(cohort.scores, mine.score);
 
   return {
-    company: companyId,
-    month,
-    cohort: cohort.length,
-    scorePercentile: cohort.length ? Math.round((scoresBelow / cohort.length) * 100) / 100 : 0,
+    company: mine.company,
+    month: cohort.month,
+    cohort: cohort.size,
+    scorePercentile: cohort.size ? Math.round((scoresBelow / cohort.size) * 100) / 100 : 0,
     rows,
   };
 }

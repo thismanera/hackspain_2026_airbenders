@@ -1,11 +1,11 @@
 /**
- * Carga en memoria la última ejecución scoring+forecast+decisión compatible que
- * hay en Postgres y la traduce al contrato del panel.
+ * Selección de la ejecución scoring+forecast+decisión compatible que hay en
+ * Postgres y, para la importación, su traducción completa al contrato del panel.
  *
  * Todo lo que enseña la UI sale de aquí: no hay fixtures ni cálculos de score en
- * las pantallas (PRODUCT §invariantes). La ejecución se memoriza por proceso y
- * se invalida sola cuando cambia la última `score_runs` completa, así que una
- * petición normal cuesta una consulta ligera y nada de parseo.
+ * las pantallas (PRODUCT §invariantes). El panel no carga el run entero: lee las
+ * filas materializadas por `snapshots.ts` (ver `source.ts`); `buildDataset` solo
+ * lo ejecuta `scoring:import` para producirlas.
  */
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/core/db";
@@ -22,49 +22,61 @@ import {
   type Dataset,
 } from "./dataset";
 
-type RunHeader = {
+export type RunHeader = {
   id: string;
   parameterVersion: string;
   completedAt: Date | null;
   metrics: Prisma.JsonValue | null;
 };
 
+const RUN_SELECT = {
+  id: true,
+  parameterVersion: true,
+  completedAt: true,
+  metrics: true,
+  parameters: { select: { data: true } },
+  forecasts: { take: 1, select: { parameterVersion: true, parameters: true } },
+} satisfies Prisma.ScoreRunSelect;
+
+type RunCandidate = Prisma.ScoreRunGetPayload<{ select: typeof RUN_SELECT }>;
+
+function isCompatible(run: RunCandidate): boolean {
+  const scoring = parametersSchema.safeParse(run.parameters.data);
+  const forecast = run.forecasts[0];
+  if (!forecast || !scoring.success || scoring.data.version !== run.parameterVersion) return false;
+  const forecastParams = forecastParametersSchema.safeParse(forecast.parameters.data);
+  return (
+    forecastParams.success &&
+    forecastParams.data.version === forecast.parameterVersion &&
+    forecastParams.data.versionScoring === run.parameterVersion
+  );
+}
+
 /**
  * Última ejecución completa cuyo contrato (scoring y forecast) coincide con el
- * código desplegado. Las incompatibles se saltan, igual que hace la API de
- * scoring: una fila con otro contrato no se puede pintar.
+ * código desplegado y que ya tiene el panel materializado. Las incompatibles se
+ * saltan, igual que hace la API de scoring: una fila con otro contrato no se
+ * puede pintar.
  */
-async function compatibleRun(): Promise<RunHeader | null> {
+export async function compatibleRun(): Promise<RunHeader | null> {
   const runs = await prisma.scoreRun.findMany({
-    where: { status: "complete" },
+    where: { status: "complete", snapshots: { some: { kind: "meta" } } },
     orderBy: { completedAt: "desc" },
-    select: {
-      id: true,
-      parameterVersion: true,
-      completedAt: true,
-      metrics: true,
-      parameters: { select: { data: true } },
-      forecasts: { take: 1, select: { parameterVersion: true, parameters: true } },
-    },
+    select: RUN_SELECT,
   });
-  for (const run of runs) {
-    const scoring = parametersSchema.safeParse(run.parameters.data);
-    const forecast = run.forecasts[0];
-    if (!forecast || !scoring.success || scoring.data.version !== run.parameterVersion) continue;
-    const forecastParams = forecastParametersSchema.safeParse(forecast.parameters.data);
-    if (
-      forecastParams.success &&
-      forecastParams.data.version === forecast.parameterVersion &&
-      forecastParams.data.versionScoring === run.parameterVersion
-    )
-      return run;
-  }
-  return null;
+  return runs.find(isCompatible) ?? null;
+}
+
+/** Una ejecución concreta (la que acaba de importarse), compatible o nada. */
+export async function runHeader(runId: string): Promise<RunHeader> {
+  const run = await prisma.scoreRun.findUnique({ where: { id: runId }, select: RUN_SELECT });
+  if (!run || !isCompatible(run)) throw new Error(`run ${runId} is not compatible with this build`);
+  return run;
 }
 
 const monthOrder = new Map(CALENDAR.map((month, index) => [month, index]));
 
-async function buildDataset(run: RunHeader): Promise<Dataset> {
+export async function buildDataset(run: RunHeader): Promise<Dataset> {
   // Tres lecturas planas y unión en memoria: un `include` sobre la clave compuesta
   // de 30k filas supera el límite de parámetros de Postgres (P2029).
   const [companies, records, decisions, forecasts] = await Promise.all([
@@ -149,35 +161,12 @@ function isDatabaseUnreachable(error: unknown): boolean {
   );
 }
 
-let memo: { key: string; dataset: Promise<Dataset> } | null = null;
-
-function runKey(run: RunHeader): string {
-  return `${run.id}:${run.completedAt?.toISOString() ?? ""}`;
-}
-
-/**
- * La ejecución vigente, ya traducida. Una consulta ligera por petición para saber
- * si sigue siendo la misma; el parseo pesado solo se repite cuando cambia.
- */
-export async function loadDataset(): Promise<Dataset> {
-  const run = await compatibleRun().catch((error: unknown) => {
-    if (isDatabaseUnreachable(error)) {
-      throw new ScoringUnavailableError(
-        "No se puede leer la base de datos del motor de scoring (sin conexión o sin esquema)",
-      );
-    }
-    throw error;
-  });
-  if (!run) {
-    memo = null;
-    throw new ScoringUnavailableError();
+/** Traduce los fallos de infraestructura al error que el panel sabe pintar. */
+export function unavailableIfUnreachable(error: unknown): never {
+  if (isDatabaseUnreachable(error)) {
+    throw new ScoringUnavailableError(
+      "No se puede leer la base de datos del motor de scoring (sin conexión o sin esquema)",
+    );
   }
-  const key = runKey(run);
-  if (memo?.key === key) return memo.dataset;
-  const dataset = buildDataset(run);
-  memo = { key, dataset };
-  dataset.catch(() => {
-    if (memo?.key === key) memo = null;
-  });
-  return dataset;
+  throw error;
 }
