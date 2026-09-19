@@ -30,6 +30,8 @@ export const portfolioKeys = {
     ["portfolio", "benchmark", companyId, month] as const,
   peers: (month: string, scope: Scope, companyId?: string) =>
     ["portfolio", "peers", month, scope, companyId ?? ""] as const,
+  reading: (companyId: string, month: string, kind: ReadingKind) =>
+    ["portfolio", "reading", companyId, month, kind] as const,
 };
 
 export function fetchPeers(

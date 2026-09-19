@@ -178,12 +178,23 @@ export function CompanySheet({
               {ESTADO[latest.estado].label}
             </span>
             <Button
+              aria-label="Comparar con otras empresas"
+              variant="ghost"
+              size="sm"
+              nativeButton={false}
+              render={<Link href={`/pares?empresas=${company.id}&mes=${month}`} />}
+              className="ml-auto shrink-0 px-2 sm:px-3"
+            >
+              <Orbit aria-hidden />
+              <span className="hidden sm:inline">Comparar</span>
+            </Button>
+            <Button
               aria-label="Abrir ficha completa"
               variant="ghost"
               size="sm"
               nativeButton={false}
               render={<Link href={`/cartera/${company.id}?mes=${month}`} />}
-              className="ml-auto shrink-0 px-2 sm:px-3"
+              className="shrink-0 px-2 sm:px-3"
             >
               <span className="hidden sm:inline">Abrir ficha</span>
               <ArrowUpRight aria-hidden />
@@ -209,28 +220,8 @@ export function CompanySheet({
               </span>
               <span aria-hidden>·</span>
               <span>{formatMonthShort(month)}</span>
-            </SheetDescription>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              size="sm"
-              nativeButton={false}
-              render={<Link href={`/pares?empresas=${company.id}&mes=${month}`} />}
-            >
-              <Orbit aria-hidden />
-              Comparar
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              nativeButton={false}
-              render={<Link href={`/cartera/${company.id}?mes=${month}`} />}
-            >
-              Ficha completa
-              <ArrowUpRight aria-hidden />
-            </Button>
-          </div>
+            </span>
+          </SheetDescription>
         </div>
 
         <TabsList variant="line" className="h-9 gap-4 p-0">
