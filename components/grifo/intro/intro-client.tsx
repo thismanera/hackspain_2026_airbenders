@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { parseAsInteger, useQueryState } from "nuqs";
 import { useCallback, useEffect } from "react";
 
+import { EmbatMark } from "@/components/grifo/embat-mark";
 import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/lib/core/utils";
 
 import { INTRO_SEEN_KEY } from "./intro-gate";
@@ -26,7 +26,7 @@ export function IntroClient() {
 
   const finish = useCallback(() => {
     window.sessionStorage.setItem(INTRO_SEEN_KEY, "1");
-    router.push("/cartera");
+    router.push("/vista");
   }, [router]);
   const go = useCallback(
     (next: number) => {
@@ -60,12 +60,7 @@ export function IntroClient() {
     <div className="bg-background flex min-h-svh flex-col">
       <header className="flex items-center justify-between px-6 py-4">
         <span className="flex items-center gap-2.5">
-          <span
-            aria-hidden
-            className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md text-sm font-semibold"
-          >
-            E
-          </span>
+          <EmbatMark size={28} />
           <span className="text-sm font-semibold">Embat Flow</span>
         </span>
         {last ? null : (
@@ -110,37 +105,26 @@ export function IntroClient() {
             </Button>
           )}
         </div>
-        <div className="flex flex-col items-center gap-2">
-          <ol className="flex items-center gap-1.5" aria-label="Pasos de la introducción">
-            {SCENES.map((item, i) => (
-              <li key={item.kicker}>
-                <button
-                  type="button"
-                  aria-label={`Paso ${i + 1}: ${item.kicker}`}
-                  aria-current={i === index ? "step" : undefined}
-                  onClick={() => go(i + 1)}
-                  className={cn(
-                    "block h-1.5 rounded-full transition-[width,background-color] duration-300",
-                    i === index
-                      ? "bg-primary w-6"
-                      : i < index
-                        ? "bg-foreground/40 w-1.5"
-                        : "bg-border w-1.5",
-                  )}
-                />
-              </li>
-            ))}
-          </ol>
-          <p className="text-muted-foreground text-xs tabular-nums">
-            {step} de {total}
-            {first ? (
-              <>
-                {" · "}
-                <Kbd>←</Kbd> <Kbd>→</Kbd> para moverte
-              </>
-            ) : null}
-          </p>
-        </div>
+        <ol className="flex items-center gap-1.5" aria-label="Pasos de la introducción">
+          {SCENES.map((item, i) => (
+            <li key={i}>
+              <button
+                type="button"
+                aria-label={`Paso ${i + 1}: ${item.kicker}`}
+                aria-current={i === index ? "step" : undefined}
+                onClick={() => go(i + 1)}
+                className={cn(
+                  "block h-1.5 rounded-full transition-[width,background-color] duration-300",
+                  i === index
+                    ? "bg-primary w-6"
+                    : i < index
+                      ? "bg-foreground/40 w-1.5"
+                      : "bg-border w-1.5",
+                )}
+              />
+            </li>
+          ))}
+        </ol>
         <div className="flex justify-end">
           {last ? null : (
             <Button size="sm" onClick={() => go(step + 1)}>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { MouseEvent } from "react";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
+import { CompanyAvatar } from "@/components/grifo/company-avatar";
 import { StatusBadge } from "@/components/grifo/status-badge";
 import { HotFlame } from "@/components/grifo/hot-list";
 import { Sparkline, TrendDelta } from "@/components/grifo/trend";
@@ -170,18 +171,20 @@ export function PortfolioTable({
             {rows.map((row) => (
               <TableRow key={row.company.id} className="hover:bg-muted/40 relative">
                 <TableCell>
-                  <span className="flex flex-col items-start leading-tight">
-                    <Link
-                      href={hrefFor(row, month)}
-                      onClick={companyClick(row)}
-                      className="focus-visible:ring-ring flex items-center gap-2 after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
-                    >
-                      <span className="font-mono text-sm font-medium">{row.company.id}</span>
-                      {row.hot ? <HotFlame direction={row.direction} /> : null}
-                      <AlertFlag count={row.alertCount} />
-                    </Link>
-                    <GroupTag row={row} onOpenGroup={onOpenGroup} />
-                  </span>
+                  <div className="flex items-center gap-2.5">
+                    <CompanyAvatar companyId={row.company.id} size="sm" />
+                    <span className="flex flex-col items-start leading-tight">
+                      <Link
+                        href={hrefFor(row, month)}
+                        onClick={companyClick(row)}
+                        className="focus-visible:ring-ring flex items-center gap-2 after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
+                      >
+                        <span className="font-mono text-sm font-medium">{row.company.id}</span>
+                        <AlertFlag count={row.alertCount} />
+                      </Link>
+                      <GroupTag row={row} onOpenGroup={onOpenGroup} />
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <StatusBadge estado={row.estado} />
@@ -243,17 +246,20 @@ export function PortfolioTable({
         {rows.map((row) => (
           <li key={row.company.id} className="bg-card relative rounded-xl border p-3">
             <div className="flex items-start justify-between gap-3">
-              <span className="flex min-w-0 flex-col items-start leading-tight">
-                <Link
-                  href={hrefFor(row, month)}
-                  onClick={companyClick(row)}
-                  className="focus-visible:ring-ring flex items-center gap-2 after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
-                >
-                  <span className="font-mono text-sm font-medium">{row.company.id}</span>
-                  <AlertFlag count={row.alertCount} />
-                </Link>
-                <GroupTag row={row} onOpenGroup={onOpenGroup} />
-              </span>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <CompanyAvatar companyId={row.company.id} size="sm" />
+                <span className="flex min-w-0 flex-col items-start leading-tight">
+                  <Link
+                    href={hrefFor(row, month)}
+                    onClick={companyClick(row)}
+                    className="focus-visible:ring-ring flex items-center gap-2 after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
+                  >
+                    <span className="font-mono text-sm font-medium">{row.company.id}</span>
+                    <AlertFlag count={row.alertCount} />
+                  </Link>
+                  <GroupTag row={row} onOpenGroup={onOpenGroup} />
+                </span>
+              </div>
               <StatusBadge estado={row.estado} />
             </div>
 

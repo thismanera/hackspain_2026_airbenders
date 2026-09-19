@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowLeftRight,
   Bell,
   Building2,
   CirclePlay,
@@ -12,8 +13,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 
+import { EmbatMark } from "@/components/grifo/embat-mark";
+import { readViewMode, type ViewMode } from "@/components/grifo/view-mode";
 import {
   Sidebar,
   SidebarContent,
@@ -30,13 +33,15 @@ import {
 type NavItem = { label: string; href: string; icon: LucideIcon; hint: string };
 
 /**
- * Una sección por actor de PRODUCT §3. El partner y el CFO de grupo trabajan la
- * cartera; la empresa mira su propio score; el jurado mide el motor. Cada
- * entrada es una página con su URL, y el mes que se está mirando viaja con ella.
+ * Una sección por actor de PRODUCT §3, etiquetada con la vista a la que
+ * pertenece: el partner y el CFO de grupo trabajan la cartera; la empresa
+ * mira solo su propio score. Cada entrada es una página con su URL, y el mes
+ * que se está mirando viaja con ella.
  */
-const SECTIONS: { label: string; items: NavItem[] }[] = [
+const SECTIONS: { label: string; view: ViewMode; items: NavItem[] }[] = [
   {
     label: "Cartera",
+    view: "partner",
     items: [
       {
         label: "Empresas",
@@ -56,6 +61,7 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
   },
   {
     label: "Empresa",
+    view: "empresa",
     items: [
       {
         label: "Mi score",
@@ -67,6 +73,7 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
   },
   {
     label: "Modelo",
+    view: "partner",
     items: [
       {
         label: "Backtest",
@@ -117,13 +124,13 @@ function NavMenu({
   );
 }
 
-function LiveNav() {
+function LiveNav({ sections }: { sections: typeof SECTIONS }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const month = searchParams.get("mes");
   return (
     <>
-      {SECTIONS.map((section) => (
+      {sections.map((section) => (
         <SidebarGroup key={section.label}>
           <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -135,10 +142,10 @@ function LiveNav() {
   );
 }
 
-function StaticNav() {
+function StaticNav({ sections }: { sections: typeof SECTIONS }) {
   return (
     <>
-      {SECTIONS.map((section) => (
+      {sections.map((section) => (
         <SidebarGroup key={section.label}>
           <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -151,16 +158,20 @@ function StaticNav() {
 }
 
 export function AppSidebar() {
+  // Arranca en "partner" (el comportamiento de siempre) y se corrige en cuanto
+  // el efecto lee sessionStorage — sincroniza con un sistema externo real, el
+  // caso que AGENTS.md sí permite para useEffect.
+  const [view, setView] = useState<ViewMode>("partner");
+  useEffect(() => {
+    setView(readViewMode());
+  }, []);
+  const sections = SECTIONS.filter((section) => section.view === view);
+
   return (
     <Sidebar collapsible="offcanvas" className="border-r">
       <SidebarHeader className="border-b px-4 py-3">
         <Link href="/cartera" className="flex items-center gap-2.5 rounded-md">
-          <span
-            aria-hidden
-            className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md text-sm font-semibold"
-          >
-            E
-          </span>
+          <EmbatMark size={28} />
           <span className="flex flex-col leading-tight">
             <span className="text-sm font-semibold">Embat Flow</span>
             <span className="text-muted-foreground text-xs">
@@ -176,13 +187,19 @@ export function AppSidebar() {
             retrasaría su hidratación hasta después de que el proveedor
             detecte el móvil, y servidor y cliente renderizarían variantes
             distintas (rail vs. panel deslizante). */}
-        <Suspense fallback={<StaticNav />}>
-          <LiveNav />
+        <Suspense fallback={<StaticNav sections={sections} />}>
+          <LiveNav sections={sections} />
         </Suspense>
       </SidebarContent>
 
       <SidebarFooter className="border-t">
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="Cambiar entre vista de empresa y de partner" render={<Link href="/vista" />}>
+              <ArrowLeftRight aria-hidden className="size-4" />
+              <span>Cambiar de vista</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="La introducción, otra vez" render={<Link href="/intro" />}>
               <CirclePlay aria-hidden className="size-4" />
