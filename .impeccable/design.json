@@ -1,0 +1,313 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-19T00:45:00.000Z",
+  "title": "Design System: Grifo",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(0.145 0 0)",
+        "tonalRamp": [
+          "oklch(0.145 0 0)",
+          "oklch(0.205 0 0)",
+          "oklch(0.269 0 0)",
+          "oklch(0.371 0 0)",
+          "oklch(0.556 0 0)",
+          "oklch(0.708 0 0)",
+          "oklch(0.87 0 0)",
+          "oklch(0.97 0 0)"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Canvas",
+        "canonical": "oklch(0.985 0 0)",
+        "tonalRamp": [
+          "oklch(0.145 0 0)",
+          "oklch(0.269 0 0)",
+          "oklch(0.439 0 0)",
+          "oklch(0.618 0 0)",
+          "oklch(0.78 0 0)",
+          "oklch(0.922 0 0)",
+          "oklch(0.985 0 0)",
+          "oklch(1 0 0)"
+        ]
+      },
+      "status-healthy": {
+        "role": "secondary",
+        "displayName": "Signal Teal",
+        "canonical": "oklch(0.72 0.14 168)",
+        "tonalRamp": [
+          "oklch(0.3 0.07 168)",
+          "oklch(0.38 0.09 168)",
+          "oklch(0.46 0.1 168)",
+          "oklch(0.56 0.12 168)",
+          "oklch(0.64 0.13 168)",
+          "oklch(0.72 0.14 168)",
+          "oklch(0.86 0.08 168)",
+          "oklch(0.96 0.03 168)"
+        ]
+      },
+      "status-watch": {
+        "role": "tertiary",
+        "displayName": "Signal Amber",
+        "canonical": "oklch(0.82 0.15 78)",
+        "tonalRamp": [
+          "oklch(0.31 0.07 78)",
+          "oklch(0.39 0.09 78)",
+          "oklch(0.47 0.1 75)",
+          "oklch(0.58 0.12 78)",
+          "oklch(0.7 0.14 78)",
+          "oklch(0.82 0.15 78)",
+          "oklch(0.9 0.1 82)",
+          "oklch(0.96 0.05 85)"
+        ]
+      },
+      "status-risk": {
+        "role": "tertiary",
+        "displayName": "Alert Rose",
+        "canonical": "oklch(0.6 0.2 25)",
+        "tonalRamp": [
+          "oklch(0.28 0.1 25)",
+          "oklch(0.36 0.13 25)",
+          "oklch(0.48 0.18 25)",
+          "oklch(0.6 0.2 25)",
+          "oklch(0.7 0.17 25)",
+          "oklch(0.8 0.12 22)",
+          "oklch(0.9 0.06 20)",
+          "oklch(0.96 0.02 20)"
+        ]
+      },
+      "chart-2": {
+        "role": "tertiary",
+        "displayName": "Series Violet",
+        "canonical": "oklch(0.58 0.2 293)",
+        "tonalRamp": [
+          "oklch(0.26 0.1 293)",
+          "oklch(0.34 0.14 293)",
+          "oklch(0.44 0.18 293)",
+          "oklch(0.58 0.2 293)",
+          "oklch(0.68 0.16 293)",
+          "oklch(0.78 0.11 293)",
+          "oklch(0.88 0.06 293)",
+          "oklch(0.96 0.02 293)"
+        ]
+      },
+      "chart-3": {
+        "role": "tertiary",
+        "displayName": "Series Sky",
+        "canonical": "oklch(0.68 0.14 237)",
+        "tonalRamp": [
+          "oklch(0.3 0.08 237)",
+          "oklch(0.38 0.1 237)",
+          "oklch(0.48 0.12 237)",
+          "oklch(0.58 0.13 237)",
+          "oklch(0.68 0.14 237)",
+          "oklch(0.78 0.1 237)",
+          "oklch(0.88 0.06 237)",
+          "oklch(0.96 0.02 237)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "metric": {
+        "displayName": "Metric",
+        "purpose": "The single figure a card exists to show — a score, a limit, a TAE. One per card, always tabular."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles and the company name on a detail view."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card headers and section headings. Same size as body, separated by weight."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Sentences, table cells, form values. Prose caps at 65–75ch."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels, units, axis ticks, badge text, sidebar nav. Always Muted Ink."
+      }
+    },
+    "shadows": [
+      {
+        "name": "contact",
+        "value": "0 1px 2px oklch(0 0 0 / 0.04)",
+        "purpose": "The only permitted resting shadow. Gives the hairline a touch of weight on cards sitting directly on the canvas."
+      },
+      {
+        "name": "overlay",
+        "value": "0 8px 24px oklch(0 0 0 / 0.08)",
+        "purpose": "Popovers, dropdowns, dialogs, command palettes. Never on a card or a button."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-quart",
+        "value": "cubic-bezier(0.25, 1, 0.5, 1)",
+        "purpose": "Default easing for every state transition. No bounce, no elastic."
+      },
+      {
+        "name": "duration-state",
+        "value": "150ms",
+        "purpose": "Hover, focus, and colour changes on controls."
+      },
+      {
+        "name": "duration-surface",
+        "value": "220ms",
+        "purpose": "Overlays opening, rows expanding, panels revealing. Ceiling for the product."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "One per view: the decision action, or Export on the portfolio.",
+      "html": "<button class=\"ds-btn-primary\">Ver ficha</button>",
+      "css": ".ds-btn-primary { background: var(--primary, oklch(0.205 0 0)); color: var(--primary-foreground, oklch(0.985 0 0)); font: 500 0.75rem/1.35 Geist, system-ui, sans-serif; height: 34px; padding: 0 14px; border: none; border-radius: 8px; cursor: pointer; transition: background 150ms cubic-bezier(0.25,1,0.5,1); } .ds-btn-primary:hover { background: oklch(0.145 0 0); } .ds-btn-primary:focus-visible { outline: 2px solid oklch(0.556 0 0); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "The default button everywhere else. Hairline border, no fill.",
+      "html": "<button class=\"ds-btn-secondary\">Exportar CSV</button>",
+      "css": ".ds-btn-secondary { background: oklch(1 0 0); color: oklch(0.145 0 0); font: 500 0.75rem/1.35 Geist, system-ui, sans-serif; height: 34px; padding: 0 14px; border: 1px solid oklch(0.922 0 0); border-radius: 8px; cursor: pointer; transition: background 150ms cubic-bezier(0.25,1,0.5,1); } .ds-btn-secondary:hover { background: oklch(0.97 0 0); } .ds-btn-secondary:focus-visible { outline: 2px solid oklch(0.556 0 0); outline-offset: 2px; }"
+    },
+    {
+      "name": "Metric Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "A panel showing one figure with its label and trend. Hairline border, no shadow, no nesting.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-head\"><span class=\"ds-card-label\">Límite recomendado</span><span class=\"ds-delta ds-delta-up\">+12,4 %</span></div><div class=\"ds-metric\">148.000 €</div><div class=\"ds-card-sub\">Banda B · TAE 7,5 % · hasta 120 d</div></div>",
+      "css": ".ds-card { background: oklch(1 0 0); border: 1px solid oklch(0.922 0 0); border-radius: 14px; padding: 16px; min-width: 240px; font-family: Geist, system-ui, sans-serif; } .ds-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; } .ds-card-label { font: 500 0.75rem/1.35 Geist, system-ui, sans-serif; color: oklch(0.556 0 0); } .ds-delta { font: 500 0.75rem/1.35 Geist, system-ui, sans-serif; font-variant-numeric: tabular-nums; border-radius: 999px; padding: 2px 8px; } .ds-delta-up { background: oklch(0.96 0.03 168); color: oklch(0.46 0.1 168); } .ds-metric { margin-top: 12px; font: 600 1.75rem/1.15 Geist, system-ui, sans-serif; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: oklch(0.145 0 0); } .ds-card-sub { margin-top: 4px; font: 400 0.875rem/1.55 Geist, system-ui, sans-serif; font-variant-numeric: tabular-nums; color: oklch(0.556 0 0); }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-status-healthy",
+      "description": "The four score states. Always carries the state word; a bare coloured pill is prohibited.",
+      "html": "<div class=\"ds-badges\"><span class=\"ds-badge ds-badge-healthy\">Sana</span><span class=\"ds-badge ds-badge-watch\">Vigilar</span><span class=\"ds-badge ds-badge-risk\">Riesgo</span><span class=\"ds-badge ds-badge-none\">Sin datos</span></div>",
+      "css": ".ds-badges { display: flex; gap: 8px; flex-wrap: wrap; } .ds-badge { font: 500 0.75rem/1.35 Geist, system-ui, sans-serif; border-radius: 999px; padding: 2px 8px; } .ds-badge-healthy { background: oklch(0.96 0.03 168); color: oklch(0.46 0.1 168); } .ds-badge-watch { background: oklch(0.96 0.05 85); color: oklch(0.47 0.1 75); } .ds-badge-risk { background: oklch(0.96 0.02 20); color: oklch(0.48 0.18 25); } .ds-badge-none { background: oklch(0.97 0 0); color: oklch(0.5 0 0); }"
+    },
+    {
+      "name": "Status Dot",
+      "kind": "chip",
+      "refersTo": "badge-status-healthy",
+      "description": "Dense table variant. Shape differs per state so the column reads in greyscale.",
+      "html": "<div class=\"ds-dots\"><span class=\"ds-dot ds-dot-healthy\"></span><span class=\"ds-dot ds-dot-watch\"></span><span class=\"ds-dot ds-dot-risk\"></span><span class=\"ds-dot ds-dot-none\"></span></div>",
+      "css": ".ds-dots { display: flex; align-items: center; gap: 14px; } .ds-dot { width: 8px; height: 8px; display: inline-block; } .ds-dot-healthy { background: oklch(0.72 0.14 168); border-radius: 999px; } .ds-dot-watch { border: 2px solid oklch(0.82 0.15 78); border-radius: 999px; } .ds-dot-risk { background: oklch(0.6 0.2 25); border-radius: 2px; } .ds-dot-none { height: 2px; width: 8px; background: oklch(0.78 0 0); border-radius: 1px; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Hairline stroke, no glow on focus. Placeholder held to the same contrast as body text.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Buscar empresa o grupo\" />",
+      "css": ".ds-input { background: oklch(1 0 0); color: oklch(0.145 0 0); font: 400 0.875rem/1.55 Geist, system-ui, sans-serif; height: 34px; padding: 0 10px; border: 1px solid oklch(0.922 0 0); border-radius: 8px; width: 260px; } .ds-input::placeholder { color: oklch(0.556 0 0); } .ds-input:focus { border-color: oklch(0.556 0 0); outline: 2px solid oklch(0.556 0 0); outline-offset: 2px; }"
+    },
+    {
+      "name": "Sidebar Nav",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Active state is a filled pill, never a coloured left border.",
+      "html": "<nav class=\"ds-nav\"><span class=\"ds-nav-section\">Cartera</span><a class=\"ds-nav-item ds-nav-item-active\" href=\"#\">Empresas</a><a class=\"ds-nav-item\" href=\"#\">Alertas</a><a class=\"ds-nav-item\" href=\"#\">Grupos</a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 2px; width: 180px; background: oklch(1 0 0); padding: 8px; font-family: Geist, system-ui, sans-serif; } .ds-nav-section { font: 500 0.75rem/1.35 Geist, system-ui, sans-serif; color: oklch(0.556 0 0); text-transform: uppercase; letter-spacing: 0.04em; padding: 6px 10px; } .ds-nav-item { font: 500 0.75rem/1.35 Geist, system-ui, sans-serif; color: oklch(0.556 0 0); padding: 6px 10px; border-radius: 8px; text-decoration: none; transition: background 150ms cubic-bezier(0.25,1,0.5,1), color 150ms cubic-bezier(0.25,1,0.5,1); } .ds-nav-item:hover { background: oklch(0.97 0 0); color: oklch(0.145 0 0); } .ds-nav-item-active { background: oklch(0.97 0 0); color: oklch(0.145 0 0); font-weight: 600; }"
+    },
+    {
+      "name": "Score Cascade Row",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "The signature component: one variable's contribution to this month's score change. Confidence is a separate track behind the bar, never transparency on it.",
+      "html": "<div class=\"ds-cascade\"><div class=\"ds-cascade-row\"><div class=\"ds-cascade-name\">Margen de caja <span class=\"ds-cascade-id\">A1</span></div><div class=\"ds-cascade-track\"><div class=\"ds-cascade-bar ds-cascade-bar-up\" style=\"width: 62%\"></div></div><div class=\"ds-cascade-delta ds-cascade-delta-up\">+4,8</div></div><div class=\"ds-cascade-row\"><div class=\"ds-cascade-name\">Vencido sin cobrar <span class=\"ds-cascade-id\">C4</span></div><div class=\"ds-cascade-track\"><div class=\"ds-cascade-bar ds-cascade-bar-down\" style=\"width: 38%\"></div></div><div class=\"ds-cascade-delta ds-cascade-delta-down\">−2,9</div></div></div>",
+      "css": ".ds-cascade { display: flex; flex-direction: column; gap: 10px; width: 420px; font-family: Geist, system-ui, sans-serif; } .ds-cascade-row { display: grid; grid-template-columns: 1fr 120px 48px; align-items: center; gap: 12px; } .ds-cascade-name { font: 400 0.875rem/1.55 Geist, system-ui, sans-serif; color: oklch(0.145 0 0); } .ds-cascade-id { font: 500 0.75rem/1.35 'Geist Mono', ui-monospace, monospace; color: oklch(0.556 0 0); margin-left: 6px; } .ds-cascade-track { height: 8px; background: oklch(0.97 0 0); border-radius: 999px; overflow: hidden; } .ds-cascade-bar { height: 100%; border-radius: 999px; } .ds-cascade-bar-up { background: oklch(0.72 0.14 168); } .ds-cascade-bar-down { background: oklch(0.6 0.2 25); } .ds-cascade-delta { font: 600 0.875rem/1.4 Geist, system-ui, sans-serif; font-variant-numeric: tabular-nums; text-align: right; } .ds-cascade-delta-up { color: oklch(0.46 0.1 168); } .ds-cascade-delta-down { color: oklch(0.48 0.18 25); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Credit Committee Memo",
+    "overview": "A good credit memo puts the recommendation in the first line and spends the rest of the page earning it. Nothing on the page is there to impress; every mark is either the recommendation, the evidence, or the label that tells you which is which. Grifo is that memo made clickable. The analyst reads the action first — open, widen, hold, reduce, close — and then, at their own pace, walks down into the score, the confidence, and the twelve variables that produced it. The interface's job is to make that descent feel short.\n\nVisually this means an almost-white room with the furniture drawn in hairlines. The canvas is one lightness step below the cards, so panels read as objects without a single drop shadow doing the work. Type is one family at five fixed sizes. Colour is rationed: on a screen showing forty companies, the only saturated pixels are the status dots, the trend deltas, and the chart series — everything else is ink, muted ink, and hairline.\n\nWhat this system rejects: legacy bank chrome, the fintech hype palette, the generic AI-SaaS template, and — the one that matters most for this product — raw model machinery as the default view. A grid of A1 … D5 with weights attached is not transparency, it is abdication.",
+    "keyCharacteristics": [
+      "Near-white canvas (oklch(0.985 0 0)) with pure-white cards; separation by lightness step plus a 1px hairline, never by shadow.",
+      "One typeface (Geist) at five fixed rem sizes. No fluid clamp() anywhere.",
+      "Colour reserved for status, trend, and data series. Ink and hairline carry everything else.",
+      "A four-state status vocabulary ordered by lightness so it survives greyscale.",
+      "All figures set in tabular numerals so columns align and digits don't jitter."
+    ],
+    "rules": [
+      {
+        "name": "The Rationed Colour Rule",
+        "body": "On any screen, saturated pixels belong to exactly three things: status indicators, trend deltas, and chart series. If a surface, a heading, an icon, or a button is coloured, it is wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The Never-Colour-Alone Rule",
+        "body": "Every status is carried by at least two channels: its colour, plus a text label, plus (in dense contexts) a distinct dot shape. Render any screen in greyscale; if a state becomes ambiguous, the screen is broken.",
+        "section": "colors"
+      },
+      {
+        "name": "The Lightness-Order Rule",
+        "body": "Risk (L 0.60) is darker than Healthy (L 0.72), which is darker than Watch (L 0.82). Never reassign these so that a worse state is lighter than a better one; the ordering is the accessibility mechanism.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Every number — scores, euros, percentages, dates, deltas, counts — is set with tabular-nums. Columns must align down the page and a value must not jitter when it changes from 68 to 71.",
+        "section": "typography"
+      },
+      {
+        "name": "The Fixed Scale Rule",
+        "body": "Five sizes, all in fixed rem. No clamp(), no fluid typography. Responsiveness here is structural, never typographic.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sentence-First Rule",
+        "body": "Every indicator is introduced by a sentence in plain Spanish before its notation appears. A1 may sit beside \"Margen de caja\"; it may never replace it as the primary reading.",
+        "section": "typography"
+      },
+      {
+        "name": "The No Ghost-Card Rule",
+        "body": "A 1px border and a soft wide drop shadow may never appear on the same element. Any resting shadow with a blur radius of 16px or more is forbidden outright.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Flat-At-Rest Rule",
+        "body": "Surfaces are flat at rest. Elevation changes are a response to state, never a decoration applied to a static card.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do separate surfaces with the Canvas/Card lightness step plus a 1px Hairline. That pairing is the entire depth system.",
+      "Do set every figure with tabular-nums, including figures inside sentences.",
+      "Do pair every status colour with its state word, and in dense contexts with a distinct dot shape. Greyscale must stay readable.",
+      "Do show the threshold next to the number: \"14 %, sano (umbral 10 %)\", not \"14 %\".",
+      "Do lead with the decision and the sentence behind it; put the twelve-variable cascade one interaction away.",
+      "Do display confidence as its own visible figure. \"Sin datos\" is a valid state, and it is always preferable to a confident number built on three months of history.",
+      "Do keep all transitions at 150–250ms on colour and opacity, with a prefers-reduced-motion alternative on every one.",
+      "Do use skeletons shaped like the content that is loading; never a spinner in the middle of a panel."
+    ],
+    "donts": [
+      "Don't use border-left or border-right above 1px as a coloured accent on cards, rows, or alerts.",
+      "Don't combine a 1px border with a drop shadow of 16px blur or more. That ghost-card pairing is banned outright.",
+      "Don't round cards past 16px.",
+      "Don't apply background-clip: text with a gradient. No gradient text anywhere, least of all on a score.",
+      "Don't build the hero-metric template — big number, small label, supporting stats, gradient accent.",
+      "Don't reach for legacy bank chrome, fintech hype, or the generic AI-SaaS template. All three are named anti-references in PRODUCT.md.",
+      "Don't show raw model machinery as the default view — a table of A1 … D5 with weights and no sentences is the failure mode this product exists to avoid.",
+      "Don't introduce a second typeface, a display face, or fluid clamp() sizing.",
+      "Don't use Series Violet or Series Sky to mean anything about state; they are categorical chart hues only.",
+      "Don't animate a number counting up on load. The analyst is reading, not watching.",
+      "Don't reintroduce a dark theme casually. The product is light-only and forced light in app/providers.tsx."
+    ]
+  }
+}
