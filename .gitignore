@@ -39,6 +39,7 @@ analysis/out_*.txt
 
 # tmp files
 tmp/
+scoring-artifacts/
 
 # vercel
 .vercel

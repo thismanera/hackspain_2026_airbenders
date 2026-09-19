@@ -1,0 +1,52 @@
+model ScoreCompany {
+  id       String @id
+  groupId  String
+  currency String?
+  scores   CompanyMonthScore[]
+
+  @@map("score_companies")
+}
+
+model ScoreParameters {
+  version String @id
+  data    Json
+  runs    ScoreRun[]
+
+  @@map("score_parameters")
+}
+
+model ScoreRun {
+  id               String @id
+  parameterVersion String
+  parameters       ScoreParameters @relation(fields: [parameterVersion], references: [version])
+  status           String @default("importing")
+  manifest         Json
+  metrics          Json?
+  createdAt        DateTime @default(now())
+  completedAt      DateTime?
+  scores           CompanyMonthScore[]
+
+  @@index([status, completedAt])
+  @@map("score_runs")
+}
+
+model CompanyMonthScore {
+  runId       String
+  companyId   String
+  month       String
+  run         ScoreRun @relation(fields: [runId], references: [id])
+  company     ScoreCompany @relation(fields: [companyId], references: [id])
+  score       Float
+  confidence  Float
+  band        String
+  action      String
+  direction   String
+  recommendedLimit Float
+  appliedLimit Float
+  data        Json
+
+  @@id([runId, companyId, month])
+  @@index([runId, month, band, action, direction])
+  @@index([runId, companyId, month])
+  @@map("company_month_scores")
+}

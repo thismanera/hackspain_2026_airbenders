@@ -1,5 +1,58 @@
 # Motor de scoring — lógica v0.2 (documento de trabajo)
 
+## Implementación TypeScript de v0.2
+
+La versión ejecutable de este documento está en `lib/features/scoring/`. Es un
+modelo legado versionado: sus 12 indicadores, EUR únicamente y reglas D-1–D-14
+se mantienen para poder comparar resultados. `SOURCE.md` describe la siguiente
+iteración y no cambia automáticamente estos parámetros. Las salidas no son una
+probabilidad de impago ni una calificación regulatoria.
+
+Para desarrollo local, arrancar Postgres con `docker compose up -d postgres`
+y copiar la URL de `.env.example` a `.env`. El volumen de Compose conserva los
+datos al reiniciar el contenedor. Después, desde la raíz:
+
+```bash
+pnpm scoring:fit
+pnpm scoring:score
+pnpm scoring:backtest
+pnpm prisma generate
+pnpm prisma db push
+pnpm scoring:import
+```
+
+`SCORING_OUT` permite cambiar la carpeta de artefactos; por defecto se usa
+`tmp/scoring-v02/`. `fit` ingiere los CSV y congela escalas, split por grupo y
+el resultado de la validación de dirección de facturas. `score` requiere ese
+archivo de parámetros y escribe `scores.jsonl` y `manifest.json`.
+Cada ejecución guarda flujos, indicadores, scores, manifiesto y backtest en
+`tmp/scoring-v02/runs/<version_parametros>/<huella_datos>/`.
+Para puntuar un CSV test con la calibración ya congelada, usar otra carpeta de
+artefactos y pasar `SCORING_DATASET=<carpeta_test>`,
+`SCORING_OUT=<carpeta_salida>` y
+`SCORING_PARAMS=<ruta_al_parameters.json_de_ajuste>` a `pnpm scoring:score`.
+Para reconstruir particiones si cambian los CSV o la normalización, ejecutar
+`SCORING_REINGEST=1 pnpm scoring:fit`.
+`backtest` evalúa solo grupos de validación. `import` publica una ejecución
+completa en Postgres; las rutas públicas `/api/scoring/companies`,
+`/api/scoring/companies/[companyId]`, `/api/scoring/runs/[runId]` y
+`/api/scoring/export` solo leen ejecuciones completas.
+
+Las filas de facturas históricas se reconstruyen con `status` final y
+`payment_date` limitado al cierre mensual; `coverage.invoiceHistoryEstimated`
+marca esta limitación. Las conversiones de moneda, avales y límites de grupo
+están en la siguiente iteración descrita en `SOURCE.md`.
+
+Ejecución sobre cinco CSV del reto (parámetros `56446479dd2d…`): 1.286
+empresas y 30.864 filas empresa-mes. Ajuste con reingesta: 73 s y 332 MB de
+memoria máxima; scoring: 18 s y 229 MB; backtest: 1,1 s y 134 MB. Todas las
+filas pasan las invariantes de límites y sumas de contribuciones/deltas. La
+confianza media es 0,300 y 384 empresas quedan bajo 0,3 en el último mes.
+En 348 empresas de validación, el backtest detecta previamente 0 de 22
+eventos de deterioro y 11 de 76 de recuperación; Spearman del score frente
+al margen a tres meses: 0,162. Estos resultados son débiles y no justifican
+usar el score como decisión de crédito sin revisión.
+
 > Sucede a `SCORE_MODEL.md` v0.1 (hoy en
 > `.agents/skills/vercel-react-best-practices/docs/`; moverlo a `docs/`).
 > Este documento fija **cómo se calcula** cada pieza y **qué entrega** al
