@@ -140,7 +140,7 @@ no tiene ningún producto `lineofcredit`**; si lo tiene, la disposición ya se
 contabiliza en los movimientos de la propia línea y el abono en la cuenta va a
 neutral (evita contarla dos veces).
 
-Excepción de confianza: `debt_drawdown` y `balance_adjustment` son categorías
+Excepción de confianza (a revisitar): `debt_drawdown` y `balance_adjustment` son categorías
 de regla de #12 y llegan siempre con `category_confidence = 0,90`; se aceptan
 con `≥ PARAMS.categoryConfidenceNuevas` (0,90). El resto sigue exigiendo
 `≥ PARAMS.categoryConfidenceMin` (0,95).

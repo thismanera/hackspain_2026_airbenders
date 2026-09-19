@@ -342,7 +342,7 @@ el jurado.
 | # | Decisión | Justificación | Estado |
 | --- | --- | --- | --- |
 | 1 | Divisas: todo a € con la regla de §1.0 | Score comparable entre empresas y grupos; `exchange_rate` verificado en datos (USD→EUR 1,16, GBP→EUR 0,86, NOK→EUR 11) como unidades de moneda del producto por unidad de moneda de la empresa. | ✅ 18-09 |
-| 2 | Categoría `-`: usar reclasificación de #12 con `category_confidence ≥ 0,95`; resto sin clasificar | #12 recupera el 50,5 % del volumen sin categoría con solo el 15,7 % de las filas, a 95 % de precisión contra etiquetas originales, y guarda confianza por transacción. Lo ambiguo queda `unknown` y baja la confianza del score en vez de contaminarlo. Sin esto, muchas empresas caen bajo `confianza < 0,5` y el producto no tiene a quién prestar. | ✅ 19-09 |
+| 2 | Categoría `-`: usar reclasificación de #12 con `category_confidence ≥ 0,95`; resto sin clasificar | #12 recupera el 50,5 % del volumen sin categoría con solo el 15,7 % de las filas, a 95 % de precisión contra etiquetas originales, y guarda confianza por transacción. Lo ambiguo queda `unknown` y baja la confianza del score en vez de contaminarlo. Sin esto, muchas empresas caen bajo `confianza < 0,5` y el producto no tiene a quién prestar. Excepción (decisión de diseño a revisitar): `debt_drawdown` y `balance_adjustment` se aceptan con confianza 0,90 porque #12 les asigna ese valor fijo sin precisión estimada; revisar cuando haya etiquetas para medirla. | ✅ 19-09 · ⏳ revisitar excepción |
 | 3 | Pesos de bloque A 45 / B 30 / C 25 | Producto de crédito: primero si la caja aguanta más cuota, segundo si paga lo que ya debe, tercero si el negocio depende de pocos clientes. Juicio de negocio, no estadístico; se revisa en backtest. | ✅ 19-09 |
 | 4 | Pesos intra-bloque iguales | Fácil de explicar y defender; sin datos de impago no hay base para diferenciarlos. Cambiar solo con evidencia del backtest. | ✅ 19-09 |
 | 5 | Umbrales sanos A1-A5 y estados sana ≥ 70 / vigilar 45-70 / riesgo < 45 | Permite decir en la ficha "14 %, sano (umbral 10 %)". Números de sentido común bancario (cobertura 1,3 es estándar de DSCR); se calibran en backtest para que ~20 % de la cartera caiga en riesgo. | ✅ 19-09 |
@@ -377,3 +377,6 @@ el jurado.
 | 33 | Nombre: **Embat Flow** | Coherente con la decisión 13 (producto embebido de Embat): el jurado de Embat ve su producto, no una herramienta de banco. Riesgo asumido: usar su marca sin permiso; se declara como propuesta en el pitch. | ✅ 19-09 |
 
 **Estado 19-09:** 33 de 33 decisiones validadas. Ninguna abierta.
+
+**Revisitar:** decisión 2, excepción de confianza 0,90 para las
+categorías nuevas de #12.
