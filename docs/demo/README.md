@@ -6,10 +6,10 @@ a una pantalla donde comprobarla.
 
 Hay dos carpetas:
 
-| Carpeta | Qué hay | Estado |
-| ------- | ------- | ------ |
-| [`use_cases/`](./use_cases/) | [01](./use_cases/01-misma-nota-dos-empresas.md) empate a 67 y [02](./use_cases/02-holding-absorbe-y-drena.md) holding que absorbe y drena | Completos: cifras, recorrido y capturas |
-| [`use_cases_factibles/`](./use_cases_factibles/) | Puertas, impago, forecast, datos, aval y pignoración | Factibles en el mismo run; por tiempo no rellenamos guion ni capturas. Cada ficha explica el problema y cómo lo resolvería el producto |
+| Carpeta                                                  | Qué hay                                                                                                                                                                              | Estado                                        |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| [`use_cases_implementados/`](./use_cases_implementados/) | [01](./use_cases_implementados/01-misma-nota-dos-empresas.md), comparación de empresas, y [02](./use_cases_implementados/02-holding-absorbe-y-drena.md), holding que absorbe y drena | Recorridos principales de la aplicación       |
+| [`other_use_cases/`](./other_use_cases/)                 | Puertas, impago, forecast, datos, aval y pignoración                                                                                                                                 | Casos adicionales localizados en el mismo run |
 
 Las fichas Markdown preparan el relato. La aplicación necesita un run
 compatible materializado en Prisma; sin ese run no hay datos de relleno. El
@@ -18,11 +18,11 @@ forecast está en **modo sombra** y los límites son simulados.
 La calibración congelada está en
 [`artifacts/inference/scoreSolo-holding-v7/`](../../artifacts/inference/scoreSolo-holding-v7/).
 
-## Qué cubren los dos casos completos
+## Qué cubren los dos casos principales
 
-**01 — La misma nota, dos empresas.** `COMP_0524` y `COMP_0563` rondan 67.
-Los bloques A/B/C, la trayectoria, el holding y la decisión no coinciden. El
-score ordena; la evidencia explica.
+**01 — La misma nota, dos empresas.** `COMP_0484` y `COMP_0875` rondan 61.
+Las dos cierran, pero la cobertura, las alertas y el motivo de fiabilidad no
+coinciden. El score ordena; la evidencia explica.
 
 **02 — El holding absorbe o drena.** En `GROUP_0217`, `COMP_0512` recibe apoyo
 (Solo 52, Grupo 71) y cierra por puertas; `COMP_0926` aporta caja al grupo
@@ -33,7 +33,7 @@ el grupo si mira solo a la filial.
 
 ## Cómo leer una ficha
 
-En todas se repite el mismo orden, esté grabada o no:
+En todas se repite el mismo orden:
 
 `scoreSolo → bloques A/B/C → scoreGrupo y holding → estado y puertas → decisión
 → forecast → playbook`.
@@ -54,25 +54,28 @@ Pantallas:
 Si la pantalla no coincide con la ficha, no mezcles cifras. Comprueba primero
 contrato, run y mes.
 
-## Casos factibles
+## Casos adicionales
 
-El producto ya cubre más situaciones en el mismo run. No están en el vídeo.
-El índice y el texto teórico están en
-[`use_cases_factibles/`](./use_cases_factibles/).
+El producto cubre más situaciones en el mismo run. Cada ficha contiene una
+explicación escrita autosuficiente y una guía que indica dónde insertar las
+capturas. El índice está en [`other_use_cases/`](./other_use_cases/).
 
-| # | Pregunta | Cómo lo resolvería |
-| - | -------- | ------------------ |
-| [03](./use_cases_factibles/03-misma-nota-puertas-distintas.md) | Misma nota, ¿oferta o ninguna? | El score ordena; las puertas eligen. |
-| [04](./use_cases_factibles/04-impago-nota-buena.md) | ¿Una nota buena tapa un impago? | La puerta de obligaciones manda sobre tendencia y forecast. |
-| [05](./use_cases_factibles/05-forecast-en-sombra.md) | ¿La previsión aprueba hoy? | Se enseña en sombra; no mueve el límite. |
-| [06](./use_cases_factibles/06-datos-insuficientes.md) | ¿Volumen alto basta para evaluar? | `sin_datos` cierra por falta de evidencia, no por ser mala. |
-| [07](./use_cases_factibles/07-aval-condicionado.md) | ¿El grupo arregla a la filial? | Apoyo visible y condicionado; no borra puertas duras. |
-| [08](./use_cases_factibles/08-pignoracion-caja.md) | ¿Una empresa sana puede drenar caja? | Solo, Grupo y cortafuegos en la misma ficha. |
+| #                                                          | Pregunta                             | Cómo lo resolvería                                          |
+| ---------------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------- |
+| [03](./other_use_cases/03-misma-nota-puertas-distintas.md) | Misma nota, ¿oferta o ninguna?       | El score ordena; las puertas eligen.                        |
+| [04](./other_use_cases/04-impago-nota-buena.md)            | ¿Una nota buena tapa un impago?      | La puerta de obligaciones manda sobre tendencia y forecast. |
+| [05](./other_use_cases/05-forecast-en-sombra.md)           | ¿La previsión aprueba hoy?           | Se enseña en sombra; no mueve el límite.                    |
+| [06](./other_use_cases/06-datos-insuficientes.md)          | ¿Volumen alto basta para evaluar?    | `sin_datos` cierra por falta de evidencia, no por ser mala. |
+| [07](./other_use_cases/07-aval-condicionado.md)            | ¿El grupo arregla a la filial?       | Apoyo visible y condicionado; no borra puertas duras.       |
+| [08](./other_use_cases/08-pignoracion-caja.md)             | ¿Una empresa sana puede drenar caja? | Solo, Grupo y cortafuegos en la misma ficha.                |
 
 ## Capturas
 
-Una por idea, no una por pantalla. Guía en
-[`use_cases/captures/`](./use_cases/captures/). Solo 01 y 02 las llevan.
+Cada ficha propone de tres a cuatro capturas y especifica después de qué párrafo
+insertarlas. Los archivos se guardan en
+[`use_cases_implementados/images/`](./use_cases_implementados/images/), con el
+número del caso como prefijo. Conviene capturar una idea por imagen y recortar
+la interfaz hasta dejar visibles el dato y su explicación.
 
 ## Qué no decir
 
@@ -80,4 +83,4 @@ Una por idea, no una por pantalla. Guía en
 - Que el forecast en sombra modifique el límite.
 - Que un ajuste positivo de holding sea un aval jurídico.
 - Que el playbook demuestre causalidad o decisiones de gestión.
-- Que los casos factibles estén preparados para presentarlos como demo.
+- Que una captura de otro mes o de otro run demuestre las cifras documentadas.

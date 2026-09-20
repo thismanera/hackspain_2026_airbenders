@@ -117,9 +117,7 @@ const ROWS: RowSpec[] = [
     label: "Ajuste de grupo",
     cell: (f) =>
       f.latest.group ? (
-        <span className="tabular-nums">
-          {formatSigned(f.latest.score - f.latest.standaloneScore)} pts
-        </span>
+        <span className="tabular-nums">{formatSigned(f.latest.group.adjustment)} pts</span>
       ) : (
         <span className="text-muted-foreground">Va sola</span>
       ),
