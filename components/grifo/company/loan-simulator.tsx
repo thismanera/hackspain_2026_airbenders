@@ -1,38 +1,32 @@
 "use client";
 
-import { Lock } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Lock } from "lucide-react";
+import { useState } from "react";
 
-import { ActionBadge } from "@/components/grifo/action-badge";
 import { OfferTenorPicker } from "@/components/grifo/company/offer-menu";
 import { RequestLineButton } from "@/components/grifo/company/request-line";
-import { Panel } from "@/components/grifo/panel";
-import { formatEuros, formatMonthShort } from "@/lib/features/portfolio/format";
+import { Figure } from "@/components/grifo/panel";
+import { cn } from "@/lib/core/utils";
+import { formatApr, formatEuros } from "@/lib/features/portfolio/format";
 import { decisionNarrative } from "@/lib/features/portfolio/narrative";
 import type { CompanyFileResponse } from "@/lib/features/portfolio/types";
 
 /**
- * Cuánto ha cambiado el límite, en las palabras del motor. La referencia es
- * `decision.previousLimit` —lo que el motor registró el mes pasado— y no la
- * decisión del snapshot anterior: cuando una empresa deja de ser elegible un mes
- * las dos cifras no coinciden, y con dos fuentes la tarjeta se contradecía a sí
- * misma («+137.000 €, antes sin línea» encima de «110.000 € → 137.000 €»).
+ * Delta numérico del límite frente al mes pasado. `null` cuando no hay línea
+ * previa con la que compararse o el límite no se ha movido: un "sin cambio"
+ * no dice nada junto a las otras cifras de la fila.
  */
-function limitChange(file: CompanyFileResponse): string | null {
+function limitDelta(file: CompanyFileResponse): number | null {
   const { decision } = file.latest;
-  const previousMonth = file.previous?.month ?? null;
+  if (decision.previousLimit === 0) return null;
   const delta = decision.limit - decision.previousLimit;
-  const since = previousMonth ? ` desde ${formatMonthShort(previousMonth)}` : "";
-
-  if (decision.previousLimit === 0) return previousMonth ? `nuevos${since}` : null;
-  if (delta === 0) return `sin cambio${since}`;
-  return `${delta > 0 ? "+" : "−"}${formatEuros(Math.abs(delta))}${since}`;
+  return delta === 0 ? null : delta;
 }
 
 /**
  * La oferta del mes: el importe, cuánto se mueve y en qué plazos se puede usar.
- * Nada más. El titular redactado repetía las mismas cifras que ya están en
- * pantalla y la tabla de antes/ahora vive plegada debajo, donde se consulta si
- * hace falta en vez de leerse siempre.
+ * Nada más. Va directo bajo el título de la página —es lo que la página existe
+ * para mostrar—, sin caja ni titular propios que la dupliquen.
  */
 export function LoanSimulator({
   file,
@@ -43,56 +37,85 @@ export function LoanSimulator({
 }) {
   const { latest, previous } = file;
   const { decision } = latest;
-  const changed = decision.action !== "mantener";
+  const [days, setDays] = useState<number | null>(null);
 
   if (!decision.eligible) {
     return (
-      <Panel
-        title="Tu oferta este mes"
-        description="Sin línea este mes. El partner no recibe nada hasta que la pidas."
-        aside={<ActionBadge action={decision.action} changed={changed} />}
-        className={className}
-      >
+      <div className={cn("flex flex-col gap-3", className)}>
         <p className="flex items-start gap-2.5 text-sm leading-relaxed text-pretty">
           <Lock aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
           <span className="max-w-[65ch]">{decisionNarrative(file).headline}</span>
         </p>
         {previous?.decision.eligible ? (
-          <p className="text-muted-foreground mt-3 border-t pt-3 text-xs text-pretty">
+          <p className="text-muted-foreground text-xs text-pretty">
             El mes pasado tenías {formatEuros(previous.decision.limit)}. Cuando pases las puertas,
             la oferta vuelve sola.
           </p>
         ) : null}
-      </Panel>
+      </div>
     );
   }
 
-  const change = limitChange(file);
+  const delta = limitDelta(file);
+  const options = decision.menu;
+  const active =
+    options.length > 0 ? (options.find((option) => option.days === days) ?? options.at(-1)!) : null;
 
   return (
-    <Panel
-      title="Tu oferta este mes"
-      description="Recalculada cada mes con el score; el partner solo la recibe si la pides."
-      aside={<ActionBadge action={decision.action} changed={changed} />}
-      className={className}
-      bodyClassName="flex flex-col gap-5"
-    >
-      {/* Importe y plazos son la misma cosa —la oferta— y van en un solo cuerpo.
-          Separarlos con una línea los convertía en dos cajas dentro de la caja. */}
-      <p className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-        <span className="text-3xl leading-none font-semibold tracking-[-0.02em] tabular-nums">
-          {formatEuros(decision.limit)}
+    <div className={cn("flex flex-col gap-5", className)}>
+      {/* El número de cabecera es lo disponible al plazo elegido, no el techo:
+          es la cifra que responde a «¿cuánto puedo pedir?». El techo en sí no
+          se repite en texto —ya es el número grande a 180 días—, solo su
+          movimiento frente al mes pasado. */}
+      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-5xl leading-none font-semibold tracking-[-0.02em] tabular-nums">
+          {formatEuros(active ? active.maxAmount : decision.limit)}
         </span>
-        <span className="text-muted-foreground text-sm">
-          preaprobados{change ? ` · ${change}` : ""}
+        <span className="text-muted-foreground text-base">
+          disponible{active ? ` a ${active.days} días` : ""}
         </span>
       </p>
 
-      {decision.menu.length > 0 ? <OfferTenorPicker options={decision.menu} /> : null}
+      {/* El plazo va justo debajo del número que gobierna: es el control, no
+          un detalle aparte al que se llega más abajo. */}
+      {options.length > 0 ? (
+        <OfferTenorPicker options={options} value={days} onChange={setDays} />
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-x-10 gap-y-4">
+        {delta !== null ? (
+          <Figure
+            label="Desde el mes pasado"
+            value={
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1",
+                  delta > 0 ? "text-status-healthy-fg" : "text-status-risk-fg",
+                )}
+              >
+                {delta > 0 ? (
+                  <ArrowUpRight aria-hidden className="size-4" strokeWidth={2.5} />
+                ) : (
+                  <ArrowDownRight aria-hidden className="size-4" strokeWidth={2.5} />
+                )}
+                {delta > 0 ? "+" : "−"}
+                {formatEuros(Math.abs(delta))}
+              </span>
+            }
+          />
+        ) : null}
+
+        {active ? (
+          <>
+            <Figure label="TAE" value={formatApr(active.apr)} />
+            {active.cost > 0 ? <Figure label="Intereses" value={formatEuros(active.cost)} /> : null}
+          </>
+        ) : null}
+      </div>
 
       {/* En pantalla ancha el acto vive en la barra lateral, siempre a la vista.
           Aquí solo aparece cuando esa barra está plegada en un cajón. */}
       <RequestLineButton file={file} className="lg:hidden" />
-    </Panel>
+    </div>
   );
 }

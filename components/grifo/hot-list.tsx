@@ -44,10 +44,12 @@ export function HotFlame({
 export function HotList({
   rows,
   onOpenCompany,
+  highlightedId,
   className,
 }: {
   rows: PortfolioRow[];
   onOpenCompany: (companyId: string) => void;
+  highlightedId?: string | null;
   className?: string;
 }) {
   const ordered = [...rows].sort((a, b) => (a.hot?.rank ?? 0) - (b.hot?.rank ?? 0));
@@ -70,7 +72,10 @@ export function HotList({
               <button
                 type="button"
                 onClick={() => onOpenCompany(row.company.id)}
-                className="hover:bg-muted/40 focus-visible:ring-ring flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
+                className={cn(
+                  "focus-visible:ring-ring flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset",
+                  row.company.id === highlightedId ? "bg-muted/60" : "hover:bg-muted/40",
+                )}
               >
                 <span className="text-muted-foreground w-4 shrink-0 text-right text-xs tabular-nums">
                   {row.hot?.rank}

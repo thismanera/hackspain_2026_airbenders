@@ -23,7 +23,7 @@ type Update = Partial<PortfolioSearchState>;
 /** Tiempo sin teclear antes de que la búsqueda viaje a la URL y al servidor. */
 const SEARCH_DEBOUNCE_MS = 250;
 
-const ESTADO_OPTIONS = [
+export const ESTADO_OPTIONS = [
   { value: "todos", label: "Todos los estados" },
   ...(["riesgo", "vigilar", "sana", "sin_datos"] as const).map((key) => ({
     value: key,
@@ -39,7 +39,7 @@ const ACCION_OPTIONS = [
   })),
 ];
 
-const DIRECCION_OPTIONS = [
+export const DIRECCION_OPTIONS = [
   { value: "todas", label: "Cualquier tendencia" },
   ...(["deterioro", "estable", "mejora"] as const).map((key) => ({
     value: key,
@@ -62,7 +62,7 @@ const PREVISION_OPTIONS = [
   { value: "mantiene", label: "Mantiene la banda" },
 ];
 
-function FilterSelect({
+export function FilterSelect({
   label,
   value,
   options,
