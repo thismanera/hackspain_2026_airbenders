@@ -1,482 +1,408 @@
-# Embat Flow: salud financiera y decisiones de tesorería
+# Embat Flow
 
-El proyecto analiza movimientos bancarios y facturas para explicar la salud de
-una empresa, proyectar su evolución, aplicar una política de financiación y
-proponer revisiones de tesorería. La nota de salud no es una probabilidad de
-impago ni una aprobación automática.
+**Inteligencia financiera continua para convertir datos de tesorería en decisiones de financiación explicables.**
 
-## Por dónde empezar
+Embat Flow analiza movimientos bancarios, facturas, deuda y relaciones de grupo
+para medir mensualmente la salud financiera de una empresa, anticipar su
+evolución y traducirla en una política de circulante: elegibilidad, límite,
+plazo, precio y acciones de seguimiento.
 
-| Si quieres…                                        | Lee…                                                                                    |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Revisar la entrega (jurado)                        | [Paquete de entrega](./docs/product/para-el-jurado.md)                                  |
-| Orientarte en la documentación                     | [Mapa de docs/](./docs/README.md)                                                       |
-| Entender o explicar el producto                    | [Guía de módulos](./docs/product/modules-guide.md)                                      |
-| Saber qué significa cada métrica                   | [Guía de métricas de scoring](./docs/engines/scoring-metrics.md)                        |
-| Revisar el cálculo observado                       | [Motor de scoring](./docs/engines/scoring-engine.md)                                    |
-| Comprender las previsiones y el modo sombra        | [Motor de forecast](./docs/engines/forecast-engine.md)                                  |
-| Entender una oferta y sus controles                | [Motor de decisión](./docs/engines/decision-engine.md)                                  |
-| Explicar recomendaciones y escenarios recuperables | [Playbook de tesorería](./docs/engines/treasury-playbook.md)                            |
-| Preparar una presentación                          | [Casos de uso](./docs/demo/README.md)                                                   |
-| Consultar reglas y diferencias pendientes          | [SOURCE](./docs/product/SOURCE.md) y [auditoría](./docs/product/documentation-audit.md) |
+> [Abrir Embat Flow en Vercel](https://hackspain-2026-airbenders.vercel.app/cartera?mes=2026-08)
+>
+> La aplicación está desplegada con los datos y resultados ya cargados. Para
+> explorar el producto no hace falta clonar el repositorio, instalar
+> dependencias ni configurar una base de datos.
 
-Las especificaciones anteriores se conservan en [docs/history](./docs/history/README.md).
-Las convenciones técnicas están en [AGENTS.md](./AGENTS.md) y el brief de
-producto en [docs/product/PRODUCT.md](./docs/product/PRODUCT.md).
+El entorno web utiliza el corte de **agosto de 2026** y el contrato de cálculo
+`scoreSolo-holding-v7`.
 
-## Uso rápido
+## Qué problema resuelve
 
-Necesitas Node 22, Corepack y Git LFS instalados. El setup comprueba las
-herramientas, instala dependencias y prepara Prisma; no instala Node ni una
-base de datos. Ejecuta desde la raíz:
+La financiación empresarial suele apoyarse en fotografías contables antiguas,
+procesos manuales y una visión fragmentada por banco o sociedad. Embat Flow
+convierte la información operativa disponible en Embat en una lectura mensual,
+trazable y accionable.
 
-```bash
-git lfs install
-git lfs pull
-# Solo si todavía no tienes .env:
-cp -n .env.example .env
-# Completa DATABASE_URL, BETTER_AUTH_SECRET y BETTER_AUTH_URL en .env.
-bash scripts/setup.sh
-corepack pnpm pipeline:eval
+| Enfoque tradicional                        | Embat Flow                                            |
+| ------------------------------------------ | ----------------------------------------------------- |
+| Revisión anual o puntual                   | Revisión mensual                                      |
+| Información contable con varios meses      | Movimientos bancarios y facturas recientes            |
+| Visión aislada de cada sociedad            | Lectura autónoma y contexto del grupo empresarial     |
+| Una nota difícil de justificar             | Score, evidencia, umbrales y controles explicables    |
+| Condiciones estáticas                      | Límite, plazo y precio revisados de forma progresiva  |
+| Reacción cuando el problema ya es evidente | Alertas, previsión y cambios de trayectoria tempranos |
+
+El resultado no es una caja negra ni una probabilidad de impago. Es una capa
+de decisión determinista que permite entender qué está ocurriendo, qué señales
+sostienen el diagnóstico y qué condiciones permite una política de crédito.
+
+## Para quién es
+
+Embat Flow conecta tres perspectivas sin confundir sus responsabilidades:
+
+| Actor                       | Qué obtiene                                                                  |
+| --------------------------- | ---------------------------------------------------------------------------- |
+| **Empresa, tesorero o CFO** | Su salud financiera, benchmark, evolución, oferta y palancas de mejora       |
+| **CFO de grupo**            | Exposición conjunta, apoyos, drenajes de caja y efectos entre sociedades     |
+| **Partner financiero**      | Una cartera priorizada, decisiones explicadas y seguimiento mensual          |
+| **Embat**                   | Un módulo de financiación de circulante integrado sobre sus datos operativos |
+
+La empresa conserva el control de la relación: el producto está diseñado para
+compartir con el partner el score, su explicación y la oferta únicamente cuando
+la empresa decide solicitar circulante. Los movimientos, facturas y saldos en
+bruto no forman parte del informe compartido.
+
+## Capacidades del producto
+
+| Módulo                    | Pregunta que responde                                | Resultado                                                |
+| ------------------------- | ---------------------------------------------------- | -------------------------------------------------------- |
+| **Scoring financiero**    | ¿Cómo está la empresa al cierre de este mes?         | Score 0–100, confianza, estados, bloques y señales       |
+| **Contexto de holding**   | ¿El grupo sostiene o presiona a la sociedad?         | `scoreSolo`, `scoreGrupo`, ajuste y condiciones de grupo |
+| **Forecast**              | ¿Qué ocurriría si continúa la evolución observada?   | Previsiones a 3 y 6 meses con intervalos                 |
+| **Motor de decisión**     | ¿Qué financiación permite la política?               | Elegibilidad, límite, plazo, TAE, menú y acción mensual  |
+| **Alertas e inflexiones** | ¿Qué está mejorando o deteriorándose?                | Cambios confirmados, dirección y señales tempranas       |
+| **Playbook de tesorería** | ¿Qué conviene revisar primero?                       | Hallazgos, presiones, mejoras y acciones sugeridas       |
+| **Pares y benchmark**     | ¿Cómo se sitúa frente a empresas comparables?        | Cohorte anonimizada y distribución de referencia         |
+| **Backtesting**           | ¿Cómo se comporta el sistema fuera del ajuste?       | Métricas de anticipación, estabilidad y error            |
+| **Exportación**           | ¿Cómo se integran los resultados con otros procesos? | CSV, JSONL y endpoints de consulta versionados           |
+
+## Cómo funciona
+
+```mermaid
+flowchart LR
+    A[Movimientos, facturas y deuda] --> B[Normalización y controles de calidad]
+    B --> C[Score autónomo]
+    C --> D[Contexto de grupo]
+    C --> E[Forecast 3 y 6 meses]
+    C --> F[Política de crédito]
+    D --> F
+    E --> F
+    C --> G[RCA y playbook]
+    F --> H[Cartera, ficha y oferta]
+    G --> H
 ```
 
-El pipeline calcula scoring, forecast, decisión y submission con parámetros
-congelados y escribe archivos locales. No necesita Python ni una conexión a
-PostgreSQL para esos cálculos. Para ver la cartera, importa después el run en
-una base con el esquema preparado, siguiendo las instrucciones de abajo:
+1. **Normalización.** Convierte importes a euros, separa operación, deuda y
+   transferencias, reconstruye la evidencia útil y conserva la falta de datos.
+2. **Scoring.** Calcula 14 variables agrupadas en liquidez y deuda (A),
+   fiabilidad de pagos (B) y relaciones comerciales (C).
+3. **Holding.** Mantiene separadas la capacidad autónoma de la sociedad y la
+   influencia de su grupo.
+4. **Forecast.** Proyecta el score a 3 y 6 meses bajo continuidad de las señales
+   observadas.
+5. **Decisión.** Aplica controles de acceso, límites, plazos, precios,
+   condiciones y memoria mensual.
+6. **Explicación.** Identifica cambios materiales desde una inflexión y propone
+   un playbook operativo sin atribuir causalidad no observada.
+
+Todos los motores validan sus entradas y salidas con contratos Zod. La versión,
+el hash de parámetros y la huella del dataset impiden mezclar ejecuciones
+incompatibles. Ningún LLM decide la elegibilidad, el límite, el plazo o el
+precio.
+
+## Explorar la aplicación
+
+La entrada recomendada es la cartera de agosto de 2026:
+
+### [Abrir la cartera](https://hackspain-2026-airbenders.vercel.app/cartera?mes=2026-08)
+
+Desde la navegación principal se puede acceder a:
+
+| Vista             | Acceso directo                                                             | Qué permite hacer                                            |
+| ----------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **Cartera**       | [Abrir](https://hackspain-2026-airbenders.vercel.app/cartera?mes=2026-08)  | Filtrar empresas por estado, acción, banda y previsión       |
+| **Vista empresa** | [Abrir](https://hackspain-2026-airbenders.vercel.app/empresa?mes=2026-08)  | Consultar score, benchmark, oferta y solicitud de circulante |
+| **Grupos**        | [Abrir](https://hackspain-2026-airbenders.vercel.app/grupos?mes=2026-08)   | Analizar exposición, apoyo y presión dentro de un holding    |
+| **Alertas**       | [Abrir](https://hackspain-2026-airbenders.vercel.app/alertas?mes=2026-08)  | Revisar mejoras y deterioros confirmados                     |
+| **Pares**         | [Abrir](https://hackspain-2026-airbenders.vercel.app/pares?mes=2026-08)    | Comparar hasta tres empresas con el mismo marco              |
+| **Backtest**      | [Abrir](https://hackspain-2026-airbenders.vercel.app/backtest?mes=2026-08) | Consultar el comportamiento histórico de scoring y forecast  |
+
+Los filtros, el mes, las empresas seleccionadas y la pestaña activa viven en
+la URL. Cualquier análisis puede compartirse mediante un enlace reproducible.
+
+## Casos de uso implementados
+
+### 1. La misma nota no implica la misma decisión
+
+[`COMP_0484` frente a `COMP_0875`](https://hackspain-2026-airbenders.vercel.app/pares?mes=2026-08&empresas=COMP_0484,COMP_0875)
+
+Las dos empresas rondan los 61 puntos, pero presentan distinta profundidad de
+histórico, confianza, señales de fiabilidad y trayectoria. El caso muestra por
+qué el score ordena mientras la evidencia explica, y por qué una conclusión
+coincidente no implica un diagnóstico idéntico.
+
+[Leer el caso completo](./docs/demo/use_cases_implementados/01-misma-nota-dos-empresas.md)
+
+### 2. El holding puede sostener o drenar caja
+
+[`GROUP_0217`: `COMP_0512` y `COMP_0926`](https://hackspain-2026-airbenders.vercel.app/cartera?mes=2026-08&grupo=GROUP_0217&pestana=decision)
+
+Dos sociedades del mismo grupo muestran efectos opuestos. Una recibe apoyo y
+otra aporta caja al holding. El caso separa capacidad autónoma, contexto de
+grupo, controles de acceso y techo de exposición compartido.
+
+[Leer el caso completo](./docs/demo/use_cases_implementados/02-holding-absorbe-y-drena.md)
+
+El [catálogo de casos de uso](./docs/demo/README.md) añade escenarios de
+impago con nota alta, datos insuficientes, forecast en sombra, aval
+condicionado, puertas distintas y pignoración de caja.
+
+## Cómo interpretar los resultados
+
+| Concepto           | Significado                                                | No significa                                   |
+| ------------------ | ---------------------------------------------------------- | ---------------------------------------------- |
+| `scoreSolo`        | Salud financiera de la empresa con su propia evidencia     | Probabilidad de impago o aprobación automática |
+| `scoreGrupo`       | Score tras incorporar el contexto del holding              | Balance consolidado o garantía jurídica        |
+| Confianza          | Cantidad y calidad de evidencia disponible                 | Probabilidad de acierto                        |
+| Banda              | Tramo numérico A, B, C o D                                 | Estado completo de la empresa                  |
+| Forecast           | Escenario si continúa la evolución observada               | Compromiso sobre el futuro                     |
+| Límite recomendado | Resultado de la política antes de la continuidad mensual   | Dinero solicitado o dispuesto                  |
+| Límite vigente     | Exposición que mantendría el motor tras aplicar sus reglas | Una línea real contratada                      |
+| Playbook           | Cambios observados y puntos concretos para revisar         | Causalidad probada o una orden de gestión      |
+
+La lectura correcta siempre empieza por la evidencia y la confianza, continúa
+con las señales y el grupo, y termina en la decisión. Un único número nunca
+sustituye esa secuencia.
+
+## Política de decisión
+
+La oferta no depende solo de la nota. El motor comprueba seis puertas:
+
+1. historial suficiente;
+2. nota mínima;
+3. fiabilidad de pagos;
+4. caja y ausencia de déficit persistente;
+5. calidad de clientes y vencidos;
+6. ausencia de _cross-default_ activo en el grupo.
+
+Si las supera, calcula el límite a partir del tamaño operativo, la banda, la
+confianza y la capacidad financiera. Después aplica plazo, precio, condiciones
+de grupo y continuidad mensual. Las acciones posibles son `abrir`, `ampliar`,
+`mantener`, `reducir` o `cerrar`.
+
+Para evitar reacciones bruscas, los cambios ordinarios están limitados al 25 %
+mensual y determinados deterioros requieren confirmación. Las señales duras,
+como impagos, déficit persistente o contagio de grupo, conservan capacidad de
+actuación inmediata.
+
+La especificación completa está en el
+[motor de decisión](./docs/engines/decision-engine.md).
+
+## Estado operativo actual
+
+| Área                               | Estado                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------------------ |
+| Aplicación web                     | Desplegada en Vercel y accesible mediante URL pública                                      |
+| Datos                              | Run compatible materializado en PostgreSQL                                                 |
+| Calendario                         | 24 cierres mensuales, de septiembre de 2024 a agosto de 2026                               |
+| Scoring y contexto de grupo        | Operativos con contrato `scoreSolo-holding-v7`                                             |
+| Decisión y playbook                | Operativos y materializados en la interfaz                                                 |
+| Forecast                           | Calculado y visible en **modo sombra**; no modifica todavía la oferta                      |
+| Límites y precios                  | Simulación de política; no representan contratos ni disposiciones reales                   |
+| Solicitud de circulante            | El opt-in funciona en la sesión del navegador                                              |
+| Segmentación de cartera por opt-in | Pendiente de persistencia y aplicación en servidor; la cartera actual contiene todo el run |
+
+La última fila es una frontera relevante del despliegue actual: el flujo de
+empresa permite expresar la solicitud, pero la cartera del partner todavía no
+se filtra en servidor por solicitudes o líneas activas. Esta distinción se
+mantiene explícita para no presentar aislamiento de datos que aún no está
+implementado de extremo a extremo.
+
+## Arquitectura
+
+La interfaz y los motores viven en un único repositorio TypeScript, con límites
+claros entre cálculo, persistencia y presentación.
+
+| Capa                | Tecnología / responsabilidad                                                 |
+| ------------------- | ---------------------------------------------------------------------------- |
+| Aplicación web      | Next.js 16 App Router, React 19 y TypeScript 7                               |
+| Interfaz            | Tailwind CSS 4 y componentes shadcn/ui                                       |
+| Estado de servidor  | TanStack Query 5 con prefetch SSR e hidratación                              |
+| Estado de URL       | nuqs para filtros, comparación, mes y pestañas compartibles                  |
+| Persistencia        | Prisma 7 sobre PostgreSQL                                                    |
+| Autenticación       | Better Auth                                                                  |
+| Validación          | Zod en APIs, parámetros y contratos de los motores                           |
+| Despliegue          | Vercel                                                                       |
+| Inferencia opcional | Helmcode, exclusivamente en servidor y fuera de las decisiones deterministas |
+
+### Flujo de datos
+
+```text
+CSV de origen
+  → ingesta y normalización
+  → scoring por empresa y mes
+  → forecast
+  → decisión y RCA
+  → snapshots materializados en PostgreSQL
+  → Server Components y API
+  → interfaz hidratada
+```
+
+La UI no recalcula métricas financieras. Lee snapshots versionados producidos
+por el pipeline, lo que hace que una cifra mostrada, exportada o consultada por
+API tenga el mismo origen.
+
+### Estructura del repositorio
+
+```text
+app/                     rutas, Server Components y API routes
+components/              componentes de producto y UI
+lib/core/                base de datos, autenticación y React Query
+lib/features/scoring/    ingesta, variables, agregación y holding
+lib/features/forecast/   ajuste, proyección y backtesting
+lib/features/decision/   elegibilidad, límite, precio y acción
+lib/features/rca/        explicación de cambios y playbook
+lib/features/portfolio/  consultas y snapshots para la interfaz
+prisma/schema/           modelos Prisma separados por dominio
+artifacts/inference/     parámetros congelados y versionados
+analysis/                análisis exploratorio y controles del dataset
+docs/                    producto, motores y casos de uso
+```
+
+## API y salidas
+
+Las APIs de consulta principales son:
+
+- `/api/scoring/companies`
+- `/api/scoring/companies/[companyId]`
+- `/api/scoring/runs/[runId]`
+- `/api/scoring/export`
+
+Una versión explícita incompatible se rechaza para evitar mezclar contratos.
+El pipeline también genera:
+
+- `submission.csv`, orientado a interoperabilidad y análisis tabular;
+- `submission.jsonl`, con valores nulos y estructuras aptas para procesamiento;
+- resúmenes de corte final e histórico con versiones, hashes y cobertura.
+
+## Documentación
+
+| Necesidad                               | Documento                                              |
+| --------------------------------------- | ------------------------------------------------------ |
+| Entender la visión y las reglas         | [Producto](./docs/product/PRODUCT.md)                  |
+| Conocer cada módulo                     | [Guía de módulos](./docs/product/modules-guide.md)     |
+| Explorar casos reales                   | [Casos de uso](./docs/demo/README.md)                  |
+| Interpretar las 14 métricas             | [Guía de métricas](./docs/engines/scoring-metrics.md)  |
+| Revisar el cálculo de salud             | [Motor de scoring](./docs/engines/scoring-engine.md)   |
+| Revisar las previsiones                 | [Motor de forecast](./docs/engines/forecast-engine.md) |
+| Revisar elegibilidad y oferta           | [Motor de decisión](./docs/engines/decision-engine.md) |
+| Entender recomendaciones                | [Playbook](./docs/engines/treasury-playbook.md)        |
+| Consultar decisiones y límites vigentes | [SOURCE](./docs/product/SOURCE.md)                     |
+| Navegar toda la documentación           | [Índice de documentación](./docs/README.md)            |
+
+## Desarrollo local — opcional
+
+Esta sección es únicamente para contribuir al código, ejecutar pruebas o
+reproducir el pipeline. **No es necesaria para utilizar el producto**, que ya
+está disponible en Vercel.
+
+### Requisitos
+
+- Node.js 22 (`.nvmrc`)
+- Corepack y pnpm 10.28.1
+- Git LFS
+- PostgreSQL para ejecutar la aplicación completa en local
+
+### Instalación
 
 ```bash
+git clone https://github.com/thismanera/hackspain_2026_airbenders.git
+cd hackspain_2026_airbenders
+git lfs install
+git lfs pull
+cp -n .env.example .env
+bash scripts/setup.sh
+```
+
+Configura en `.env`:
+
+```dotenv
+DATABASE_URL="postgresql://..."
+BETTER_AUTH_SECRET="un-secreto-de-al-menos-32-caracteres"
+BETTER_AUTH_URL="http://localhost:3000"
+```
+
+La integración con Helmcode es opcional. Sus credenciales son exclusivamente
+de servidor y nunca deben utilizar el prefijo `NEXT_PUBLIC_`.
+
+### Preparar la base y arrancar
+
+```bash
+corepack pnpm db:setup
 corepack pnpm dev
 ```
 
-La app usa Next.js 16, React 19, TypeScript 7, Prisma 7/PostgreSQL, TanStack
-Query, Tailwind, shadcn/ui y Better Auth. Visita `/cartera` y la ficha de
-empresa desde la cartera. Sin un run compatible importado, el panel no
-sustituye los resultados por datos ficticios.
+La aplicación queda disponible en `http://localhost:3000/cartera?mes=2026-08`.
 
-## Scripts
+> `db:setup` está pensado para una base de desarrollo desechable. Aplica el
+> esquema con `prisma db push --accept-data-loss`, ejecuta el pipeline congelado
+> si hace falta e importa el run. No debe apuntarse a una base compartida sin
+> copia y autorización.
 
-| Script                    | Qué hace                                                                                                                                 |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`                | Servidor de desarrollo (Turbopack)                                                                                                       |
-| `pnpm build`              | Build de producción (standalone en Docker; salida nativa en Vercel)                                                                      |
-| `pnpm start`              | Sirve el build de producción                                                                                                             |
-| `pnpm test`               | Tests (`node --test`, sin framework extra)                                                                                               |
-| `pnpm db:setup`           | Aplica Prisma e importa el scoring con los parámetros congelados de `artifacts/inference` (el mismo run que la submission) si hace falta |
-| `pnpm db:setup:force`     | Repite ese scoring e importa aunque ya exista una ejecución                                                                              |
-| `pnpm db:setup:refit`     | Reajusta percentiles desde cero antes de importar (la demo dejará de coincidir con la submission)                                        |
-| `pnpm helmcode:check`     | Comprueba la API key de Helmcode (lista modelos + chat de prueba)                                                                        |
-| `pnpm run lint`           | [oxlint](https://oxc.rs) (no ESLint, ver `AGENTS.md`)                                                                                    |
-| `pnpm run lint:fix`       | oxlint con `--fix`                                                                                                                       |
-| `pnpm run format`         | Prettier (con orden de clases de Tailwind)                                                                                               |
-| `pnpm run typecheck`      | `tsc --noEmit`                                                                                                                           |
-| `pnpm run knip`           | Detecta código y dependencias muertas                                                                                                    |
-| `pnpm export:submission`  | Exporta `submission.csv` y `submission.jsonl` desde un run compatible                                                                    |
-| `pnpm pipeline:eval`      | Ejecuta inferencia congelada completa y genera la submission                                                                             |
-| `pnpm run auth:generate`  | Regenera `prisma/schema/auth.prisma` tras tocar `lib/core/auth.ts`                                                                       |
-| `pnpm run rename-project` | Sustituye el nombre placeholder por el nombre real                                                                                       |
+### Reproducir el pipeline sin PostgreSQL
 
-### Despliegue en Vercel
-
-Deja el **Install Command** en `pnpm install --frozen-lockfile` y el **Build
-Command** en `pnpm run build`. El build ejecuta `prisma generate` antes de
-compilar Next.js, porque el cliente se genera en `generated/prisma` y esa
-carpeta no se versiona. Configura como mínimo `DATABASE_URL`,
-`BETTER_AUTH_SECRET` y `BETTER_AUTH_URL` en las variables de entorno de Vercel.
-No sustituyas el build por `next build` directamente: en un checkout limpio
-no existiría el cliente Prisma personalizado. En Vercel se desactiva
-`output: "standalone"` para que el adaptador gestione su propia salida; Docker
-sí conserva el servidor standalone.
-
-## Recalibración y backtests: trabajo opcional
-
-La ejecución normal usa `corepack pnpm pipeline:eval`. Solo necesitas recalibrar
-si quieres estudiar otra configuración. Los backtests comprueban resultados
-contra observaciones posteriores o grupos reservados; no forman parte de la
-submission por defecto.
-
-Para recalibrar, usa una carpeta nueva y rutas de parámetros locales. No apuntes
-estos comandos de ajuste a los ficheros congelados que quieras conservar:
+El cálculo de scoring, forecast, decisión y exportación trabaja en archivos y
+puede ejecutarse sin levantar la aplicación ni conectarse a PostgreSQL:
 
 ```bash
-export SCORING_OUT="tmp/recalibracion-$(date +%Y%m%d-%H%M%S)"
-export SCORING_PARAMS="$SCORING_OUT/parameters.json"
-export FORECAST_PARAMS="$SCORING_OUT/forecast-parameters.json"
-
-corepack pnpm scoring:fit
-corepack pnpm scoring:score
-corepack pnpm forecast:fit
-corepack pnpm forecast:run
-corepack pnpm scoring:decide
-corepack pnpm scoring:backtest
-corepack pnpm forecast:backtest
+corepack pnpm pipeline:eval
 ```
 
-Estos pasos trabajan en archivos y no requieren PostgreSQL. La ingesta se
-rehace automáticamente si falta, está dañada o cambian los metadatos de entrada.
-Usa el mismo directorio y parámetros durante toda la secuencia.
+Por defecto usa los parámetros congelados de
+[`artifacts/inference/scoreSolo-holding-v7/`](./artifacts/inference/scoreSolo-holding-v7/)
+y escribe las salidas en `output/`.
 
-La importación se ejecuta por separado con `corepack pnpm scoring:import`:
-escribe en PostgreSQL y materializa las vistas del panel. `scoring:snapshot`
-rematerializa un run ya importado. El detalle de las métricas se explica en los
-documentos de scoring, forecast y decisión.
-
-## Ejecución reproducible y submission
-
-La ejecución actual trabaja sobre el dataset incluido y usa los parámetros y
-resultados de calibración precalculados en
-[`artifacts/inference/scoreSolo-holding-v7/`](./artifacts/inference/scoreSolo-holding-v7/),
-sin recalibrar durante el scoring. Un contrato, hash o versión incompatible
-sigue siendo un error para evitar mezclar artefactos. El mismo flujo queda
-preparado para recibir otro dataset, pero no necesita un entorno Python para
-ejecutar scoring, forecast, decisión o exportación.
-
-### Preparar el entorno
-
-Se necesitan Node 22, Corepack y Git LFS. El gestor del proyecto es pnpm.
-Desde la raíz del repositorio:
-
-```bash
-git lfs install
-git lfs pull
-corepack pnpm install --frozen-lockfile
-```
-
-También se puede preparar todo con el script reproducible:
-
-```bash
-bash scripts/setup.sh
-```
-
-El script comprueba Node y Corepack; deben estar instalados previamente. Usa la
-versión de pnpm fijada en `package.json`, instala las
-dependencias con el lockfile y genera el cliente Prisma. No conecta con la
-base de datos ni cambia tablas; la configuración de base de datos se hace en
-`.env`. Si `.env` todavía no existe, omite `prisma generate`; créalo en la
-sección siguiente y vuelve a ejecutar `corepack pnpm prisma generate`.
-
-El script deja varias versiones de pnpm disponibles mediante Corepack. Sus
-órdenes `corepack install --global` también pueden cambiar la versión preferida
-fuera de este repositorio; dentro manda `packageManager`. El proyecto usa
-la versión declarada en `package.json` (`10.28.1`) y una versión secundaria
-(`12.4.2` por defecto) puede utilizarse explícitamente sin cambiar la global:
-
-```bash
-corepack pnpm --version                 # 10.28.1 dentro de este proyecto
-corepack pnpm@12.4.2 --version          # versión secundaria
-corepack pnpm test
-```
-
-Si Corepack necesita descargar una versión, la máquina debe poder resolver
-`registry.npmjs.org`. El script no ejecuta `pnpm` global directamente para
-evitar que otra versión intente autoactualizarse o revalidar el lockfile.
-
-### Configurar y comprobar Neon
-
-Si todavía no tienes `.env`, copia el fichero de ejemplo y completa las variables locales. `.env` está
-ignorado por Git y no debe compartirse:
-
-```bash
-cp -n .env.example .env
-# Edita .env y pega la DATABASE_URL pooled de Neon.
-# Genera también un secreto local para Better Auth:
-openssl rand -base64 32
-```
-
-La URL debe incluir `sslmode=require` y `channel_binding=require`. Comprueba la
-conectividad con una consulta de solo lectura:
-
-```bash
-set -a
-. ./.env
-set +a
-psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atqc 'select 1'
-```
-
-Después de cambiar el esquema, vuelve a generar el cliente con:
-
-```bash
-corepack pnpm prisma generate
-```
-
-### Validación completa sin escribir en Neon
-
-Estas comprobaciones no modifican la base de datos:
+### Calidad
 
 ```bash
 corepack pnpm test
 corepack pnpm run typecheck
 corepack pnpm run lint
 corepack pnpm build
-export SCORING_OUT="tmp/scoring-check-$(date +%Y%m%d-%H%M%S)"
-export SUBMISSION_OUT="$SCORING_OUT/submission"
-corepack pnpm pipeline:eval
 ```
 
-El último comando ejecuta ingesta, scoring, forecast, decisión y exportación
-con los parámetros congelados, escribiendo únicamente en `tmp/`.
+| Comando                  | Función                                            |
+| ------------------------ | -------------------------------------------------- |
+| `pnpm dev`               | Servidor de desarrollo con Turbopack               |
+| `pnpm build`             | Genera Prisma Client y compila la aplicación       |
+| `pnpm test`              | Ejecuta las pruebas con `node:test` y `tsx`        |
+| `pnpm pipeline:eval`     | Ingesta, scoring, forecast, decisión y exportación |
+| `pnpm db:setup`          | Prepara una base local e importa el run compatible |
+| `pnpm export:submission` | Regenera CSV y JSONL desde un run calculado        |
+| `pnpm run lint`          | Analiza el código con oxlint                       |
+| `pnpm run typecheck`     | Comprueba los contratos TypeScript                 |
+| `pnpm run format`        | Formatea el repositorio con Prettier               |
+| `pnpm run knip`          | Detecta código y dependencias sin uso              |
 
-### Cargar el resultado precalculado en Prisma
-
-Cuando la base ya tiene el esquema, se puede importar el run local sin
-recalibrar ni ejecutar `db push`:
-
-```bash
-# En la misma terminal, conserva SCORING_OUT del paso anterior.
-# En otra terminal, exporta la ruta del directorio donde generaste el run.
-SCORING_PARAMS=artifacts/inference/scoreSolo-holding-v7/parameters.json \
-FORECAST_PARAMS=artifacts/inference/scoreSolo-holding-v7/forecast-parameters.json \
-corepack pnpm scoring:import
-```
-
-Comprueba las filas importadas con una consulta de solo lectura:
-
-```bash
-psql "$DATABASE_URL" -X -P pager=off -c "
-SELECT
-  (SELECT count(*) FROM score_runs) AS runs,
-  (SELECT count(*) FROM company_month_scores) AS scores,
-  (SELECT count(*) FROM company_month_forecasts) AS forecasts,
-  (SELECT count(*) FROM company_month_decisions) AS decisions;
-"
-```
-
-Para una base de desarrollo desechable, `corepack pnpm db:setup` aplica el
-esquema y ejecuta el pipeline congelado (`pipeline:eval` con los parámetros de
-`artifacts/inference`) antes de importar. Incluye
-`prisma db push --accept-data-loss`, por lo que puede reemplazar columnas o
-datos existentes; no lo uses sobre una base compartida sin copia o aprobación.
-
-La configuración mínima de Better Auth incluye `BETTER_AUTH_SECRET` y
-`BETTER_AUTH_URL` (por ejemplo, `http://localhost:3000` en desarrollo).
-`psql` es un cliente opcional para las comprobaciones SQL; el setup no lo instala.
-
-Con datos importados, arranca la aplicación y revisa las rutas de cartera:
-
-```bash
-corepack pnpm dev
-```
-
-Consulta `/cartera`, `/empresa`, `/api/scoring/companies` y
-`/api/scoring/runs/[runId]`. La interfaz usa el último run compatible de
-Prisma; si la base está vacía, las rutas de scoring no tendrán filas que
-mostrar.
-
-### Regenerar categorías (opcional)
-
-El runtime no depende de Python. Solo hace falta instalar Python 3.12 y las
-dependencias de `analysis/` si se quiere recalcular la reclasificación de
-categorías y rehacer la calibración desde los CSV:
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -r analysis/requirements.txt
-.venv/bin/python analysis/08_categories.py
-.venv/bin/python analysis/09_export_categories.py
-```
-
-El script de setup también lo automatiza con `bash scripts/setup.sh --with-categories`.
-Esta opción es de análisis y no forma parte de la ejecución
-normal ni de la submission precalculada.
-
-### Ejecutar la evaluación y exportar
-
-`pipeline:eval` ejecuta, sin invocar pnpm de forma recursiva, la secuencia
-`autoingest → score → forecast → decisión → submission`. El forecast se
-calcula siempre. Los parámetros incluidos mantienen Solo y Grupo en **modo
-sombra**, sin efecto en decisión. La regla de conexión compara MAE y acierto de
-banda; actualmente se calcula en ajuste, mientras el backtest reservado es un
-informe separado. Véase [la limitación documentada](./docs/engines/forecast-engine.md#6-conexión-con-decisión-estado-real).
-
-```bash
-pnpm pipeline:eval
-```
-
-La salida por defecto es `output/submission.csv` y
-`output/submission.jsonl`. Incluye score autónomo y de grupo, estados,
-alertas, inflexiones, previsiones a tres meses, decisión, límite, plazo, TAE y
-producto sugerido por RCA. Los valores ausentes son celdas vacías en CSV y
-`null` en JSONL.
-
-Se pueden usar rutas distintas sin editar el código:
-
-```bash
-SCORING_DATASET=/ruta/dataset \
-SCORING_OUT=/ruta/run-inferencia \
-SCORING_PARAMS=/ruta/parameters.json \
-FORECAST_PARAMS=/ruta/forecast-parameters.json \
-SUBMISSION_OUT=/ruta/output \
-pnpm pipeline:eval
-```
-
-Si falta `ingest.json`, está corrupto o su fingerprint no coincide, el pipeline
-reingesta automáticamente. Las empresas sin movimientos conservan sus filas
-`sin_datos` y decisiones `cerrar`; ningún fallo global deja una submission
-parcial porque los dos ficheros se escriben de forma atómica.
-
-Para generar solo una submission desde un run ya calculado:
-
-```bash
-SCORING_OUT=/ruta/run \
-SCORING_PARAMS=/ruta/parameters.json \
-pnpm export:submission
-```
-
-El script imprime dos resúmenes: **corte final** (última fila de cada empresa,
-incluida la suma de `LVigente`) e **histórico** (empresa-mes, donde la suma de
-límites es exposición mensual acumulada), además de versiones, hashes, número
-de empresas/meses y rutas absolutas. Septiembre de 2026 sigue excluido de
-calibración y validación.
-
-`corepack pnpm db:setup` es un bootstrap para una base de desarrollo:
-aplica `prisma db push --accept-data-loss` y, si no encuentra un run completo
-materializado, puntúa con los parámetros congelados, ejecuta backtests e
-importa: la web enseña el mismo modelo que la submission. Solo
-`db:setup:refit` recalibra desde cero. La comprobación de existencia de ese script tampoco sustituye los
-controles de compatibilidad del panel. Para una base existente con el esquema
-correcto, importa el run precalculado con el comando anterior.
-
-Las APIs de consulta incluyen `/api/scoring/companies`,
-`/api/scoring/companies/[companyId]`, `/api/scoring/runs/[runId]` y
-`/api/scoring/export`. Una versión explícita incompatible se rechaza con 409.
-
-## Inferencia LLM con Helmcode (sponsor)
-
-[Helmcode](https://helmcode.com) nos da inferencia OpenAI-compatible en la UE
-(`deepseek-v4-flash` y `glm5.3`, 1M de contexto; también `qwen3.6`, `gemma4`,
-`qwen3-embedding`, `rerank`, `whisper`, `kokoro`). Límites por key: 100 rpm,
-5–10 peticiones concurrentes, 2M tokens/min.
-
-### La key
-
-**El repo es público: la key nunca va en el código ni en Git.** Se reparte por
-canal privado y cada uno la pega en su `.env` local (ignorado por Git):
-
-```bash
-# .env
-HELMCODE_API_KEY="sk-hke_..."           # la que te han pasado
-HELMCODE_BASE_URL="https://api.helmcode.com/v1"
-HELMCODE_MODEL="deepseek-v4-flash"
-```
-
-Reglas:
-
-- No usar prefijo `NEXT_PUBLIC_`: la key solo se lee en servidor (Server
-  Components, Route Handlers, Server Actions, scripts). El cliente
-  `lib/integrations/helmcode.ts` importa `server-only` y rompe el build si se
-  importa desde un Client Component.
-- No pegarla en issues, PRs, capturas ni en el prompt de un agente de IA.
-- Si se filtra, revocarla y crear otra en la consola
-  (<https://cloud.helmcode.com/> → API Keys). Las keys son del workspace, no
-  personales.
-- En despliegue (Vercel/Docker/etc.) va como variable de entorno del servidor,
-  igual que `DATABASE_URL`.
-
-Comprobar que funciona: `pnpm helmcode:check`.
-
-### Uso desde código
-
-```ts
-import { ask, chat } from "@/lib/integrations/helmcode";
-
-// System + user en una llamada
-const { content } = await ask("Resume este balance en dos frases", "Eres analista de riesgo.");
-
-// Conversación completa con opciones
-const result = await chat(
-  [
-    {
-      role: "system",
-      content: "Devuelve solo JSON con { riesgo: 'bajo'|'medio'|'alto', motivo: string }",
-    },
-    { role: "user", content: JSON.stringify(companyMetrics) },
-  ],
-  { model: "glm5.3", reasoningEffort: "medium", json: true, maxTokens: 300 },
-);
-const parsed = mySchema.parse(JSON.parse(result.content)); // valida siempre con zod
-```
-
-`chat` devuelve `{ content, reasoning?, model, finishReason?, usage? }`.
-Errores HTTP llegan como `HelmcodeError` con `status` (401 key inválida, 402
-sin plan/créditos, 429 rate limit). `isHelmcodeConfigured()` sirve para
-degradar la feature si falta la key en lugar de romper la página.
-
-Cualquier SDK OpenAI también funciona apuntando `baseURL` a
-`process.env.HELMCODE_BASE_URL` y `apiKey` a `process.env.HELMCODE_API_KEY`.
-Docs: [integraciones](https://helmcode.com/docs/integrations) ·
-[modelos](https://helmcode.com/docs/models) ·
-[rate limits](https://helmcode.com/docs/rate-limits).
-
-## Herencia de la plantilla: crear otro proyecto
-
-Esta sección se conserva para quien reutilice la base técnica. No forma parte
-de la instalación ni de la ejecución de Embat Flow.
-
-### Paso 0 (una sola vez): publicar esta plantilla en GitHub
-
-Ya tienes un repo git local con un commit inicial (`git log` para
-comprobarlo). Súbelo y márcalo como _template repository_ para poder usar
-"Use this template" en cada proyecto nuevo. Dos formas, según tengas o no
-[GitHub CLI](https://cli.github.com) instalado:
-
-**Sin GitHub CLI (solo `git`, funciona siempre):**
-
-1. Crea un repo vacío en <https://github.com/new> (sin README ni
-   `.gitignore` — ya los tenemos) llamado, por ejemplo, `plantilla-nextjs`.
-2. Conéctalo y súbelo:
-   ```bash
-   git remote add origin https://github.com/<tu-usuario>/plantilla-nextjs.git
-   git push -u origin main
-   ```
-3. En GitHub: **Settings → General → Template repository** → marca la casilla.
-
-**Con GitHub CLI** (instálalo antes con `winget install --id GitHub.cli -e`
-y autentícate con `gh auth login`):
-
-```bash
-gh repo create plantilla-nextjs --private --source=. --push
-gh api repos/{owner}/{repo} -X PATCH -f is_template=true
-```
-
-### Por cada proyecto nuevo
-
-1. Copia la plantilla:
-   - **Con template marcado en GitHub:** botón "Use this template" en la
-     página del repo → nombre del repo nuevo → `git clone` del repo creado.
-   - **Con GitHub CLI:**
-     `gh repo create mi-proyecto --template <tu-usuario>/plantilla-nextjs --private --clone`.
-   - **Sin GitHub:** copia la carpeta a mano y borra `.git` (`rm -rf .git && git init`).
-2. Renombra el placeholder: `pnpm run rename-project -- "Mi Proyecto"`.
-3. El brief de producto está en [docs/product/PRODUCT.md](./docs/product/PRODUCT.md).
-4. `pnpm install`, copia `.env.example` → `.env` con tus credenciales reales,
-   `pnpm prisma generate`.
-5. Abre el repo con tu agente de IA (Claude Code) y pídele que construya,
-   apoyándose en `AGENTS.md` (cómo) + `docs/product/PRODUCT.md` (qué). Recomendado: pídele
-   primero que entre en modo plan para la arquitectura inicial antes de
-   generar código.
-
-## Estructura
-
-```
-app/                   rutas, layouts, API routes
-  api/auth/[...all]/    handler catch-all de Better Auth
-  api/portfolio/, api/scoring/  API routes del panel (validación zod)
-  sign-in/, sign-up/    formularios de referencia de Better Auth
-  (panel)/              cartera, empresa, backtest… (SSR con prefetch + HydrationBoundary)
-components/ui/         componentes shadcn/ui (generados, no editar a mano)
-lib/core/               infraestructura: db.ts, react-query.ts, utils.ts (cn),
-                        auth.ts (servidor), auth-client.ts (React)
-lib/features/<feature>/ patrón por-feature (scoring, decision, portfolio…)
-lib/integrations/       clientes de APIs de terceros (helmcode.ts, solo servidor)
-prisma/schema/          un archivo .prisma por dominio (auth.prisma generado
-                        por `pnpm run auth:generate`, no editar a mano)
-scripts/                scripts de mantenimiento (tests, rename-project)
-tools/oxlint/           plugin de lint propio (anti-slop), ver AGENTS.md
-.agents/skills/         guía de rendimiento React/Next.js vendorizada (ver AGENTS.md)
-```
+Las convenciones de contribución están en [CONTRIBUTING.md](./CONTRIBUTING.md)
+y las reglas técnicas del repositorio en [AGENTS.md](./AGENTS.md).
 
 ## Despliegue
 
-`Dockerfile` incluido (build standalone de Next.js + Prisma). `.github/workflows/ci.yml`
-corre lint, typecheck y tests en cada push/PR — sin paso de deploy, porque eso
-depende de la infraestructura de cada proyecto (Vercel, Coolify, VPS, etc.).
+El entorno público se ejecuta en Vercel. Un despliegue limpio utiliza:
+
+- **Install Command:** `pnpm install --frozen-lockfile`
+- **Build Command:** `pnpm run build`
+- **Variables mínimas:** `DATABASE_URL`, `BETTER_AUTH_SECRET` y
+  `BETTER_AUTH_URL`
+
+El build genera Prisma Client antes de compilar Next.js. No debe sustituirse
+por `next build` directamente porque `generated/prisma` no se versiona.
+
+## Principios del sistema
+
+- **Explicable por diseño.** Cada decisión conserva métricas, umbrales y motivo.
+- **Determinista en crédito.** Un modelo generativo nunca concede ni deniega.
+- **Empresa y grupo, sin mezclarlos.** Se muestran ambas lecturas.
+- **La ausencia de datos es información.** `sin_datos` no se convierte en una
+  falsa nota segura.
+- **Misma cifra en todos los canales.** Interfaz, API y exportación leen el
+  mismo resultado versionado.
+- **Cambios progresivos.** La memoria mensual evita oscilaciones injustificadas.
+- **Privacidad como regla de producto.** La empresa decide cuándo solicitar y
+  qué información derivada se comparte.
+
+---
+
+Embat Flow convierte una fotografía financiera aislada en un sistema continuo:
+**observa, explica, anticipa y propone una decisión revisable cada mes**.
