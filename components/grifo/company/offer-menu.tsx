@@ -34,8 +34,8 @@ export function OfferTenorPicker({
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-muted-foreground text-xs font-medium">Elige el plazo</legend>
+      <fieldset>
+        <legend className="text-muted-foreground mb-2.5 text-xs font-medium">Elige el plazo</legend>
         <div className="flex flex-wrap gap-1.5">
           {options.map((option) => {
             const isActive = option.days === active.days;
@@ -74,10 +74,6 @@ export function OfferTenorPicker({
           </>
         ) : null}
         .
-      </p>
-
-      <p className="text-muted-foreground text-xs text-pretty">
-        A plazos cortos el importe lo limita la caja, no la línea.
       </p>
     </div>
   );

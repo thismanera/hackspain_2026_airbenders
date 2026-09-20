@@ -1,6 +1,6 @@
 "use client";
 
-import { Target } from "lucide-react";
+import { ShieldCheck, Target } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { CompanyAvatar } from "@/components/grifo/company-avatar";
@@ -9,7 +9,7 @@ import { Sparkline, TrendDelta } from "@/components/grifo/trend";
 import { Panel } from "@/components/grifo/panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/core/utils";
-import { nextBand } from "@/lib/features/portfolio/band-ladder";
+import { bandFloor, nextBand } from "@/lib/features/portfolio/band-ladder";
 import {
   formatApr,
   formatDays,
@@ -30,20 +30,34 @@ import type {
 } from "@/lib/features/portfolio/types";
 import { BANDA, deriveBanda } from "@/lib/features/portfolio/vocabulary";
 
+/** Por debajo de esto la palanca no da para una frase: son décimas de punto. */
+const MIN_LEVER_POINTS = 1;
+
+export type Lever = {
+  row: BenchmarkRow;
+  /** Puntos de score que recupera llevar la variable a 100. */
+  points: number;
+};
+
 /**
- * El indicador con más recorrido: el que más puntos deja sobre la mesa por
- * debajo del percentil 40 de sus pares.
+ * Dónde hay más score que recuperar: la variable que más puntos deja sobre la
+ * mesa, medida como peso × lo que le falta para 100.
+ *
+ * Antes se exigía además estar por debajo del percentil 40 de la cohorte, y esa
+ * puerta tiraba justo la palanca buena: una empresa puede ir mejor que el 60 %
+ * de sus pares en la variable que más le cuesta —porque la cohorte entera va
+ * mal en ella— y aun así perder ahí cuatro puntos. El ranking lo manda lo que
+ * se recupera; los pares son contexto, no el filtro.
  */
-function biggestLever(month: MonthScore, benchmark: BenchmarkResponse): BenchmarkRow | null {
-  let best: { row: BenchmarkRow; gap: number } | null = null;
+function biggestLever(month: MonthScore, benchmark: BenchmarkResponse): Lever | null {
+  let best: Lever | null = null;
   for (const row of benchmark.rows) {
-    if (row.percentile === null || row.percentile >= 0.4) continue;
     const own = month.contributions.find((entry) => entry.indicator === row.indicator);
     if (!own || own.raw === null) continue;
-    const gap = own.weight * (100 - own.subscore);
-    if (!best || gap > best.gap) best = { row, gap };
+    const points = own.weight * (100 - own.subscore);
+    if (!best || points > best.points) best = { row, points };
   }
-  return best?.row ?? null;
+  return best && best.points >= MIN_LEVER_POINTS ? best : null;
 }
 
 const BANDS = [
@@ -231,8 +245,9 @@ export function BandLadderCard({
   const currentBand = deriveBanda(latest.score);
   const step = nextBand(latest.score);
   const lever = biggestLever(latest, benchmark);
-  const leverMeta = lever ? indicator(lever.indicator) : null;
+  const leverMeta = lever ? indicator(lever.row.indicator) : null;
   const currentBandInfo = BANDA[currentBand];
+  const floor = bandFloor(latest.score);
   const group = latest.group;
   const spark = file.history
     .filter((entry) => entry.coverage.observedMonths > 0)
@@ -292,21 +307,54 @@ export function BandLadderCard({
         />
       ) : null}
 
-      {lever && leverMeta ? (
-        <div className="border-t pt-3">
-          <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
-            <Target aria-hidden className="size-3.5 shrink-0" />
-            Dónde más puedes mejorar
-          </p>
-          <p className="mt-1 text-xs text-pretty">
-            <span className="font-medium">{leverMeta.label}</span>
-            <span className="text-muted-foreground">
-              : {formatIndicatorValue(lever.raw, leverMeta.format)} · la mediana de tus pares es{" "}
-              {formatIndicatorValue(lever.medianRaw, leverMeta.format)}
-            </span>
-          </p>
-        </div>
-      ) : null}
+      <div className="border-t pt-3">
+        {lever && leverMeta ? (
+          <>
+            <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+              <Target aria-hidden className="size-3.5 shrink-0" />
+              Dónde más puedes mejorar
+            </p>
+            <p className="mt-1.5 flex items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate text-sm font-medium">{leverMeta.label}</span>
+              <span className="text-status-healthy-fg shrink-0 text-xs font-medium tabular-nums">
+                +{formatDecimal(lever.points)} pts
+              </span>
+            </p>
+            <p className="text-muted-foreground mt-0.5 text-xs text-pretty">
+              Estás en {formatIndicatorValue(lever.row.raw, leverMeta.format)}
+              {leverMeta.healthy !== undefined ? (
+                <>
+                  ; {leverMeta.betterWhen === "alto" ? "por encima de" : "por debajo de"}{" "}
+                  {formatIndicatorValue(leverMeta.healthy, leverMeta.format)} recuperas esos puntos.
+                </>
+              ) : (
+                <>
+                  ; la mediana de tus pares es{" "}
+                  {formatIndicatorValue(lever.row.medianRaw, leverMeta.format)}.
+                </>
+              )}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+              <ShieldCheck aria-hidden className="size-3.5 shrink-0" />
+              Qué defender
+            </p>
+            <p className="text-muted-foreground mt-1.5 text-xs text-pretty">
+              {floor === null ? (
+                <>Ninguna variable te resta lo suficiente como para mover la banda.</>
+              ) : (
+                <>
+                  Ninguna variable te resta puntos de peso. Mantente por encima de{" "}
+                  <span className="text-foreground font-medium tabular-nums">{floor}</span> para no
+                  caer de banda {currentBand}.
+                </>
+              )}
+            </p>
+          </>
+        )}
+      </div>
     </Panel>
   );
 }
