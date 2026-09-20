@@ -10,7 +10,12 @@ import { Client } from "pg";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const force = process.argv.includes("--force");
+const refit = process.argv.includes("--refit");
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+/** Mismo run congelado que `pipeline:eval` y la submission: la demo enseña el modelo que se entrega. */
+const frozenRoot = path.join(root, "artifacts", "inference", "scoreSolo-holding-v7");
+const inferenceOut = path.join(root, "tmp", "scoring-inference");
+const categoriesCsv = path.join(root, "analysis", "transaction_categories.csv");
 const requiredDatasetFiles = [
   "companies.csv",
   "banking_products.csv",
@@ -114,15 +119,38 @@ async function main() {
   }
 
   await assertDatasetReady();
-  log(force ? "Rebuilding and importing scoring data." : "Building and importing scoring data.");
-  run(pnpm, ["scoring:fit"]);
-  run(pnpm, ["scoring:score"]);
-  run(pnpm, ["forecast:fit"]);
-  run(pnpm, ["forecast:run"]);
-  run(pnpm, ["scoring:decide"]);
-  run(pnpm, ["scoring:backtest"]);
-  run(pnpm, ["forecast:backtest"]);
-  run(pnpm, ["scoring:import"]);
+  try {
+    await access(categoriesCsv, constants.F_OK);
+  } catch {
+    log(
+      "Aviso: falta analysis/transaction_categories.csv (python analysis/08_categories.py && python analysis/09_export_categories.py). Se ingesta sin categorías normalizadas: más empresas quedarán en 'sin datos'.",
+    );
+  }
+
+  if (refit) {
+    log(
+      "Refitting parameters from scratch (--refit): la demo dejará de coincidir con la submission.",
+    );
+    run(pnpm, ["scoring:fit"]);
+    run(pnpm, ["scoring:score"]);
+    run(pnpm, ["forecast:fit"]);
+    run(pnpm, ["forecast:run"]);
+    run(pnpm, ["scoring:decide"]);
+    run(pnpm, ["scoring:backtest"]);
+    run(pnpm, ["forecast:backtest"]);
+    run(pnpm, ["scoring:import"]);
+  } else {
+    log(
+      `Scoring with frozen parameters from ${path.relative(root, frozenRoot)} (same run as pipeline:eval).`,
+    );
+    process.env.SCORING_OUT = inferenceOut;
+    process.env.SCORING_PARAMS = path.join(frozenRoot, "parameters.json");
+    process.env.FORECAST_PARAMS = path.join(frozenRoot, "forecast-parameters.json");
+    run(pnpm, ["pipeline:eval"]);
+    run(pnpm, ["scoring:backtest"]);
+    run(pnpm, ["forecast:backtest"]);
+    run(pnpm, ["scoring:import"]);
+  }
 
   log("Base de datos lista con los datos de scoring.");
 }

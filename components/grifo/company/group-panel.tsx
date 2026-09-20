@@ -23,6 +23,7 @@ export function GroupPanel({
   month,
   onSelect,
   cards = false,
+  inset = false,
 }: {
   group: GroupAdjustment;
   peers: GroupPeer[];
@@ -30,6 +31,7 @@ export function GroupPanel({
   /** Dentro de la sheet las hermanas se abren en el sitio, sin cambiar de página. */
   onSelect?: (companyId: string) => void;
   cards?: boolean;
+  inset?: boolean;
 }) {
   const helps = group.adjustment > 0;
   const neutral = Math.abs(group.adjustment) < 0.5;
@@ -45,6 +47,7 @@ export function GroupPanel({
         </span>
       ),
     },
+    { label: "Score de grupo", value: formatScore(group.peerScore) },
     { label: "Peso del grupo", value: formatPercent(group.weight, 0) },
     { label: "Su peso", value: formatPercent(group.share, 0) },
     { label: "Interdependencia", value: formatPercent(group.interdependence, 0) },
@@ -92,15 +95,30 @@ export function GroupPanel({
     </div>
   );
 
-  const row = (
+  const figuresRow = (
+    <dl className="grid grid-cols-5 gap-x-3">
+      {figures.map((figure) => (
+        <Figure key={figure.label} label={figure.label} value={figure.value} />
+      ))}
+    </dl>
+  );
+
+  const row = inset ? (
+    <section aria-label="Cifras del grupo">{figuresRow}</section>
+  ) : (
     <section aria-label="Cifras del grupo" className="bg-card rounded-xl border px-4 py-3">
-      <dl className="grid grid-cols-4 gap-x-3">
-        {figures.map((figure) => (
-          <Figure key={figure.label} label={figure.label} value={figure.value} />
-        ))}
-      </dl>
+      {figuresRow}
     </section>
   );
+
+  if (inset) {
+    return (
+      <div className="flex flex-col gap-4">
+        {row}
+        {sisters}
+      </div>
+    );
+  }
 
   if (cards) {
     return (

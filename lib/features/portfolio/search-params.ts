@@ -63,7 +63,7 @@ export function activeFilterCount(state: PortfolioSearchState): number {
   return count;
 }
 
-export const SHEET_TABS = ["decision", "score", "grupo"] as const;
+export const SHEET_TABS = ["decision", "score", "grupo", "prediccion", "rca"] as const;
 export type SheetTab = (typeof SHEET_TABS)[number];
 
 /** La ficha completa: mes y pestaña, las mismas que en la hoja. */
@@ -109,10 +109,19 @@ export const compareSearchParams = {
 
 export const loadCompareSearchParams = createLoader(compareSearchParams);
 
+/**
+ * Las pestañas de la vista de empresa. No son las de la ficha del partner: la
+ * oferta no es una de ellas, porque es el titular de la página y vive encima de
+ * todas; lo que queda debajo es la evidencia que la sostiene.
+ */
+export const PYME_TABS = ["score", "grupo", "pares", "revision"] as const;
+export type PymeTab = (typeof PYME_TABS)[number];
+
 /** La vista pyme mira una sola empresa; la primera de la cartera si no se dice cuál. */
 export const pymeSearchParams = {
   mes: parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH),
-  empresa: parseAsString.withDefault("COMP_0357"),
+  empresa: parseAsString.withDefault("COMP_1048"),
+  pestana: parseAsStringLiteral(PYME_TABS).withDefault("score"),
 };
 
 export const loadPymeSearchParams = createLoader(pymeSearchParams);

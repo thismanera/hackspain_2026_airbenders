@@ -242,7 +242,8 @@ SELECT
 ```
 
 Para una base de desarrollo desechable, `corepack pnpm db:setup` aplica el
-esquema y ejecuta todo el pipeline antes de importar. Incluye
+esquema y ejecuta el pipeline congelado (`pipeline:eval` con los parámetros de
+`artifacts/inference`) antes de importar. Incluye
 `prisma db push --accept-data-loss`, por lo que puede reemplazar columnas o
 datos existentes; no lo uses sobre una base compartida sin copia o aprobación.
 
@@ -329,8 +330,9 @@ calibración y validación.
 
 `corepack pnpm db:setup` es un bootstrap para una base de desarrollo:
 aplica `prisma db push --accept-data-loss` y, si no encuentra un run completo
-materializado, recalibra, ejecuta backtests e importa. No es el pipeline
-congelado. La comprobación de existencia de ese script tampoco sustituye los
+materializado, puntúa con los parámetros congelados, ejecuta backtests e
+importa: la web enseña el mismo modelo que la submission. Solo
+`db:setup:refit` recalibra desde cero. La comprobación de existencia de ese script tampoco sustituye los
 controles de compatibilidad del panel. Para una base existente con el esquema
 correcto, importa el run precalculado con el comando anterior.
 
@@ -458,17 +460,16 @@ gh api repos/{owner}/{repo} -X PATCH -f is_template=true
 ```
 app/                   rutas, layouts, API routes
   api/auth/[...all]/    handler catch-all de Better Auth
-  api/tasks/route.ts    ejemplo de API route con validación zod
+  api/portfolio/, api/scoring/  API routes del panel (validación zod)
   sign-in/, sign-up/    formularios de referencia de Better Auth
-  tasks/                ejemplo de página SSR con prefetch + HydrationBoundary
+  (panel)/              cartera, empresa, backtest… (SSR con prefetch + HydrationBoundary)
 components/ui/         componentes shadcn/ui (generados, no editar a mano)
 lib/core/               infraestructura: db.ts, react-query.ts, utils.ts (cn),
                         auth.ts (servidor), auth-client.ts (React)
-lib/features/tasks/     ejemplo de patrón por-feature (queries + hooks)
+lib/features/<feature>/ patrón por-feature (scoring, decision, portfolio…)
 lib/integrations/       clientes de APIs de terceros (helmcode.ts, solo servidor)
 prisma/schema/          un archivo .prisma por dominio (auth.prisma generado
                         por `pnpm run auth:generate`, no editar a mano)
-prisma/seed.ts          seed de desarrollo
 scripts/                scripts de mantenimiento (tests, rename-project)
 tools/oxlint/           plugin de lint propio (anti-slop), ver AGENTS.md
 .agents/skills/         guía de rendimiento React/Next.js vendorizada (ver AGENTS.md)

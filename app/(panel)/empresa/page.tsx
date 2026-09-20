@@ -61,7 +61,7 @@ export default async function EmpresaPage({
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <PageHeader
-        crumbs={[{ label: "Cartera", href: "/cartera" }, { label: "Mi score" }]}
+        crumbs={[{ label: "Empresa" }, { label: "Mi score" }]}
         actions={
           <Suspense fallback={<Skeleton className="h-8 w-56" />}>
             <GlobalSearch />
@@ -85,13 +85,16 @@ export default async function EmpresaPage({
 function PageSkeleton() {
   return (
     <div className="flex flex-col gap-4">
-      <Skeleton className="h-16 w-2/3" />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, index) => (
-          <Skeleton key={index} className="h-28 rounded-xl" />
-        ))}
+      <Skeleton className="h-12 w-2/3" />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Skeleton className="h-80 rounded-xl lg:col-span-2" />
+        <Skeleton className="h-80 rounded-xl" />
       </div>
-      <Skeleton className="h-96 rounded-xl" />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Skeleton className="h-64 rounded-xl lg:col-span-2" />
+        <Skeleton className="h-64 rounded-xl" />
+      </div>
+      <Skeleton className="h-40 rounded-xl" />
     </div>
   );
 }

@@ -28,9 +28,11 @@ export function ScoreTrend({
   history,
   /** Dentro de otro contenedor: sin tarjeta propia, porque no se anidan. */
   inset = false,
+  className,
 }: {
   history: MonthScore[];
   inset?: boolean;
+  className?: string;
 }) {
   // Antes del primer mes con movimientos el motor rellena nota 50 con confianza 0
   // (SOURCE §1.0). Pintar ese tramo dibujaría dos años de estabilidad inventada en
@@ -58,7 +60,11 @@ export function ScoreTrend({
     return inset ? (
       empty
     ) : (
-      <Panel title="Evolución del score" description="Hace falta histórico para dibujar una serie.">
+      <Panel
+        title="Evolución del score"
+        description="Hace falta histórico para dibujar una serie."
+        className={className}
+      >
         {empty}
       </Panel>
     );
@@ -120,15 +126,13 @@ export function ScoreTrend({
       </ChartContainer>
 
       <p className="text-muted-foreground mt-2 text-xs text-pretty">
-        {observed.length} {observed.length === 1 ? "mes valorado" : "meses valorados"}, hasta{" "}
-        {formatMonthShort(latest.month)}. Tendencia{" "}
-        <span className="text-foreground">{DIRECCION[latest.direction].label.toLowerCase()}</span> de
-        naturaleza{" "}
-        <span className="text-foreground">{NATURALEZA[latest.nature].label.toLowerCase()}</span>:{" "}
-        {NATURALEZA[latest.nature].description}
+        {observed.length} meses hasta {formatMonthShort(latest.month)}. Tendencia{" "}
+        <span className="text-foreground">{DIRECCION[latest.direction].label.toLowerCase()}</span>
+        {" · "}
+        <span className="text-foreground">{NATURALEZA[latest.nature].label.toLowerCase()}</span>.
       </p>
     </>
   );
 
-  return inset ? body : <Panel title="Evolución del score">{body}</Panel>;
+  return inset ? body : <Panel title="Evolución del score" className={className}>{body}</Panel>;
 }

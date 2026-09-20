@@ -187,7 +187,7 @@ function OnceAYear() {
       </div>
 
       <BigNumber
-        value="1 vez al año"
+        value="Datos desactualizados"
         caption="Una foto fija para un negocio que cambia cada mes."
         delayMs={350}
         className="mt-8 sm:mt-10"
@@ -552,7 +552,7 @@ export const SCENES: Scene[] = [
     kicker: "Cómo se decide hoy",
     title: (
       <>
-        El banco decide el riesgo con las cuentas <Accent>del año pasado.</Accent>
+        El banco decide el riesgo con cuentas <Accent>desactualizadas.</Accent>
       </>
     ),
     body: <OnceAYear />,
@@ -579,7 +579,7 @@ export const SCENES: Scene[] = [
     kicker: "Para la empresa",
     title: (
       <>
-        La empresa consigue mejor financiación <Accent>sin esperar a fin de año.</Accent>
+La empresa consigue <Accent>mejor financiación.</Accent>
       </>
     ),
     body: <Ownership />,

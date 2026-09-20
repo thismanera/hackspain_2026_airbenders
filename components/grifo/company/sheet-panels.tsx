@@ -29,9 +29,13 @@ function leadMonthsOf(alert: Alert): number {
   return CALENDAR.indexOf(alert.confirmedMonth) - CALENDAR.indexOf(alert.onsetMonth);
 }
 
-function toneOf(previous: number, current: number, eligible: boolean): "up" | "down" | null {
-  if (!eligible || previous === 0 || current === previous) return null;
+function toneOf(previous: number, current: number): "up" | "down" | null {
+  if (previous === 0 || current === previous) return null;
   return current > previous ? "up" : "down";
+}
+
+function limitLabel(decision: Decision): string {
+  return decision.limit > 0 ? formatEuros(decision.limit) : "Sin línea";
 }
 
 /** Lo que había y lo que hay, en columnas: el recálculo del mes. */
@@ -41,10 +45,10 @@ export function ConditionsTable({ file }: { file: CompanyFileResponse }) {
   const previousMonth = file.previous?.month ?? null;
   const rows = [
     {
-      label: "Límite",
-      before: previous ? (previous.eligible ? formatEuros(previous.limit) : "Sin línea") : "—",
-      now: current.eligible ? formatEuros(current.limit) : "Sin línea",
-      tone: toneOf(previous?.limit ?? 0, current.limit, current.eligible),
+      label: "Límite vigente",
+      before: previous ? limitLabel(previous) : "—",
+      now: limitLabel(current),
+      tone: toneOf(previous?.limit ?? 0, current.limit),
     },
     {
       label: "TAE",

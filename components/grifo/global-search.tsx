@@ -7,6 +7,7 @@ import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useEffect, useState } from "react";
 
 import { StatusBadge } from "@/components/grifo/status-badge";
+import { useViewMode } from "@/components/grifo/view-mode";
 import { Button } from "@/components/ui/button";
 import {
   CommandDialog,
@@ -35,11 +36,16 @@ const ALL: Omit<PortfolioSearchState, "mes"> = {
 };
 
 /**
- * Buscar una empresa o un grupo desde cualquier página y abrir su ficha encima
- * de la cartera. La lista se pide solo al abrir el diálogo: es la cartera
- * entera sin filtros, la misma consulta que ya tiene la tabla en caché.
+ * Buscar una empresa o un grupo desde cualquier página. La lista se pide solo al
+ * abrir el diálogo: es la cartera entera sin filtros, la misma consulta que ya
+ * tiene la tabla en caché.
+ *
+ * A dónde lleva depende del lado en el que se esté: el partner abre la ficha
+ * encima de su cartera; la empresa cambia de empresa dentro de su propia vista y
+ * no ve la sección de grupos, que es una lectura de cartera.
  */
 export function GlobalSearch() {
+  const view = useViewMode();
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [month] = useQueryState("mes", parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH));
@@ -122,7 +128,13 @@ export function GlobalSearch() {
                   <CommandItem
                     key={row.company.id}
                     value={`${row.company.id} ${row.company.groupId}`}
-                    onSelect={() => go(`/cartera?mes=${month}&empresa=${row.company.id}`)}
+                    onSelect={() =>
+                      go(
+                        view === "empresa"
+                          ? `/empresa?mes=${month}&empresa=${row.company.id}`
+                          : `/cartera?mes=${month}&empresa=${row.company.id}`,
+                      )
+                    }
                   >
                     <Building2 aria-hidden className="text-muted-foreground size-4" />
                     <span className="font-mono">{row.company.id}</span>
@@ -134,7 +146,7 @@ export function GlobalSearch() {
                   </CommandItem>
                 ))}
               </CommandGroup>
-              {groups.length > 0 ? (
+              {view === "partner" && groups.length > 0 ? (
                 <CommandGroup heading="Grupos">
                   {groups.map(([groupId, size]) => (
                     <CommandItem

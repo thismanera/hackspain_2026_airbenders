@@ -51,7 +51,7 @@ test("decisión 44: cada puerta de pilar falla sola en su umbral, y sola por su 
       puerta: "fiabilidad",
       patch: { subscores: { A: 80, B: 59.9, C: 80 } },
       prev: ESTADO_INICIAL,
-      motivo: /^Fiabilidad 59,9 por debajo de 60$/,
+      motivo: /^Pago de obligaciones 59,9 por debajo de 60$/,
     },
     {
       puerta: "fiabilidad",
@@ -63,7 +63,7 @@ test("decisión 44: cada puerta de pilar falla sola en su umbral, y sola por su 
       puerta: "caja",
       patch: { subscores: { A: 49.9, B: 80, C: 80 } },
       prev: ESTADO_INICIAL,
-      motivo: /^Capacidad de deuda 49,9 por debajo de 50$/,
+      motivo: /^Estado de caja 49,9 por debajo de 50$/,
     },
     {
       puerta: "caja",

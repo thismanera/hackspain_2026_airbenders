@@ -28,6 +28,7 @@ import type {
   GroupsResponse,
   HotSignal,
   MonthScore,
+  PortfolioListRow,
   PortfolioRow,
   PortfolioSnapshotPayload,
   PortfolioSummary,
@@ -63,7 +64,7 @@ const ACTION_PRIORITY = {
 
 const UNCHANGED_PRIORITY = 5;
 
-function priorityOf(row: PortfolioRow): number {
+function priorityOf(row: PortfolioListRow): number {
   if (!row.changed && row.action === "cerrar") return UNCHANGED_PRIORITY;
   return ACTION_PRIORITY[row.action];
 }
@@ -342,7 +343,7 @@ export function portfolioFrom(
   const summary = history[history.length - 1];
   const previous = history.length > 1 ? history[history.length - 2] : null;
 
-  rows.sort(compareRows);
+  sortPortfolioRows(rows);
 
   return {
     month,
@@ -356,13 +357,20 @@ export function portfolioFrom(
   };
 }
 
-function compareRows(a: PortfolioRow, b: PortfolioRow): number {
+export function comparePortfolioRows(a: PortfolioListRow, b: PortfolioListRow): number {
+  const aHot = a.hot?.rank ?? Number.POSITIVE_INFINITY;
+  const bHot = b.hot?.rank ?? Number.POSITIVE_INFINITY;
+  if (aHot !== bHot) return aHot - bHot;
   const byAction = priorityOf(a) - priorityOf(b);
   if (byAction !== 0) return byAction;
   const byDirection = DIRECTION_PRIORITY[a.direction] - DIRECTION_PRIORITY[b.direction];
   if (byDirection !== 0) return byDirection;
   if (a.score !== b.score) return a.score - b.score;
   return a.company.id.localeCompare(b.company.id);
+}
+
+export function sortPortfolioRows<T extends PortfolioListRow>(rows: T[]): T[] {
+  return rows.sort(comparePortfolioRows);
 }
 
 /** Hermanas de grupo con dato ese mes, de mejor a peor score. */

@@ -89,6 +89,21 @@ export function useGroupFile(groupId: string, month: string) {
   });
 }
 
+/**
+ * La misma ficha de grupo, pero sin suspender: la usa la tarjeta de score de la
+ * vista de empresa, que se pinta con la nota propia mucho antes de saber la del
+ * holding y no debe quedarse en blanco esperándola. Comparte clave con
+ * `useGroupFile`, así que si la ficha ya está en caché no hay segunda petición.
+ */
+export function useGroupScore(groupId: string | null, month: string) {
+  return useQuery({
+    queryKey: portfolioKeys.group(groupId ?? "", month),
+    queryFn: () => fetchGroupFile(groupId ?? "", month),
+    enabled: groupId !== null && groupId !== "",
+    ...SCORING_CADENCE,
+  });
+}
+
 export function useMonth() {
   return useQueryStates(monthSearchParams);
 }

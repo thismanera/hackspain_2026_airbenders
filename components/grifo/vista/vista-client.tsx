@@ -4,7 +4,7 @@ import { Building2, Landmark, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { EmbatMark } from "@/components/grifo/embat-mark";
-import { DEMO_EMPRESA_ID, VIEW_MODE_KEY, type ViewMode } from "@/components/grifo/view-mode";
+import { DEMO_EMPRESA_ID, writeViewMode, type ViewMode } from "@/components/grifo/view-mode";
 
 function ViewOption({
   icon: Icon,
@@ -38,7 +38,9 @@ export function VistaClient() {
   const router = useRouter();
 
   function choose(mode: ViewMode) {
-    window.sessionStorage.setItem(VIEW_MODE_KEY, mode);
+    // Escribir el modo antes de navegar: si el guard de rutas corriese con el
+    // valor viejo, mandaría de vuelta justo a donde el usuario acaba de salir.
+    writeViewMode(mode);
     router.push(mode === "empresa" ? `/empresa?empresa=${DEMO_EMPRESA_ID}` : "/cartera");
   }
 
@@ -46,7 +48,9 @@ export function VistaClient() {
     <div className="bg-background flex min-h-svh flex-col items-center justify-center gap-10 px-6 py-10">
       <div className="flex flex-col items-center gap-3 text-center">
         <EmbatMark size={40} />
-        <h1 className="text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">¿Cómo quiere entrar?</h1>
+        <h1 className="text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">
+          ¿Cómo quiere entrar?
+        </h1>
         <p className="text-muted-foreground max-w-md text-sm">
           Puede cambiar de vista cuando quiera desde el menú lateral.
         </p>

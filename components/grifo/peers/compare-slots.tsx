@@ -2,7 +2,6 @@
 
 import { Plus, X } from "lucide-react";
 
-import { ActionBadge } from "@/components/grifo/action-badge";
 import { CompanyAvatar } from "@/components/grifo/company-avatar";
 import { StatusBadge } from "@/components/grifo/status-badge";
 import { TrendDelta } from "@/components/grifo/trend";
@@ -10,35 +9,29 @@ import { Button } from "@/components/ui/button";
 import { formatScore } from "@/lib/features/portfolio/format";
 import type { CompanyFileResponse } from "@/lib/features/portfolio/types";
 
-/** Una de las empresas comparadas: lo justo para reconocerla y quitarla. */
+/** Una empresa en la comparación: id, score y tendencia. */
 export function Slot({
   file,
-  color,
   onRemove,
   onOpen,
 }: {
   file: CompanyFileResponse;
-  /** Color de serie que la identifica en el cubo y el gráfico. */
-  color?: string;
   onRemove: () => void;
   onOpen: () => void;
 }) {
   const { latest } = file;
   return (
-    <div
-      className="bg-card relative flex flex-col gap-3 rounded-xl border p-4"
-      style={color ? { borderLeftWidth: 3, borderLeftColor: color } : undefined}
-    >
+    <div className="bg-card flex flex-col gap-3 rounded-xl border p-4">
       <div className="flex items-start justify-between gap-2">
         <button
           type="button"
           onClick={onOpen}
-          className="focus-visible:ring-ring flex items-center gap-2 rounded-sm text-left leading-tight focus-visible:ring-2 focus-visible:outline-none"
+          className="focus-visible:ring-ring flex min-w-0 items-center gap-2 rounded-sm text-left leading-tight focus-visible:ring-2 focus-visible:outline-none"
         >
-          <CompanyAvatar companyId={file.company.id} size="sm" />
-          <span className="flex flex-col">
-            <span className="font-mono text-sm font-medium">{file.company.id}</span>
-            <span className="text-muted-foreground text-xs">
+          <CompanyAvatar companyId={file.company.id} size="sm" className="shrink-0" />
+          <span className="min-w-0">
+            <span className="block font-mono text-sm font-medium">{file.company.id}</span>
+            <span className="text-muted-foreground block truncate text-xs">
               {file.company.groupId}
               {file.company.groupSize > 1 ? ` · ${file.company.groupSize} empresas` : ""}
             </span>
@@ -49,6 +42,7 @@ export function Slot({
           size="icon-sm"
           onClick={onRemove}
           aria-label={`Quitar ${file.company.id}`}
+          className="shrink-0"
         >
           <X aria-hidden className="size-4" />
         </Button>
@@ -59,9 +53,8 @@ export function Slot({
         </p>
         <StatusBadge estado={latest.estado} />
       </div>
-      <div className="flex items-center justify-between gap-2 border-t pt-3 text-xs">
+      <div className="border-t pt-3">
         <TrendDelta trend3m={latest.trend3m} direction={latest.direction} />
-        <ActionBadge action={latest.decision.action} />
       </div>
     </div>
   );
