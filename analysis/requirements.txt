@@ -1,0 +1,8 @@
+# Entorno opcional del análisis de datos (analysis/). El runtime de scoring es
+# Node y no necesita estas dependencias; se usan para rehacer la calibración.
+#   python -m venv .venv
+#   .venv/Scripts/python.exe -m pip install -r analysis/requirements.txt
+numpy==2.5.3
+pandas==3.0.6
+pyarrow==25.0.1
+matplotlib==3.11.2

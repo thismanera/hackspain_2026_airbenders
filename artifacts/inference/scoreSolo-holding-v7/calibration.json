@@ -1,0 +1,30 @@
+{
+  "contratoVersion": "scoreSolo-holding-v7",
+  "dataset": "dataset/",
+  "inputFingerprint": "7c321d8ce3dc17dece195b85cfe07f0be559761c616c2e378780c498c4dcddcd",
+  "scoringVersion": "283d32b421ce06a10806cd4e53de20ed43bb733af57e7d307864425eca17444f",
+  "scoringParamsHash": "97884b31deb2bb7f3af478ecf4b92e705f2fa6aaba7418387e0d052daeebc722",
+  "forecastVersion": "5c5c82090f977ed4be272444ab26050999cea7512ed03440be3f40d30b12c03e",
+  "forecastParamsHash": "2679aef482cc9a6dbab03a20a70f26cf519f1c5a1c1b456dba01c5ed9c0532ad",
+  "rowsScored": 30864,
+  "companiesScored": 1286,
+  "groupsScored": 250,
+  "forecast": {
+    "solo": {
+      "mae3m": 4.4138291436095045,
+      "mae3mBaseline": 4.255981121691878,
+      "aciertoBanda3m": 0.7546552949538025,
+      "aciertoBandaBaseline3m": 0.7641080312722104,
+      "conectado": false
+    },
+    "grupo": {
+      "mae3m": 4.068915894448017,
+      "mae3mBaseline": 3.8896426418136794,
+      "aciertoBanda3m": 0.7742714996446339,
+      "aciertoBandaBaseline3m": 0.7803837953091685,
+      "conectado": false
+    }
+  },
+  "calibradoEn": "2026-09-19",
+  "septiembre2026Incluido": false
+}

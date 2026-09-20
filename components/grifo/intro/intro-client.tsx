@@ -1,0 +1,140 @@
+"use client";
+
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { parseAsInteger, useQueryState } from "nuqs";
+import { useCallback, useEffect } from "react";
+
+import { EmbatMark } from "@/components/grifo/embat-mark";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/core/utils";
+
+import { markIntroSeen } from "./intro-gate";
+import { SCENES } from "./scenes";
+
+const stepParser = parseAsInteger.withDefault(1);
+
+export function IntroClient() {
+  const router = useRouter();
+  const [rawStep, setStep] = useQueryState("paso", stepParser);
+  const total = SCENES.length;
+  const step = Math.min(Math.max(rawStep, 1), total);
+  const index = step - 1;
+  const scene = SCENES[index]!;
+  const first = index === 0;
+  const last = index === total - 1;
+
+  const finish = useCallback(() => {
+    markIntroSeen();
+    router.push("/vista");
+  }, [router]);
+  const go = useCallback(
+    (next: number) => {
+      if (next < 1) return;
+      if (next > total) {
+        finish();
+        return;
+      }
+      void setStep(next);
+    },
+    [finish, setStep, total],
+  );
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLButtonElement && event.key === "Enter") return;
+      if (event.key === "Escape") finish();
+      else if (event.key === "ArrowLeft" || event.key === "Backspace") {
+        event.preventDefault();
+        go(step - 1);
+      } else if (event.key === "ArrowRight" || event.key === " " || event.key === "Enter") {
+        event.preventDefault();
+        go(step + 1);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [step, go, finish]);
+
+  return (
+    <div className="bg-background flex min-h-svh flex-col">
+      <header className="flex items-center justify-between px-6 py-4">
+        <EmbatMark size={36} />
+        {last ? null : (
+          <Button variant="ghost" size="sm" onClick={finish}>
+            Saltar introducción
+          </Button>
+        )}
+      </header>
+
+      <main className="flex flex-1 items-center justify-center px-6 py-8">
+        <section key={step} aria-labelledby="intro-title" className="w-full max-w-3xl text-center">
+          {scene.heroVisual ? (
+            <div className="mb-6 flex justify-center">{scene.heroVisual}</div>
+          ) : null}
+          <h1
+            id="intro-title"
+            className="intro-rise text-3xl font-semibold tracking-[-0.03em] text-balance sm:text-5xl"
+          >
+            {scene.title}
+          </h1>
+          {scene.body}
+          {last ? (
+            <div className="intro-rise mt-10 flex flex-col items-center gap-4 [animation-delay:200ms]">
+              <Button
+                size="lg"
+                className="rounded-full px-8 h-12 text-base font-semibold shadow-sm cursor-pointer"
+                onClick={finish}
+              >
+                Entrar a Embat Flow
+                <ArrowRight aria-hidden className="size-4" />
+              </Button>
+              {scene.footnote ? (
+                <p className="text-muted-foreground text-xs">{scene.footnote}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      </main>
+
+      <footer className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-t px-6 py-4">
+        <div>
+          {first ? null : (
+            <Button variant="outline" size="sm" onClick={() => go(step - 1)}>
+              <ArrowLeft aria-hidden className="size-4" />
+              Atrás
+            </Button>
+          )}
+        </div>
+        <ol className="flex items-center gap-1.5" aria-label="Pasos de la introducción">
+          {SCENES.map((item, i) => (
+            <li key={i}>
+              <button
+                type="button"
+                aria-label={`Paso ${i + 1}: ${item.kicker}`}
+                aria-current={i === index ? "step" : undefined}
+                onClick={() => go(i + 1)}
+                className={cn(
+                  "block h-1.5 rounded-full transition-[width,background-color] duration-300",
+                  i === index
+                    ? "bg-primary w-6"
+                    : i < index
+                      ? "bg-foreground/40 w-1.5"
+                      : "bg-border w-1.5",
+                )}
+              />
+            </li>
+          ))}
+        </ol>
+        <div className="flex justify-end">
+          {last ? null : (
+            <Button size="sm" onClick={() => go(step + 1)}>
+              Siguiente
+              <ArrowRight aria-hidden className="size-4" />
+            </Button>
+          )}
+        </div>
+      </footer>
+    </div>
+  );
+}

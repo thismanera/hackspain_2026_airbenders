@@ -4,10 +4,10 @@ Convenciones de este proyecto para cualquier agente de IA (Claude Code, Cursor,
 Copilot, Gemini...) o humano que vaya a escribir código aquí. Es la fuente de
 verdad tool-agnostic; `CLAUDE.md` solo apunta aquí para evitar duplicar reglas.
 
-> Antes de pedirle a un agente que "construya el proyecto", rellena
-> [`PRODUCT.md`](./PRODUCT.md) con el problema, los usuarios y el flujo core.
-> Este archivo (`AGENTS.md`) explica **cómo** construir; `PRODUCT.md` explica
-> **qué** construir.
+> Antes de pedirle a un agente que "construya el proyecto", lee
+> [`docs/product/PRODUCT.md`](./docs/product/PRODUCT.md) (quién, qué, reglas).
+> En la raíz queda un puntero `PRODUCT.md` para las herramientas que lo buscan
+> ahí. Este archivo (`AGENTS.md`) explica **cómo** construir.
 
 ## Stack
 
@@ -15,7 +15,8 @@ Next.js 16 (App Router), React 19, TypeScript 7, Prisma 7 (Postgres),
 TanStack Query 5, Tailwind 4, UI con [shadcn/ui](https://ui.shadcn.com),
 autenticación con [Better Auth](https://better-auth.com), estado de query
 params con [nuqs](https://nuqs.dev). Gestor de paquetes: **pnpm** (no uses
-npm/yarn, el lockfile es `pnpm-lock.yaml`).
+npm/yarn, el lockfile es `pnpm-lock.yaml`). Node 22 (ver `.nvmrc`); en las
+máquinas de este equipo, `fnm use 22`.
 
 ## Estructura del proyecto
 
@@ -28,14 +29,17 @@ npm/yarn, el lockfile es `pnpm-lock.yaml`).
   único). `main.prisma` solo tiene el bloque `generator`/`datasource`.
 - `components/ui/` — componentes shadcn/ui generados. No los edites a mano
   salvo necesidad real; añade nuevos con `pnpm dlx shadcn add <componente>`.
+- `dataset/` — los nueve ficheros del reto, en Git LFS. Solo lectura.
+- `analysis/` — análisis de datos en Python, independiente del stack de Next.
+  Ver la sección de abajo.
 
 Referencia viva del patrón completo (Prisma + TanStack Query SSR + nuqs +
-Suspense) en modelo `Task`:
-[`prisma/schema/tasks.prisma`](./prisma/schema/tasks.prisma) +
-[`app/api/tasks/route.ts`](./app/api/tasks/route.ts) +
-[`lib/features/tasks/`](./lib/features/tasks/) +
-[`app/tasks/page.tsx`](./app/tasks/page.tsx) +
-[`app/tasks/tasks-client.tsx`](./app/tasks/tasks-client.tsx).
+Suspense) en la feature `portfolio`:
+[`prisma/schema/scoring.prisma`](./prisma/schema/scoring.prisma) +
+[`app/api/portfolio/`](./app/api/portfolio/) +
+[`lib/features/portfolio/`](./lib/features/portfolio/) +
+[`app/(panel)/cartera/page.tsx`](<./app/(panel)/cartera/page.tsx>) +
+[`app/(panel)/cartera/cartera-client.tsx`](<./app/(panel)/cartera/cartera-client.tsx>).
 
 ## Reglas críticas
 
@@ -44,7 +48,7 @@ Suspense) en modelo `Task`:
 - **Estado y datos:** evita `useEffect` (ver sección de rendimiento más abajo).
   Usa TanStack Query para todo fetching/caching, no `useState` + `useEffect` a mano.
 - **SSR + TanStack Query:** para páginas que necesitan datos al cargar, sigue
-  el patrón de `app/tasks/page.tsx` — `getQueryClient()` +
+  el patrón de `app/(panel)/cartera/page.tsx` — `getQueryClient()` +
   `prefetchQuery` + `<HydrationBoundary>`, con el mismo `queryKey` que el hook
   cliente usa. Ver la [guía oficial de SSR avanzado](https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr).
 - **UI:** usa solo componentes shadcn/ui (`components/ui`), nunca `@base-ui/react`
@@ -75,7 +79,7 @@ Suspense) en modelo `Task`:
   `@/generated/prisma/client`. Añade modelos nuevos como archivo propio en
   `prisma/schema/<dominio>.prisma`, nunca amontonados en `main.prisma`.
 - **Validación:** valida el body de cualquier API route con `zod` (ver
-  `app/api/tasks/route.ts`).
+  `app/api/portfolio/`).
 
 ## Rendimiento y patrones de React/Next.js
 
@@ -102,7 +106,7 @@ cualquier código sensible a rendimiento. Resumen de lo más importante:
   importa símbolos directos (`import { Button } from "lib/x"`, no barrels
   `index.ts` que reexportan todo); difiere analytics/scripts de terceros a
   después de la hidratación.
-- **TanStack Query:** sigue el patrón de `lib/features/tasks/` — query key
+- **TanStack Query:** sigue el patrón de `lib/features/portfolio/` — query key
   factory tipada, `staleTime`/`gcTime` explícitos por endpoint, e invalidación
   específica en el `onSuccess` de cada mutación (`invalidateQueries({ queryKey: [...] })`
   con la key concreta, no una invalidación global sin key).
@@ -115,22 +119,22 @@ URL (filtros, búsqueda, paginación, pestaña activa) usa **nuqs**, no
 
 - Define los parsers **una sola vez** por feature, en un archivo
   `search-params.ts` que se importa tanto desde el servidor como desde el
-  cliente (ver [`lib/features/tasks/search-params.ts`](./lib/features/tasks/search-params.ts)):
+  cliente (ver [`lib/features/portfolio/search-params.ts`](./lib/features/portfolio/search-params.ts)):
   ```ts
   import { createLoader, parseAsString } from "nuqs/server";
 
-  export const tasksSearchParams = { q: parseAsString.withDefault("") };
-  export const loadTasksSearchParams = createLoader(tasksSearchParams);
+  export const portfolioSearchParams = { q: parseAsString.withDefault("") };
+  export const loadPortfolioSearchParams = createLoader(portfolioSearchParams);
   ```
-- **Server Component** (`page.tsx`): `await loadTasksSearchParams(searchParams)`
+- **Server Component** (`page.tsx`): `await loadPortfolioSearchParams(searchParams)`
   y úsalo para el `prefetchQuery` — el `queryKey` de TanStack Query debe
-  incluir el valor (`["tasks", q]`), igual que en `lib/features/tasks/queries.ts`.
-- **Client Component**: `useQueryStates(tasksSearchParams)` de `"nuqs"` (no
+  incluir el valor (`["portfolio", q]`), igual que en `lib/features/portfolio/queries.ts`.
+- **Client Component**: `useQueryStates(portfolioSearchParams)` de `"nuqs"` (no
   `"nuqs/server"`) — mismo objeto de parsers, así servidor y cliente nunca se
   desincronizan.
 - Envuelve en `<Suspense>` el Client Component que lee el estado de nuqs
   dentro de un Server Component que ya hizo `await` de los `searchParams`
-  (ver `app/tasks/page.tsx`) — es el patrón que documenta la
+  (ver `app/(panel)/cartera/page.tsx`) — es el patrón que documenta la
   [guía server-side de nuqs](https://nuqs.dev/docs/server-side) para no
   bloquear el shell estático de la página.
 
@@ -202,6 +206,41 @@ El guardado automático (`formatOnSave`) está desactivado a propósito
 (`.vscode/settings.json`) — corre `pnpm run format`/`pnpm run lint` de forma
 explícita.
 
+## Análisis de datos (`analysis/`, Python)
+
+Vive aparte del stack de Next y no comparte herramientas con él: ni oxlint ni
+Prettier tocan esta carpeta.
+
+```bash
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -r analysis/requirements.txt
+```
+
+Los scripts van numerados por orden de dependencia. `01_panel.py` construye el
+panel empresa-mes (~90 s) del que vive todo lo demás; el resto lee su salida.
+`fx.py` es un módulo, no un script: contiene la tabla de tipos de cambio a
+euros y se importa desde el panel.
+
+Reglas de esta carpeta:
+
+- **Nada de importes sin normalizar.** `exchange_rate` del dataset no convierte
+  a EUR; usa `fx.to_eur`. Las transacciones heredan la divisa de su cuenta
+  bancaria vía `product_id`.
+- **Los `.parquet` y `metrics.json` son artefactos derivados**, no fuentes. Los
+  primeros están en `.gitignore` y se regeneran con `01_panel.py`.
+- **Las cifras de `analysis/FINDINGS.md` se generan**, no se escriben a mano.
+  Los scripts las emiten a `metrics.json` con `report.emit()` y
+  `06_report.py` las inyecta en los bloques `<!-- AUTO:... -->`. Si cambias el
+  pipeline, vuelve a lanzarlo; `06_report.py --check` falla si el documento se
+  ha quedado atrás.
+
+Antes de construir features nuevas, lee
+[`analysis/FINDINGS.md`](./analysis/FINDINGS.md): documenta las trampas del
+dataset (fechas de pago rellenadas, `status` y saldos que son foto final y no
+histórico, trasvases de caja dentro del grupo que inflan casi la mitad del
+volumen y que no se pueden filtrar por categoría, mes de septiembre de 2026
+truncado, CSV sin aleatorizar) y ahorra repetir errores que ya hemos cometido.
+
 ## Linting (oxlint, no ESLint)
 
 Este proyecto usa [oxlint](https://oxc.rs) en vez de ESLint — es lo que usa
@@ -224,3 +263,13 @@ problemas con TypeScript 7.
   innecesarios, etc. La mayoría son `warn` (avisan, no bloquean el lint) —
   revísalos con criterio, no los silencies sin más.
 - Extensión de VS Code recomendada: `oxc.oxc-vscode` (ver `.vscode/extensions.json`).
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

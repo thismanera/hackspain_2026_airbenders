@@ -1,0 +1,1276 @@
+From af10713e692393b037d2542a9072e6320059eb03 Mon Sep 17 00:00:00 2001
+From: Noel <noelliron@gmail.com>
+Date: Sat, 19 Sep 2026 12:48:43 +0000
+Subject: [PATCH 1/2] =?UTF-8?q?feat(cartera):=20mapa=20hoy=20=C3=97=20tray?=
+ =?UTF-8?q?ectoria=20con=20estelas=20de=206=20meses=20y=20panel=20Hot=20es?=
+ =?UTF-8?q?te=20mes?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- source: trail (6 meses de score/trend3m), hot (top 8 por |trend3m| solo
+  estructural; empate → alerta crítica → cambio de acción → id), driver
+  principal a 3 meses desde las contribuciones; PortfolioResponse.hot.
+- TrajectoryMap: SVG propio, X score 0–100 (cortes 45/70), Y trend3m (±6),
+  puntos por acción del mes (gris si no cambia), hot grandes con fuego y
+  color de trayectoria, estelas debajo, tooltip, botones reales encima para
+  teclado y ficha, «Ver el año» recorre los meses moviendo ?mes.
+- HotList: fuego, delta, driver, sparkline → ficha. Fuego también en la tabla.
+
+Co-Authored-By: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+---
+ app/(panel)/cartera/cartera-client.tsx  |  25 +-
+ components/grifo/hot-list.tsx           |  89 ++++++
+ components/grifo/portfolio-table.tsx    |   2 +
+ components/grifo/trajectory-map.tsx     | 350 ++++++++++++++++++++++++
+ lib/features/portfolio/fixtures.test.ts |  36 ++-
+ lib/features/portfolio/source.ts        |  81 ++++++
+ lib/features/portfolio/types.ts         |  26 ++
+ 7 files changed, 603 insertions(+), 6 deletions(-)
+ create mode 100644 components/grifo/hot-list.tsx
+ create mode 100644 components/grifo/trajectory-map.tsx
+
+diff --git a/app/(panel)/cartera/cartera-client.tsx b/app/(panel)/cartera/cartera-client.tsx
+index 7d1915c..cf00a4e 100644
+--- a/app/(panel)/cartera/cartera-client.tsx
++++ b/app/(panel)/cartera/cartera-client.tsx
+@@ -2,11 +2,13 @@
+ 
+ import { SearchX } from "lucide-react";
+ 
++import { HotList } from "@/components/grifo/hot-list";
+ import { AccionBreakdown, EstadoEvolution } from "@/components/grifo/portfolio-charts";
+ import { PortfolioFilters } from "@/components/grifo/portfolio-filters";
+ import { PortfolioKpis } from "@/components/grifo/portfolio-summary";
+ import { PortfolioTable } from "@/components/grifo/portfolio-table";
+ import { EntitySheet } from "@/components/grifo/sheet/entity-sheet";
++import { TrajectoryMap } from "@/components/grifo/trajectory-map";
+ import { Button } from "@/components/ui/button";
+ import {
+   Empty,
+@@ -33,6 +35,8 @@ export function CarteraClient() {
+ 
+   const noneAtAll = data.totalUnfiltered === 0;
+   const onChange = (update: Partial<typeof filters>) => void setFilters(update);
++  const openCompany = (empresa: string) =>
++    void setSheet({ empresa, grupo: "", pestana: "decision" });
+ 
+   return (
+     <div className="flex flex-col gap-4">
+@@ -57,10 +61,21 @@ export function CarteraClient() {
+       />
+ 
+       {!noneAtAll && data.summary.total > 0 ? (
+-        <div className="grid gap-4 lg:grid-cols-3">
+-          <EstadoEvolution history={data.history} filters={filters} onChange={onChange} />
+-          <AccionBreakdown summary={data.summary} filters={filters} onChange={onChange} />
+-        </div>
++        <>
++          <div className="grid gap-4 lg:grid-cols-3">
++            <TrajectoryMap
++              rows={data.rows}
++              months={data.months}
++              onOpenCompany={openCompany}
++              className="lg:col-span-2"
++            />
++            <HotList rows={data.hot} onOpenCompany={openCompany} />
++          </div>
++          <div className="grid gap-4 lg:grid-cols-3">
++            <EstadoEvolution history={data.history} filters={filters} onChange={onChange} />
++            <AccionBreakdown summary={data.summary} filters={filters} onChange={onChange} />
++          </div>
++        </>
+       ) : null}
+ 
+       <PortfolioFilters
+@@ -96,7 +111,7 @@ export function CarteraClient() {
+         <PortfolioTable
+           rows={data.rows}
+           month={data.month}
+-          onOpenCompany={(empresa) => void setSheet({ empresa, grupo: "", pestana: "decision" })}
++          onOpenCompany={openCompany}
+           onOpenGroup={(grupo) => void setSheet({ empresa: "", grupo, pestana: "decision" })}
+         />
+       )}
+diff --git a/components/grifo/hot-list.tsx b/components/grifo/hot-list.tsx
+new file mode 100644
+index 0000000..da4e4c6
+--- /dev/null
++++ b/components/grifo/hot-list.tsx
+@@ -0,0 +1,89 @@
++"use client";
++
++import { Flame } from "lucide-react";
++
++import { Panel } from "@/components/grifo/panel";
++import { Sparkline, TrendDelta } from "@/components/grifo/trend";
++import { cn } from "@/lib/core/utils";
++import { formatSigned } from "@/lib/features/portfolio/format";
++import type { PortfolioRow } from "@/lib/features/portfolio/types";
++
++const FLAME_TONE = {
++  mejora: "text-status-healthy-fg",
++  estable: "text-muted-foreground",
++  deterioro: "text-status-risk-fg",
++} as const;
++
++/** El icono que marca una empresa "hot" en la tabla y el mapa: siempre el mismo. */
++export function HotFlame({
++  direction,
++  className,
++}: {
++  direction: PortfolioRow["direction"];
++  className?: string;
++}) {
++  return (
++    <Flame
++      aria-label="Entre las que más se mueven este mes"
++      className={cn("size-3.5 shrink-0", FLAME_TONE[direction], className)}
++      strokeWidth={2.25}
++    />
++  );
++}
++
++/**
++ * Las que más se han movido de verdad este mes. La lista dice quiénes; el mapa
++ * de al lado dice dónde están y hacia dónde van. Solo entran cambios
++ * estructurales a 3 meses, para no pintar fuego sobre un bache.
++ */
++export function HotList({
++  rows,
++  onOpenCompany,
++  className,
++}: {
++  rows: PortfolioRow[];
++  onOpenCompany: (companyId: string) => void;
++  className?: string;
++}) {
++  return (
++    <Panel
++      title="Hot este mes"
++      description="Cambio estructural a 3 meses, las que más se mueven primero."
++      className={cn("flex flex-col", className)}
++      bodyClassName="flex-1 p-0"
++    >
++      {rows.length === 0 ? (
++        <p className="text-muted-foreground px-4 py-6 text-center text-sm">
++          Nadie se mueve de forma estructural este mes.
++        </p>
++      ) : (
++        <ol className="divide-y">
++          {rows.map((row) => (
++            <li key={row.company.id}>
++              <button
++                type="button"
++                onClick={() => onOpenCompany(row.company.id)}
++                className="hover:bg-muted/40 focus-visible:ring-ring flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
++              >
++                <HotFlame direction={row.direction} className="size-4" />
++                <span className="flex min-w-0 flex-1 flex-col leading-tight">
++                  <span className="flex items-center gap-2">
++                    <span className="font-mono text-sm font-medium">{row.company.id}</span>
++                    <TrendDelta trend3m={row.trend3m} direction={row.direction} />
++                  </span>
++                  <span className="text-muted-foreground truncate text-xs tabular-nums">
++                    {row.hot?.driver
++                      ? `${row.hot.driver} ${formatSigned(row.hot.driverDelta)}`
++                      : "Varias variables a la vez"}
++                    {row.hot?.hasCritical ? " · alerta crítica" : ""}
++                  </span>
++                </span>
++                <Sparkline values={row.spark} direction={row.direction} className="shrink-0" />
++              </button>
++            </li>
++          ))}
++        </ol>
++      )}
++    </Panel>
++  );
++}
+diff --git a/components/grifo/portfolio-table.tsx b/components/grifo/portfolio-table.tsx
+index 2190d22..46cbbc5 100644
+--- a/components/grifo/portfolio-table.tsx
++++ b/components/grifo/portfolio-table.tsx
+@@ -6,6 +6,7 @@ import type { MouseEvent } from "react";
+ 
+ import { ActionBadge } from "@/components/grifo/action-badge";
+ import { StatusBadge } from "@/components/grifo/status-badge";
++import { HotFlame } from "@/components/grifo/hot-list";
+ import { Sparkline, TrendDelta } from "@/components/grifo/trend";
+ import {
+   Table,
+@@ -176,6 +177,7 @@ export function PortfolioTable({
+                       className="focus-visible:ring-ring flex items-center gap-2 after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
+                     >
+                       <span className="font-mono text-sm font-medium">{row.company.id}</span>
++                      {row.hot ? <HotFlame direction={row.direction} /> : null}
+                       <AlertFlag count={row.alertCount} />
+                     </Link>
+                     <GroupTag row={row} onOpenGroup={onOpenGroup} />
+diff --git a/components/grifo/trajectory-map.tsx b/components/grifo/trajectory-map.tsx
+new file mode 100644
+index 0000000..5712990
+--- /dev/null
++++ b/components/grifo/trajectory-map.tsx
+@@ -0,0 +1,350 @@
++"use client";
++
++import { Flame, Pause, Play } from "lucide-react";
++import { parseAsStringLiteral, useQueryState } from "nuqs";
++import { useEffect, useState, useTransition } from "react";
++
++import { Panel } from "@/components/grifo/panel";
++import { Button } from "@/components/ui/button";
++import { cn } from "@/lib/core/utils";
++import { CALENDAR, LATEST_MONTH } from "@/lib/features/portfolio/calendar";
++import { formatMonthShort, formatScore, formatSigned } from "@/lib/features/portfolio/format";
++import type { Accion, PortfolioRow } from "@/lib/features/portfolio/types";
++import { ACCION } from "@/lib/features/portfolio/vocabulary";
++
++const W = 720;
++const H = 340;
++const PAD = { top: 18, right: 14, bottom: 30, left: 40 };
++const PLOT_W = W - PAD.left - PAD.right;
++const PLOT_H = H - PAD.top - PAD.bottom;
++
++/** Umbrales de SOURCE: 45 y 70 separan los estados; ±6 separa estable de movimiento. */
++const SCORE_CUTS = [45, 70];
++const TREND_CUT = 6;
++const MIN_TREND_AXIS = 10;
++
++const ACTION_COLOR = {
++  abrir: "var(--status-healthy)",
++  ampliar: "var(--status-healthy)",
++  mantener: "var(--status-none)",
++  reducir: "var(--status-watch)",
++  cerrar: "var(--status-risk)",
++} satisfies Record<Accion, string>;
++
++const LEGEND: Accion[] = ["abrir", "ampliar", "reducir", "cerrar"];
++
++/**
++ * Misma regla que el badge: la tinta es para lo que cambia este mes; seguir
++ * igual va en gris. Las hot llevan el color de su trayectoria, como el fuego.
++ */
++function colorOf(row: PortfolioRow): string {
++  if (row.hot) {
++    return row.direction === "deterioro" ? "var(--status-risk)" : "var(--status-healthy)";
++  }
++  return row.changed ? ACTION_COLOR[row.action] : ACTION_COLOR.mantener;
++}
++
++const monthParser = parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH);
++const PLAY_INTERVAL_MS = 1100;
++
++function useMonthPlayer(months: string[]) {
++  const [, startTransition] = useTransition();
++  const [month, setMonth] = useQueryState(
++    "mes",
++    monthParser.withOptions({ shallow: false, startTransition }),
++  );
++  const [playing, setPlaying] = useState(false);
++  const last = months[months.length - 1];
++
++  useEffect(() => {
++    if (!playing) return;
++    const index = months.indexOf(month);
++    if (index === -1 || index >= months.length - 1) {
++      setPlaying(false);
++      return;
++    }
++    const timer = window.setTimeout(() => {
++      void setMonth(months[index + 1]!);
++    }, PLAY_INTERVAL_MS);
++    return () => window.clearTimeout(timer);
++  }, [playing, month, months, setMonth]);
++
++  const toggle = () => {
++    if (playing) {
++      setPlaying(false);
++      return;
++    }
++    // Al final del calendario, reproducir vuelve al principio de la estela.
++    if (month === last) void setMonth(months[Math.max(0, months.length - 12)]!);
++    setPlaying(true);
++  };
++
++  return { playing, toggle };
++}
++
++/**
++ * Cada empresa es un punto: a la derecha cuanto más sana hoy, arriba cuanto más
++ * mejora en 3 meses. La estela son sus últimos 6 meses. El color es la acción
++ * del motor; las "hot" van grandes y con fuego, el resto apagadas. Sin leyenda
++ * de cuadrantes: los umbrales del motor ya dividen el tablero.
++ */
++export function TrajectoryMap({
++  rows,
++  months,
++  onOpenCompany,
++  className,
++}: {
++  rows: PortfolioRow[];
++  months: string[];
++  onOpenCompany: (companyId: string) => void;
++  className?: string;
++}) {
++  const [hovered, setHovered] = useState<string | null>(null);
++  const { playing, toggle } = useMonthPlayer(months);
++
++  const plotted = rows.filter((row) => row.trend3m !== null);
++  const anyHot = plotted.some((row) => row.hot !== null);
++  const maxTrend = Math.max(
++    MIN_TREND_AXIS,
++    ...plotted.flatMap((row) => row.trail.map((point) => Math.abs(point.trend3m))),
++  );
++  const trendAxis = Math.ceil(maxTrend / 5) * 5;
++
++  const x = (score: number) => PAD.left + (Math.min(100, Math.max(0, score)) / 100) * PLOT_W;
++  const y = (trend: number) =>
++    PAD.top +
++    PLOT_H / 2 -
++    (Math.min(trendAxis, Math.max(-trendAxis, trend)) / trendAxis) * (PLOT_H / 2);
++
++  const active = hovered ? plotted.find((row) => row.company.id === hovered) : undefined;
++
++  return (
++    <Panel
++      title="Hoy y hacia dónde va"
++      description="Cada punto es una empresa; la estela, sus últimos seis meses."
++      className={cn("flex flex-col", className)}
++      bodyClassName="flex flex-1 flex-col gap-2 p-3"
++      aside={
++        <Button
++          variant="outline"
++          size="sm"
++          onClick={toggle}
++          aria-pressed={playing}
++          disabled={months.length < 2}
++        >
++          {playing ? (
++            <Pause aria-hidden className="size-3.5" />
++          ) : (
++            <Play aria-hidden className="size-3.5" />
++          )}
++          {playing ? "Pausar" : "Ver el año"}
++        </Button>
++      }
++    >
++      <div className="relative" onMouseLeave={() => setHovered(null)}>
++        <svg
++          viewBox={`0 0 ${W} ${H}`}
++          aria-hidden
++          className="h-auto w-full overflow-visible text-xs"
++        >
++          {/* Umbrales del motor: dónde cambia el estado y dónde empieza a moverse. */}
++          {SCORE_CUTS.map((cut) => (
++            <line
++              key={cut}
++              x1={x(cut)}
++              x2={x(cut)}
++              y1={PAD.top}
++              y2={PAD.top + PLOT_H}
++              stroke="var(--border)"
++            />
++          ))}
++          <line
++            x1={PAD.left}
++            x2={PAD.left + PLOT_W}
++            y1={y(0)}
++            y2={y(0)}
++            stroke="var(--foreground)"
++            strokeOpacity={0.35}
++          />
++          {[TREND_CUT, -TREND_CUT].map((cut) => (
++            <line
++              key={cut}
++              x1={PAD.left}
++              x2={PAD.left + PLOT_W}
++              y1={y(cut)}
++              y2={y(cut)}
++              stroke="var(--border)"
++              strokeDasharray="3 3"
++            />
++          ))}
++
++          {/* Ejes: qué significa cada lado, en las palabras del reto. */}
++          <g fill="var(--muted-foreground)" fontSize={10}>
++            {[0, ...SCORE_CUTS, 100].map((tick) => (
++              <text key={tick} x={x(tick)} y={H - 16} textAnchor="middle" className="tabular-nums">
++                {tick}
++              </text>
++            ))}
++            <text x={PAD.left} y={H - 3} textAnchor="start">
++              Hoy débil
++            </text>
++            <text x={PAD.left + PLOT_W} y={H - 3} textAnchor="end">
++              Hoy sana
++            </text>
++            {[trendAxis, TREND_CUT, 0, -TREND_CUT, -trendAxis].map((tick) => (
++              <text
++                key={tick}
++                x={PAD.left - 6}
++                y={y(tick) + 3.5}
++                textAnchor="end"
++                className="tabular-nums"
++              >
++                {tick > 0 ? `+${tick}` : tick}
++              </text>
++            ))}
++            <text
++              transform={`translate(10 ${PAD.top + 4}) rotate(-90)`}
++              textAnchor="end"
++              fontWeight={500}
++            >
++              Va a mejor
++            </text>
++            <text
++              transform={`translate(10 ${PAD.top + PLOT_H - 4}) rotate(-90)`}
++              textAnchor="start"
++              fontWeight={500}
++            >
++              Va a peor
++            </text>
++          </g>
++
++          {/* Estelas debajo, puntos encima: el hoy siempre tapa al ayer. */}
++          {plotted.map((row) => {
++            const dim = anyHot && row.hot === null && hovered !== row.company.id;
++            return (
++              <polyline
++                key={row.company.id}
++                points={row.trail.map((point) => `${x(point.score)},${y(point.trend3m)}`).join(" ")}
++                fill="none"
++                stroke={colorOf(row)}
++                strokeWidth={1.25}
++                strokeLinejoin="round"
++                strokeLinecap="round"
++                opacity={dim ? 0.18 : 0.45}
++                className="transition-opacity duration-300"
++              />
++            );
++          })}
++          {plotted.map((row) => {
++            const color = colorOf(row);
++            const hot = row.hot !== null;
++            const isHovered = hovered === row.company.id;
++            const dim = anyHot && !hot && !isHovered;
++            return (
++              <g
++                key={row.company.id}
++                style={{ transform: `translate(${x(row.score)}px, ${y(row.trend3m!)}px)` }}
++                className="transition-[transform,opacity] duration-500 ease-out"
++                opacity={dim ? 0.45 : 1}
++              >
++                {hot || isHovered ? (
++                  <circle r={hot ? 10 : 8} fill="none" stroke={color} strokeOpacity={0.4} />
++                ) : null}
++                <circle r={hot ? 6 : 4.5} fill={color} stroke="var(--card)" strokeWidth={1.5} />
++                {hot ? (
++                  <Flame x={5} y={-17} width={12} height={12} color={color} strokeWidth={2.5} />
++                ) : null}
++              </g>
++            );
++          })}
++        </svg>
++
++        {/* Los puntos que se tocan son botones de verdad, encima del dibujo: con
++            teclado, con nombre y con la ficha a un clic. */}
++        {plotted.map((row) => (
++          <button
++            key={row.company.id}
++            type="button"
++            aria-label={`${row.company.id}: score ${formatScore(row.score)}, ${formatSigned(row.trend3m!)} en tres meses, ${ACCION[row.action].label}`}
++            onMouseEnter={() => setHovered(row.company.id)}
++            onFocus={() => setHovered(row.company.id)}
++            onBlur={() => setHovered(null)}
++            onClick={() => onOpenCompany(row.company.id)}
++            className="focus-visible:ring-ring absolute size-6 -translate-x-1/2 -translate-y-1/2 rounded-full transition-[left,top] duration-500 ease-out focus-visible:ring-2 focus-visible:outline-none"
++            style={{
++              left: `${(x(row.score) / W) * 100}%`,
++              top: `${(y(row.trend3m!) / H) * 100}%`,
++            }}
++          />
++        ))}
++
++        {active ? (
++          <div
++            role="tooltip"
++            className="bg-popover text-popover-foreground pointer-events-none absolute z-10 w-max max-w-56 -translate-x-1/2 rounded-md border px-2.5 py-2 text-xs shadow-sm"
++            style={{
++              left: `${(x(active.score) / W) * 100}%`,
++              top: `${(y(active.trend3m!) / H) * 100}%`,
++              transform: `translate(-50%, ${active.trend3m! >= 0 ? "14px" : "calc(-100% - 14px)"})`,
++            }}
++          >
++            <p className="flex items-center gap-2">
++              <span className="font-mono font-medium">{active.company.id}</span>
++              <span
++                className="inline-block size-2 rounded-full"
++                style={{ background: colorOf(active) }}
++              />
++              <span>
++                {active.changed
++                  ? ACCION[active.action].label
++                  : active.action === "cerrar"
++                    ? "Sin línea"
++                    : "Sin cambio"}
++              </span>
++            </p>
++            <p className="text-muted-foreground mt-0.5 tabular-nums">
++              Score {formatScore(active.score)} · {formatSigned(active.trend3m!)} en 3 m
++            </p>
++            {active.hot?.driver ? (
++              <p className="text-muted-foreground tabular-nums">
++                {active.hot.driver} {formatSigned(active.hot.driverDelta)}
++              </p>
++            ) : null}
++            {active.trail.length > 1 ? (
++              <p className="text-muted-foreground">
++                Estela desde {formatMonthShort(active.trail[0]!.month)}
++              </p>
++            ) : null}
++          </div>
++        ) : null}
++      </div>
++
++      <ul className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-xs">
++        {LEGEND.map((action) => (
++          <li key={action} className="flex items-center gap-1.5">
++            <span
++              aria-hidden
++              className="inline-block size-2 rounded-full"
++              style={{ background: ACTION_COLOR[action] }}
++            />
++            {ACCION[action].label}
++          </li>
++        ))}
++        <li className="flex items-center gap-1.5">
++          <span
++            aria-hidden
++            className="inline-block size-2 rounded-full"
++            style={{ background: ACTION_COLOR.mantener }}
++          />
++          Sin cambio
++        </li>
++        {anyHot ? (
++          <li className="flex items-center gap-1.5">
++            <Flame aria-hidden className="size-3" strokeWidth={2.5} />
++            Hot
++          </li>
++        ) : null}
++      </ul>
++    </Panel>
++  );
++}
+diff --git a/lib/features/portfolio/fixtures.test.ts b/lib/features/portfolio/fixtures.test.ts
+index a0432a3..f7c3cf8 100644
+--- a/lib/features/portfolio/fixtures.test.ts
++++ b/lib/features/portfolio/fixtures.test.ts
+@@ -20,7 +20,10 @@ test("la cascada suma exactamente el score en solitario", () => {
+ 
+ test("el score final es el score en solitario más el ajuste de grupo", () => {
+   for (const month of everyMonth) {
+-    const expected = Math.min(100, Math.max(0, month.standaloneScore + (month.group?.adjustment ?? 0)));
++    const expected = Math.min(
++      100,
++      Math.max(0, month.standaloneScore + (month.group?.adjustment ?? 0)),
++    );
+     assert.ok(Math.abs(month.score - expected) < 0.05, `${month.company} ${month.month}`);
+   }
+ });
+@@ -114,6 +117,37 @@ test("los filtros reducen la lista sin perder el total sin filtrar", () => {
+   assert.ok(onlyRisk.rows.length <= all.rows.length);
+ });
+ 
++test("hot solo señala cambios estructurales, del mayor al menor, y sobrevive al filtro", () => {
++  const all = getPortfolio();
++  assert.ok(all.hot.length <= 8);
++  for (const [index, row] of all.hot.entries()) {
++    assert.equal(row.nature, "estructural", row.company.id);
++    assert.equal(row.hot?.rank, index + 1);
++    const next = all.hot[index + 1];
++    if (next) assert.ok(Math.abs(row.trend3m ?? 0) >= Math.abs(next.trend3m ?? 0));
++  }
++  const flagged = all.rows.filter((row) => row.hot !== null).map((row) => row.company.id);
++  assert.deepEqual(flagged.sort(), all.hot.map((row) => row.company.id).sort());
++
++  const onlyRisk = getPortfolio({ estado: "riesgo" });
++  assert.deepEqual(
++    onlyRisk.hot.map((row) => row.company.id),
++    all.hot.map((row) => row.company.id),
++  );
++});
++
++test("la estela son como mucho seis meses con tendencia, el actual el último", () => {
++  const { rows, month } = getPortfolio();
++  for (const row of rows) {
++    assert.ok(row.trail.length <= 6);
++    if (row.trend3m !== null) {
++      const last = row.trail[row.trail.length - 1];
++      assert.equal(last?.month, month);
++      assert.equal(last?.score, row.score);
++    }
++  }
++});
++
+ test("la ficha de una empresa inexistente es nula", () => {
+   assert.equal(getCompanyFile("COMP_NO_EXISTE"), null);
+ });
+diff --git a/lib/features/portfolio/source.ts b/lib/features/portfolio/source.ts
+index e120526..af60da3 100644
+--- a/lib/features/portfolio/source.ts
++++ b/lib/features/portfolio/source.ts
+@@ -27,10 +27,12 @@ import type {
+   GroupPeer,
+   GroupRow,
+   GroupsResponse,
++  HotSignal,
+   MonthScore,
+   PortfolioResponse,
+   PortfolioRow,
+   PortfolioSummary,
++  TrailPoint,
+ } from "./types";
+ import { deriveEstado } from "./vocabulary";
+ 
+@@ -100,6 +102,40 @@ function changedOf(current: MonthScore): boolean {
+   );
+ }
+ 
++const TRAIL_MONTHS = 6;
++const HOT_LIMIT = 8;
++
++/**
++ * La variable que más ha arrastrado el score en la misma ventana que `trend3m`.
++ * Suma los deltas mensuales de cada indicador y se queda con el mayor en valor
++ * absoluto, siempre que vaya en el sentido del movimiento: si el score cae, el
++ * culpable es lo que más ha restado, no lo que más ha sumado.
++ */
++function driverOf(months: MonthScore[], index: number, trend3m: number): HotSignal | null {
++  const window = months.slice(Math.max(0, index - 2), index + 1);
++  const totals = new Map<string, number>();
++  for (const entry of window) {
++    for (const contribution of entry.contributions) {
++      totals.set(
++        contribution.indicator,
++        (totals.get(contribution.indicator) ?? 0) + contribution.delta,
++      );
++    }
++  }
++  let best: { indicator: string; delta: number } | null = null;
++  for (const [indicator, delta] of totals) {
++    if (Math.sign(delta) !== Math.sign(trend3m)) continue;
++    if (!best || Math.abs(delta) > Math.abs(best.delta)) best = { indicator, delta };
++  }
++  const current = months[index]!;
++  return {
++    rank: 0,
++    driver: best ? (INDICATORS.find((item) => item.id === best.indicator)?.label ?? null) : null,
++    driverDelta: best ? Math.round(best.delta * 10) / 10 : 0,
++    hasCritical: current.alerts.some((alert) => alert.severity === "critica"),
++  };
++}
++
+ function rowFor(companyId: string, month: string): PortfolioRow | null {
+   const dataset = buildPortfolio().get(companyId);
+   if (!dataset) return null;
+@@ -110,6 +146,17 @@ function rowFor(companyId: string, month: string): PortfolioRow | null {
+   const spark = dataset.months
+     .slice(Math.max(0, index - 11), index + 1)
+     .map((entry) => entry.score);
++  const trail = dataset.months
++    .slice(Math.max(0, index - (TRAIL_MONTHS - 1)), index + 1)
++    .flatMap((entry): TrailPoint[] =>
++      entry.trend3m === null
++        ? []
++        : [{ month: entry.month, score: entry.score, trend3m: entry.trend3m }],
++    );
++  const hot =
++    current.nature === "estructural" && current.trend3m !== null && current.trend3m !== 0
++      ? driverOf(dataset.months, index, current.trend3m)
++      : null;
+ 
+   return {
+     company: dataset.meta,
+@@ -131,10 +178,42 @@ function rowFor(companyId: string, month: string): PortfolioRow | null {
+     reason: current.decision.reason,
+     alertCount: current.alerts.length,
+     spark,
++    trail,
++    hot,
+     share: current.group?.share ?? 1,
+   };
+ }
+ 
++/**
++ * Las que más se han movido de verdad: cambio estructural, ordenado por cuánto
++ * se ha movido el score en 3 meses. A igual movimiento, antes la que tiene una
++ * alerta crítica, y después la que ha cambiado de acción este mes. Se calcula
++ * sobre toda la cartera y se anota el rango en la fila, para que la tabla y el
++ * mapa lo señalen aunque estén filtrados.
++ */
++function rankHot(rows: PortfolioRow[]): PortfolioRow[] {
++  const candidates = rows.filter(
++    (row): row is PortfolioRow & { hot: HotSignal; trend3m: number } =>
++      row.hot !== null && row.trend3m !== null,
++  );
++  candidates.sort((a, b) => {
++    const byMove = Math.abs(b.trend3m) - Math.abs(a.trend3m);
++    if (byMove !== 0) return byMove;
++    if (a.hot.hasCritical !== b.hot.hasCritical) return a.hot.hasCritical ? -1 : 1;
++    if (a.changed !== b.changed) return a.changed ? -1 : 1;
++    return a.company.id.localeCompare(b.company.id);
++  });
++  const top = candidates.slice(0, HOT_LIMIT);
++  const ranked = new Set(top.map((row) => row.company.id));
++  for (const row of rows) {
++    if (!ranked.has(row.company.id)) row.hot = null;
++  }
++  top.forEach((row, index) => {
++    row.hot.rank = index + 1;
++  });
++  return top;
++}
++
+ function summarise(month: string, rows: PortfolioRow[]): PortfolioSummary {
+   const byEstado: Record<Estado, number> = { sana: 0, vigilar: 0, riesgo: 0, sin_datos: 0 };
+   const byDireccion: Record<Direccion, number> = { mejora: 0, estable: 0, deterioro: 0 };
+@@ -192,6 +271,7 @@ export function getPortfolio(filters: PortfolioFilters = {}): PortfolioResponse
+   const keep = matches(filters);
+ 
+   const all = rowsFor(month);
++  const hot = rankHot(all);
+   const rows = all.filter(keep);
+ 
+   // La historia arrastra el mismo filtro que la tabla: lo que se dibuja es lo que
+@@ -219,6 +299,7 @@ export function getPortfolio(filters: PortfolioFilters = {}): PortfolioResponse
+     previous,
+     history,
+     rows,
++    hot,
+     totalUnfiltered: all.length,
+   };
+ }
+diff --git a/lib/features/portfolio/types.ts b/lib/features/portfolio/types.ts
+index 626ceb9..cfa95f0 100644
+--- a/lib/features/portfolio/types.ts
++++ b/lib/features/portfolio/types.ts
+@@ -126,6 +126,27 @@ export type CompanyMeta = {
+   groupSize: number;
+ };
+ 
++/** Dónde estaba la empresa un mes: hoy (score) y hacia dónde iba (trend3m). */
++export type TrailPoint = {
++  month: string;
++  score: number;
++  trend3m: number;
++};
++
++/**
++ * Por qué una empresa está entre las que más se mueven de verdad. Solo lo llevan
++ * los cambios estructurales a 3 meses: un bache de un mes no es noticia.
++ */
++export type HotSignal = {
++  /** 1 = la que más se ha movido. */
++  rank: number;
++  /** La variable que más ha arrastrado el score en 3 meses, o `null` si no hay una clara. */
++  driver: string | null;
++  /** Puntos que esa variable ha sumado o restado en 3 meses. */
++  driverDelta: number;
++  hasCritical: boolean;
++};
++
+ /** Fila de la tabla de cartera: lo justo para triar sin abrir la ficha. */
+ export type PortfolioRow = {
+   company: CompanyMeta;
+@@ -158,6 +179,9 @@ export type PortfolioRow = {
+   alertCount: number;
+   /** Últimos 12 scores, para la sparkline. */
+   spark: number[];
++  /** Últimos 6 meses con trend3m, el actual incluido, para la estela del mapa. */
++  trail: TrailPoint[];
++  hot: HotSignal | null;
+   /** D1: peso de la empresa dentro de su grupo. 1 si va sola. */
+   share: number;
+ };
+@@ -186,6 +210,8 @@ export type PortfolioResponse = {
+   /** Mismo filtro, cada mes del calendario hasta el seleccionado, en orden. */
+   history: PortfolioSummary[];
+   rows: PortfolioRow[];
++  /** Las que más se han movido de verdad este mes, sin filtros, por rango. */
++  hot: PortfolioRow[];
+   /** Filas antes de aplicar filtros, para distinguir "cartera vacía" de "filtro vacío". */
+   totalUnfiltered: number;
+ };
+-- 
+2.34.1
+
+
+From 2dc51b0cec637b841247184fa3d34e37770e9238 Mon Sep 17 00:00:00 2001
+From: Noel <noelliron@gmail.com>
+Date: Sat, 19 Sep 2026 13:19:43 +0000
+Subject: [PATCH 2/2] =?UTF-8?q?refactor(cartera):=20mapa=20minimalista=20?=
+ =?UTF-8?q?=E2=80=94=20cuatro=20zonas,=20hot=20numeradas=20como=20en=20la?=
+ =?UTF-8?q?=20lista,=20estela=20solo=20al=20pasar?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+---
+ components/grifo/hot-list.tsx       |   3 +
+ components/grifo/trajectory-map.tsx | 323 +++++++++++++---------------
+ 2 files changed, 158 insertions(+), 168 deletions(-)
+
+diff --git a/components/grifo/hot-list.tsx b/components/grifo/hot-list.tsx
+index da4e4c6..cb36212 100644
+--- a/components/grifo/hot-list.tsx
++++ b/components/grifo/hot-list.tsx
+@@ -65,6 +65,9 @@ export function HotList({
+                 onClick={() => onOpenCompany(row.company.id)}
+                 className="hover:bg-muted/40 focus-visible:ring-ring flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
+               >
++                <span className="text-muted-foreground w-4 shrink-0 text-right text-xs tabular-nums">
++                  {row.hot?.rank}
++                </span>
+                 <HotFlame direction={row.direction} className="size-4" />
+                 <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                   <span className="flex items-center gap-2">
+diff --git a/components/grifo/trajectory-map.tsx b/components/grifo/trajectory-map.tsx
+index 5712990..879abd9 100644
+--- a/components/grifo/trajectory-map.tsx
++++ b/components/grifo/trajectory-map.tsx
+@@ -1,48 +1,35 @@
+ "use client";
+ 
+-import { Flame, Pause, Play } from "lucide-react";
++import { Pause, Play } from "lucide-react";
+ import { parseAsStringLiteral, useQueryState } from "nuqs";
+ import { useEffect, useState, useTransition } from "react";
+ 
++import { ActionBadge } from "@/components/grifo/action-badge";
+ import { Panel } from "@/components/grifo/panel";
+ import { Button } from "@/components/ui/button";
+ import { cn } from "@/lib/core/utils";
+ import { CALENDAR, LATEST_MONTH } from "@/lib/features/portfolio/calendar";
+ import { formatMonthShort, formatScore, formatSigned } from "@/lib/features/portfolio/format";
+-import type { Accion, PortfolioRow } from "@/lib/features/portfolio/types";
++import type { PortfolioRow } from "@/lib/features/portfolio/types";
+ import { ACCION } from "@/lib/features/portfolio/vocabulary";
+ 
+ const W = 720;
+-const H = 340;
+-const PAD = { top: 18, right: 14, bottom: 30, left: 40 };
++const H = 360;
++const PAD = { top: 26, right: 16, bottom: 34, left: 16 };
+ const PLOT_W = W - PAD.left - PAD.right;
+ const PLOT_H = H - PAD.top - PAD.bottom;
+ 
+-/** Umbrales de SOURCE: 45 y 70 separan los estados; ±6 separa estable de movimiento. */
+-const SCORE_CUTS = [45, 70];
++/** Umbrales de SOURCE: 70 separa "sana" del resto; ±6 separa estable de movimiento. */
++const HEALTHY_CUT = 70;
+ const TREND_CUT = 6;
+ const MIN_TREND_AXIS = 10;
++const HOT_R = 8;
+ 
+-const ACTION_COLOR = {
+-  abrir: "var(--status-healthy)",
+-  ampliar: "var(--status-healthy)",
+-  mantener: "var(--status-none)",
+-  reducir: "var(--status-watch)",
+-  cerrar: "var(--status-risk)",
+-} satisfies Record<Accion, string>;
+-
+-const LEGEND: Accion[] = ["abrir", "ampliar", "reducir", "cerrar"];
+-
+-/**
+- * Misma regla que el badge: la tinta es para lo que cambia este mes; seguir
+- * igual va en gris. Las hot llevan el color de su trayectoria, como el fuego.
+- */
+-function colorOf(row: PortfolioRow): string {
+-  if (row.hot) {
+-    return row.direction === "deterioro" ? "var(--status-risk)" : "var(--status-healthy)";
+-  }
+-  return row.changed ? ACTION_COLOR[row.action] : ACTION_COLOR.mantener;
+-}
++const TONE = {
++  mejora: "var(--status-healthy)",
++  deterioro: "var(--status-risk)",
++  estable: "var(--status-none)",
++} satisfies Record<PortfolioRow["direction"], string>;
+ 
+ const monthParser = parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH);
+ const PLAY_INTERVAL_MS = 1100;
+@@ -74,7 +61,6 @@ function useMonthPlayer(months: string[]) {
+       setPlaying(false);
+       return;
+     }
+-    // Al final del calendario, reproducir vuelve al principio de la estela.
+     if (month === last) void setMonth(months[Math.max(0, months.length - 12)]!);
+     setPlaying(true);
+   };
+@@ -82,11 +68,29 @@ function useMonthPlayer(months: string[]) {
+   return { playing, toggle };
+ }
+ 
++/** Dos hot casi encima se separan un poco en horizontal para que se lean los dos números. */
++function spread(points: { id: string; x: number; y: number }[]): Map<string, number> {
++  const gap = HOT_R * 2 + 2;
++  const placed: { x: number; y: number }[] = [];
++  const result = new Map<string, number>();
++  for (const point of points) {
++    let px = point.x;
++    for (let step = 1; step <= 12; step++) {
++      const free = !placed.some((prev) => Math.hypot(prev.x - px, prev.y - point.y) < gap);
++      if (free) break;
++      const side = step % 2 === 1 ? 1 : -1;
++      px = point.x + side * Math.ceil(step / 2) * gap;
++    }
++    placed.push({ x: px, y: point.y });
++    result.set(point.id, px);
++  }
++  return result;
++}
++
+ /**
+  * Cada empresa es un punto: a la derecha cuanto más sana hoy, arriba cuanto más
+- * mejora en 3 meses. La estela son sus últimos 6 meses. El color es la acción
+- * del motor; las "hot" van grandes y con fuego, el resto apagadas. Sin leyenda
+- * de cuadrantes: los umbrales del motor ya dividen el tablero.
++ * mejora en 3 meses. Solo las "hot" llevan color y nombre; el resto es fondo.
++ * La estela de 6 meses aparece al pasar por una empresa, no todas a la vez.
+  */
+ export function TrajectoryMap({
+   rows,
+@@ -103,7 +107,6 @@ export function TrajectoryMap({
+   const { playing, toggle } = useMonthPlayer(months);
+ 
+   const plotted = rows.filter((row) => row.trend3m !== null);
+-  const anyHot = plotted.some((row) => row.hot !== null);
+   const maxTrend = Math.max(
+     MIN_TREND_AXIS,
+     ...plotted.flatMap((row) => row.trail.map((point) => Math.abs(point.trend3m))),
+@@ -116,12 +119,16 @@ export function TrajectoryMap({
+     PLOT_H / 2 -
+     (Math.min(trendAxis, Math.max(-trendAxis, trend)) / trendAxis) * (PLOT_H / 2);
+ 
++  const hot = plotted.filter((row) => row.hot !== null);
++  const hotX = spread(
++    hot.map((row) => ({ id: row.company.id, x: x(row.score), y: y(row.trend3m!) })),
++  );
+   const active = hovered ? plotted.find((row) => row.company.id === hovered) : undefined;
+ 
+   return (
+     <Panel
+       title="Hoy y hacia dónde va"
+-      description="Cada punto es una empresa; la estela, sus últimos seis meses."
++      description="Derecha: mejor score hoy. Arriba: mejora en tres meses."
+       className={cn("flex flex-col", className)}
+       bodyClassName="flex flex-1 flex-col gap-2 p-3"
+       aside={
+@@ -142,125 +149,114 @@ export function TrajectoryMap({
+       }
+     >
+       <div className="relative" onMouseLeave={() => setHovered(null)}>
+-        <svg
+-          viewBox={`0 0 ${W} ${H}`}
+-          aria-hidden
+-          className="h-auto w-full overflow-visible text-xs"
+-        >
+-          {/* Umbrales del motor: dónde cambia el estado y dónde empieza a moverse. */}
+-          {SCORE_CUTS.map((cut) => (
+-            <line
+-              key={cut}
+-              x1={x(cut)}
+-              x2={x(cut)}
+-              y1={PAD.top}
+-              y2={PAD.top + PLOT_H}
+-              stroke="var(--border)"
+-            />
+-          ))}
++        <svg viewBox={`0 0 ${W} ${H}`} aria-hidden className="h-auto w-full overflow-visible">
++          {/* Franja estable en el centro y la línea de "sana" a la derecha. */}
++          <rect
++            x={PAD.left}
++            y={y(TREND_CUT)}
++            width={PLOT_W}
++            height={y(-TREND_CUT) - y(TREND_CUT)}
++            fill="var(--muted)"
++            opacity={0.6}
++          />
++          <line x1={PAD.left} x2={PAD.left + PLOT_W} y1={y(0)} y2={y(0)} stroke="var(--border)" />
+           <line
+-            x1={PAD.left}
+-            x2={PAD.left + PLOT_W}
+-            y1={y(0)}
+-            y2={y(0)}
+-            stroke="var(--foreground)"
+-            strokeOpacity={0.35}
++            x1={x(HEALTHY_CUT)}
++            x2={x(HEALTHY_CUT)}
++            y1={PAD.top}
++            y2={PAD.top + PLOT_H}
++            stroke="var(--border)"
++            strokeDasharray="4 4"
+           />
+-          {[TREND_CUT, -TREND_CUT].map((cut) => (
+-            <line
+-              key={cut}
+-              x1={PAD.left}
+-              x2={PAD.left + PLOT_W}
+-              y1={y(cut)}
+-              y2={y(cut)}
+-              stroke="var(--border)"
+-              strokeDasharray="3 3"
+-            />
+-          ))}
+ 
+-          {/* Ejes: qué significa cada lado, en las palabras del reto. */}
+-          <g fill="var(--muted-foreground)" fontSize={10}>
+-            {[0, ...SCORE_CUTS, 100].map((tick) => (
+-              <text key={tick} x={x(tick)} y={H - 16} textAnchor="middle" className="tabular-nums">
+-                {tick}
+-              </text>
+-            ))}
+-            <text x={PAD.left} y={H - 3} textAnchor="start">
+-              Hoy débil
++          {/* Las cuatro esquinas dicen qué significa estar ahí. */}
++          <g fill="var(--muted-foreground)" fontSize={11}>
++            <text x={PAD.left} y={PAD.top - 10}>
++              Débiles que mejoran
+             </text>
+-            <text x={PAD.left + PLOT_W} y={H - 3} textAnchor="end">
+-              Hoy sana
++            <text x={PAD.left + PLOT_W} y={PAD.top - 10} textAnchor="end">
++              Sanas que mejoran
+             </text>
+-            {[trendAxis, TREND_CUT, 0, -TREND_CUT, -trendAxis].map((tick) => (
+-              <text
+-                key={tick}
+-                x={PAD.left - 6}
+-                y={y(tick) + 3.5}
+-                textAnchor="end"
+-                className="tabular-nums"
+-              >
+-                {tick > 0 ? `+${tick}` : tick}
+-              </text>
+-            ))}
+-            <text
+-              transform={`translate(10 ${PAD.top + 4}) rotate(-90)`}
+-              textAnchor="end"
+-              fontWeight={500}
+-            >
+-              Va a mejor
++            <text x={PAD.left} y={H - 8}>
++              Débiles que caen
+             </text>
+-            <text
+-              transform={`translate(10 ${PAD.top + PLOT_H - 4}) rotate(-90)`}
+-              textAnchor="start"
+-              fontWeight={500}
+-            >
+-              Va a peor
++            <text x={PAD.left + PLOT_W} y={H - 8} textAnchor="end">
++              Sanas que caen
++            </text>
++            <text x={PAD.left + PLOT_W} y={y(0) - 4} textAnchor="end" fontSize={10}>
++              estables
++            </text>
++            <text x={x(HEALTHY_CUT) + 4} y={PAD.top + 10} fontSize={10}>
++              score {HEALTHY_CUT}
+             </text>
+           </g>
+ 
+-          {/* Estelas debajo, puntos encima: el hoy siempre tapa al ayer. */}
+-          {plotted.map((row) => {
+-            const dim = anyHot && row.hot === null && hovered !== row.company.id;
+-            return (
++          {/* La estela solo de la empresa señalada: seis meses, del más viejo al de hoy. */}
++          {active && active.trail.length > 1 ? (
++            <g stroke={active.hot ? TONE[active.direction] : "var(--foreground)"}>
+               <polyline
+-                key={row.company.id}
+-                points={row.trail.map((point) => `${x(point.score)},${y(point.trend3m)}`).join(" ")}
++                points={active.trail
++                  .map((point) => `${x(point.score)},${y(point.trend3m)}`)
++                  .join(" ")}
+                 fill="none"
+-                stroke={colorOf(row)}
+                 strokeWidth={1.25}
+                 strokeLinejoin="round"
+                 strokeLinecap="round"
+-                opacity={dim ? 0.18 : 0.45}
+-                className="transition-opacity duration-300"
++                opacity={0.6}
+               />
+-            );
+-          })}
+-          {plotted.map((row) => {
+-            const color = colorOf(row);
+-            const hot = row.hot !== null;
+-            const isHovered = hovered === row.company.id;
+-            const dim = anyHot && !hot && !isHovered;
+-            return (
+-              <g
++              {active.trail.slice(0, -1).map((point) => (
++                <circle
++                  key={point.month}
++                  cx={x(point.score)}
++                  cy={y(point.trend3m)}
++                  r={2}
++                  fill="var(--card)"
++                  strokeWidth={1.25}
++                />
++              ))}
++            </g>
++          ) : null}
++
++          {/* El resto de la cartera, en gris: contexto, no protagonista. */}
++          {plotted
++            .filter((row) => row.hot === null)
++            .map((row) => (
++              <circle
+                 key={row.company.id}
+-                style={{ transform: `translate(${x(row.score)}px, ${y(row.trend3m!)}px)` }}
+-                className="transition-[transform,opacity] duration-500 ease-out"
+-                opacity={dim ? 0.45 : 1}
++                cx={x(row.score)}
++                cy={y(row.trend3m!)}
++                r={hovered === row.company.id ? 5 : 3.5}
++                fill={hovered === row.company.id ? "var(--foreground)" : "var(--status-none)"}
++                stroke="var(--card)"
++                strokeWidth={1.5}
++                className="transition-[cx,cy] duration-500 ease-out"
++              />
++            ))}
++
++          {/* Las hot: color de su trayectoria y el número que tienen en la lista de al lado. */}
++          {hot.map((row) => (
++            <g
++              key={row.company.id}
++              style={{
++                transform: `translate(${hotX.get(row.company.id) ?? x(row.score)}px, ${y(row.trend3m!)}px)`,
++              }}
++              className="transition-transform duration-500 ease-out"
++            >
++              <circle r={HOT_R} fill={TONE[row.direction]} stroke="var(--card)" strokeWidth={1.5} />
++              <text
++                y={3.5}
++                textAnchor="middle"
++                fontSize={10}
++                fontWeight={600}
++                fill="var(--card)"
++                className="tabular-nums"
+               >
+-                {hot || isHovered ? (
+-                  <circle r={hot ? 10 : 8} fill="none" stroke={color} strokeOpacity={0.4} />
+-                ) : null}
+-                <circle r={hot ? 6 : 4.5} fill={color} stroke="var(--card)" strokeWidth={1.5} />
+-                {hot ? (
+-                  <Flame x={5} y={-17} width={12} height={12} color={color} strokeWidth={2.5} />
+-                ) : null}
+-              </g>
+-            );
+-          })}
++                {row.hot!.rank}
++              </text>
++            </g>
++          ))}
+         </svg>
+ 
+-        {/* Los puntos que se tocan son botones de verdad, encima del dibujo: con
+-            teclado, con nombre y con la ficha a un clic. */}
+         {plotted.map((row) => (
+           <button
+             key={row.company.id}
+@@ -281,26 +277,14 @@ export function TrajectoryMap({
+         {active ? (
+           <div
+             role="tooltip"
+-            className="bg-popover text-popover-foreground pointer-events-none absolute z-10 w-max max-w-56 -translate-x-1/2 rounded-md border px-2.5 py-2 text-xs shadow-sm"
+-            style={{
+-              left: `${(x(active.score) / W) * 100}%`,
+-              top: `${(y(active.trend3m!) / H) * 100}%`,
+-              transform: `translate(-50%, ${active.trend3m! >= 0 ? "14px" : "calc(-100% - 14px)"})`,
+-            }}
++            className={cn(
++              "bg-popover text-popover-foreground pointer-events-none absolute top-3 z-10 w-max max-w-56 rounded-md border px-2.5 py-2 text-xs shadow-sm",
++              active.score < 50 ? "right-3" : "left-3",
++            )}
+           >
+             <p className="flex items-center gap-2">
+               <span className="font-mono font-medium">{active.company.id}</span>
+-              <span
+-                className="inline-block size-2 rounded-full"
+-                style={{ background: colorOf(active) }}
+-              />
+-              <span>
+-                {active.changed
+-                  ? ACCION[active.action].label
+-                  : active.action === "cerrar"
+-                    ? "Sin línea"
+-                    : "Sin cambio"}
+-              </span>
++              <ActionBadge action={active.action} changed={active.changed} />
+             </p>
+             <p className="text-muted-foreground mt-0.5 tabular-nums">
+               Score {formatScore(active.score)} · {formatSigned(active.trend3m!)} en 3 m
+@@ -319,31 +303,34 @@ export function TrajectoryMap({
+         ) : null}
+       </div>
+ 
+-      <ul className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-xs">
+-        {LEGEND.map((action) => (
+-          <li key={action} className="flex items-center gap-1.5">
+-            <span
+-              aria-hidden
+-              className="inline-block size-2 rounded-full"
+-              style={{ background: ACTION_COLOR[action] }}
+-            />
+-            {ACCION[action].label}
+-          </li>
+-        ))}
++      <ul className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs">
++        <li className="flex items-center gap-1.5">
++          <span
++            aria-hidden
++            className="inline-block size-2.5 rounded-full"
++            style={{ background: TONE.deterioro }}
++          />
++          Hot que cae
++        </li>
++        <li className="flex items-center gap-1.5">
++          <span
++            aria-hidden
++            className="inline-block size-2.5 rounded-full"
++            style={{ background: TONE.mejora }}
++          />
++          Hot que mejora
++        </li>
+         <li className="flex items-center gap-1.5">
+           <span
+             aria-hidden
+             className="inline-block size-2 rounded-full"
+-            style={{ background: ACTION_COLOR.mantener }}
++            style={{ background: TONE.estable }}
+           />
+-          Sin cambio
++          Resto de la cartera
++        </li>
++        <li className="ml-auto">
++          El número es su puesto en la lista; pasa por encima para ver seis meses.
+         </li>
+-        {anyHot ? (
+-          <li className="flex items-center gap-1.5">
+-            <Flame aria-hidden className="size-3" strokeWidth={2.5} />
+-            Hot
+-          </li>
+-        ) : null}
+       </ul>
+     </Panel>
+   );
+-- 
+2.34.1
+

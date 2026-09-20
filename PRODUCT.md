@@ -1,28 +1,9 @@
-# Brief del proyecto
+# PRODUCT — Embat Flow
 
-Rellena este archivo **antes** de pedirle a un agente de IA que construya el
-proyecto. Junto a [AGENTS.md](./AGENTS.md) (cómo construir), este archivo
-(qué construir) es todo el contexto que el agente necesita para arrancar.
+El brief de producto vive en
+[`docs/product/PRODUCT.md`](./docs/product/PRODUCT.md).
+La entrega al jurado está en
+[`docs/product/para-el-jurado.md`](./docs/product/para-el-jurado.md).
 
-## Problema
-
-<!-- ¿Qué problema resuelve este proyecto? ¿Por qué existe? -->
-
-## Usuarios
-
-<!-- ¿Quién lo usa? ¿Uno o varios roles/tipos de usuario? -->
-
-## Flujo core
-
-<!-- El camino feliz principal, paso a paso. Es lo que el agente debe
-     proteger/priorizar por encima de todo lo demás. -->
-
-## Fuera de alcance (por ahora)
-
-<!-- Qué NO construir todavía, para que el agente no se disperse. -->
-
-## Stack específico de este proyecto
-
-<!-- Todo lo de AGENTS.md aplica. Añade aquí solo lo que sea distinto o
-     adicional para este proyecto en concreto (integraciones externas,
-     proveedor de email, almacenamiento de ficheros, etc.). -->
+Este fichero se conserva en la raíz porque Cursor, Claude Code e Impeccable
+buscan `PRODUCT.md` aquí. No dupliques contenido: edita el de `docs/product/`.

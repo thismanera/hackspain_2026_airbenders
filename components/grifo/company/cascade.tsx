@@ -1,0 +1,236 @@
+"use client";
+
+import { useState } from "react";
+
+import { IndicatorInfo } from "@/components/grifo/company/indicator-info";
+import { Panel } from "@/components/grifo/panel";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/core/utils";
+import {
+  formatIndicatorValue,
+  formatPercent,
+  formatSigned,
+} from "@/lib/features/portfolio/format";
+import { BLOCKS, indicator, type BlockId } from "@/lib/features/portfolio/indicators";
+import type { Contribution, MonthScore } from "@/lib/features/portfolio/types";
+
+type Mode = "bloque" | "movimiento";
+
+function Row({ contribution }: { contribution: Contribution }) {
+  const meta = indicator(contribution.indicator);
+  if (!meta) return null;
+
+  const missing = contribution.raw === null;
+  const moved = Math.abs(contribution.delta) >= 0.05;
+
+  return (
+    <li className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-1 px-4 py-2 sm:grid-cols-[minmax(0,1fr)_5.5rem_6rem_4.5rem_4rem]">
+      <div className="min-w-0 sm:col-span-1">
+        <p className={cn("flex items-center gap-1", missing && "text-muted-foreground")}>
+          <span className="truncate text-sm">{meta.label}</span>
+          <IndicatorInfo
+            indicator={meta}
+            raw={contribution.raw}
+            subscore={contribution.subscore}
+            missing={missing}
+          />
+        </p>
+        {missing ? (
+          <p className="text-muted-foreground text-xs">sin cobertura</p>
+        ) : null}
+      </div>
+
+      <span
+        className={cn(
+          "text-right text-sm tabular-nums max-sm:col-start-2 max-sm:row-start-1",
+          missing ? "text-muted-foreground" : "",
+        )}
+      >
+        {formatIndicatorValue(contribution.raw, meta.format)}
+      </span>
+
+      {/* La nota va en número y en barra: la barra sirve para comparar de un
+          vistazo, el número para poder citarlo. El color es el tercer refuerzo. */}
+      <span className="flex items-center gap-2 max-sm:col-span-2">
+        <span
+          className={cn(
+            "w-6 shrink-0 text-right text-xs tabular-nums",
+            missing ? "text-muted-foreground" : "",
+          )}
+        >
+          {missing ? "—" : Math.round(contribution.subscore)}
+        </span>
+        <span aria-hidden className="bg-muted flex h-1.5 min-w-0 flex-1 overflow-hidden rounded-full">
+          <span
+            className={cn(
+              "h-full rounded-full",
+              missing
+                ? "bg-status-none"
+                : contribution.subscore >= 70
+                  ? "bg-status-healthy"
+                  : contribution.subscore >= 45
+                    ? "bg-status-watch"
+                    : "bg-status-risk",
+            )}
+            style={{ width: `${Math.max(2, contribution.subscore)}%` }}
+          />
+        </span>
+      </span>
+
+      <span className="text-right text-sm font-medium tabular-nums max-sm:hidden">
+        {contribution.contribution.toLocaleString("es-ES", { maximumFractionDigits: 1 })}
+      </span>
+
+      <span
+        className={cn(
+          "text-right text-xs tabular-nums max-sm:hidden",
+          !moved
+            ? "text-muted-foreground"
+            : contribution.delta > 0
+              ? "text-status-healthy-fg"
+              : "text-status-risk-fg",
+        )}
+      >
+        {moved ? formatSigned(contribution.delta) : "—"}
+      </span>
+    </li>
+  );
+}
+
+export function Cascade({
+  month,
+  /**
+   * En el panel lateral la pestaña ya dice "Score" y la lectura de arriba ya
+   * dice de qué va: repetir el título y ofrecer dos órdenes es carga que no
+   * cambia ninguna decisión. Queda la tabla, ordenada por lo que se ha movido.
+   */
+  bare = false,
+  inset = false,
+}: {
+  month: MonthScore;
+  bare?: boolean;
+  inset?: boolean;
+}) {
+  const [mode, setMode] = useState<Mode>("movimiento");
+
+  const byMovement = [...month.contributions]
+    .filter((entry) => entry.raw !== null)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  const missing = month.contributions.filter((entry) => entry.raw === null);
+
+  const body = (
+    <>
+      <div className="text-muted-foreground grid grid-cols-[1fr_auto] gap-x-4 border-b px-4 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_5.5rem_6rem_4.5rem_4rem]">
+        <span>Variable</span>
+        <span className="text-right">Valor</span>
+        <span className="max-sm:hidden">Nota</span>
+        <span className="text-right max-sm:hidden">Puntos</span>
+        <span className="text-right max-sm:hidden">Cambio</span>
+      </div>
+
+      {mode === "bloque" ? (
+        (Object.keys(BLOCKS) as BlockId[]).map((blockId) => {
+          const block = BLOCKS[blockId];
+          const rows = month.contributions.filter(
+            (entry) => indicator(entry.indicator)?.block === blockId && entry.raw !== null,
+          );
+          return (
+            <div key={blockId}>
+              <div className="bg-muted/40 flex items-baseline justify-between gap-3 border-b px-4 py-1.5">
+                <h3 className="text-xs font-medium">
+                  {block.label}
+                  <span className="text-muted-foreground font-normal">
+                    {" "}
+                    · peso {formatPercent(block.weight, 0)}
+                  </span>
+                </h3>
+                <span className="text-xs tabular-nums">
+                  nota{" "}
+                  <span className="font-medium">
+                    {month.blocks[blockId].toLocaleString("es-ES", { maximumFractionDigits: 0 })}
+                  </span>
+                </span>
+              </div>
+              <ul className="divide-y">
+                {rows.map((entry) => (
+                  <Row key={entry.indicator} contribution={entry} />
+                ))}
+              </ul>
+            </div>
+          );
+        })
+      ) : (
+        <ul className="divide-y">
+          {byMovement.map((entry) => (
+            <Row key={entry.indicator} contribution={entry} />
+          ))}
+        </ul>
+      )}
+
+      {missing.length > 0 ? (
+        <details className="border-t">
+          <summary className="text-muted-foreground hover:text-foreground cursor-pointer px-4 py-2 text-sm transition-colors duration-150">
+            {missing.length} {missing.length === 1 ? "variable" : "variables"} sin cobertura
+          </summary>
+          <ul className="divide-y border-t">
+            {missing.map((entry) => (
+              <Row key={entry.indicator} contribution={entry} />
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
+      <div className="flex items-baseline justify-between gap-3 border-t px-4 py-2.5 text-sm">
+        <span className="font-medium">Score en solitario</span>
+        <span className="font-semibold tabular-nums">
+          {month.standaloneScore.toLocaleString("es-ES", { maximumFractionDigits: 1 })}
+        </span>
+      </div>
+    </>
+  );
+
+  if (inset) {
+    return <div className="-mx-4 -my-3">{body}</div>;
+  }
+
+  if (bare) {
+    return (
+      <section
+        aria-label="De dónde sale el score"
+        className="bg-card overflow-hidden rounded-xl border"
+      >
+        {body}
+      </section>
+    );
+  }
+
+  return (
+    <Panel
+      title="De dónde sale el score"
+      bodyClassName="p-0"
+      aside={
+        <fieldset className="flex min-w-0 gap-1">
+          <legend className="sr-only">Ordenar la cascada</legend>
+          <Button
+            variant={mode === "movimiento" ? "secondary" : "ghost"}
+            size="sm"
+            aria-pressed={mode === "movimiento"}
+            onClick={() => setMode("movimiento")}
+          >
+            Qué se ha movido
+          </Button>
+          <Button
+            variant={mode === "bloque" ? "secondary" : "ghost"}
+            size="sm"
+            aria-pressed={mode === "bloque"}
+            onClick={() => setMode("bloque")}
+          >
+            Por bloque
+          </Button>
+        </fieldset>
+      }
+    >
+      {body}
+    </Panel>
+  );
+}

@@ -12,8 +12,13 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
-  title: "Plantilla Next.js",
-  description: "Plantilla base Next.js 16 + Prisma + Tailwind 4 + TanStack Query",
+  title: "Flow",
+  description: "Score, límite y decisión de cada empresa",
+  icons: {
+    icon: "/embatlogo.jpg",
+    shortcut: "/embatlogo.jpg",
+    apple: "/embatlogo.jpg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

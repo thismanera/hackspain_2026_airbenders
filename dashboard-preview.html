@@ -1,0 +1,2275 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Embat Flow · X-Ray</title>
+    <style>
+      :root {
+        --ink: #16261f;
+        --ink-2: #405149;
+        --muted: #718078;
+        --line: #dce5df;
+        --line-strong: #c8d4cc;
+        --paper: #f5f7f5;
+        --surface: #ffffff;
+        --surface-2: #eef2ef;
+        --nav: #12251c;
+        --lime: #d6ff43;
+        --green: #16865b;
+        --green-soft: #e1f4eb;
+        --amber: #c47a08;
+        --amber-soft: #fff0d1;
+        --red: #c7463e;
+        --red-soft: #fde9e7;
+        --blue: #3777c5;
+        --blue-soft: #e8f0fb;
+        --radius: 14px;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--paper);
+        font-family: Inter, "Segoe UI", Arial, sans-serif;
+        font-size: 14px;
+        overflow-x: hidden;
+      }
+      button, input, select { font: inherit; }
+      button { color: inherit; }
+      .mono { font-variant-numeric: tabular-nums; }
+
+      .app { min-height: 100vh; display: grid; grid-template-columns: 74px 1fr; }
+      .rail {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 40;
+        width: 74px;
+        padding: 18px 12px;
+        color: #dce7e0;
+        background: var(--nav);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 22px;
+      }
+      .logo {
+        width: 42px; height: 42px; border-radius: 12px;
+        display: grid; place-items: center;
+        color: var(--nav); background: var(--lime);
+        font-size: 21px; font-weight: 850; letter-spacing: -2px;
+      }
+      .rail-nav { display: grid; gap: 8px; width: 100%; }
+      .rail-btn {
+        border: 0; border-radius: 10px; width: 50px; height: 46px;
+        background: transparent; color: #8fa198; cursor: pointer;
+        display: grid; place-items: center; transition: 160ms ease;
+      }
+      .rail-btn svg { width: 20px; height: 20px; }
+      .rail-btn:hover, .rail-btn.active { color: var(--lime); background: #20382d; }
+      .rail-spacer { flex: 1; }
+      .avatar {
+        width: 36px; height: 36px; border-radius: 50%;
+        display: grid; place-items: center; background: #395044;
+        color: white; font-size: 12px; font-weight: 750;
+      }
+
+      .shell { grid-column: 2; min-width: 0; }
+      .topbar {
+        height: 72px; padding: 0 28px;
+        display: flex; align-items: center; justify-content: space-between;
+        background: rgba(245,247,245,.92);
+        border-bottom: 1px solid var(--line);
+        position: sticky; top: 0; z-index: 30;
+        backdrop-filter: blur(12px);
+      }
+      .brandline { display: flex; align-items: center; gap: 12px; }
+      .brandline strong { font-size: 15px; }
+      .brandline span { color: var(--muted); }
+      .slash { color: var(--line-strong)!important; }
+      .top-actions { display: flex; align-items: center; gap: 10px; }
+      .search {
+        width: 260px; height: 38px; padding: 0 14px 0 36px;
+        border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+        outline: none;
+      }
+      .search-wrap { position: relative; }
+      .search-wrap svg { position: absolute; left: 12px; top: 11px; width: 16px; color: var(--muted); }
+      .ghost, .primary {
+        height: 38px; border-radius: 10px; padding: 0 14px;
+        display: inline-flex; gap: 8px; align-items: center;
+        border: 1px solid var(--line); background: var(--surface); cursor: pointer;
+      }
+      .primary { border-color: var(--nav); color: var(--lime); background: var(--nav); font-weight: 700; }
+      .ghost:hover { border-color: var(--line-strong); background: var(--surface-2); }
+
+      .boot {
+        position: fixed; inset: 0; z-index: 100;
+        display: none; flex-direction: column;
+        color: #e8f0ea; background: #0e1c16;
+      }
+      .boot.open { display: flex; }
+      .boot.video .boot-top, .boot.video .boot-nav { display: none; }
+      .boot.video .boot-stage { padding: 48px 64px; }
+      .boot.video .boot-scene { animation: none; }
+      .boot-top {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 22px 28px; flex-shrink: 0;
+      }
+      .boot-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: -.02em; }
+      .boot-brand b {
+        width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
+        background: var(--lime); color: var(--nav); font-size: 18px;
+      }
+      .boot-skip {
+        border: 0; background: transparent; color: #8fa198; font-size: 14px; font-weight: 700; cursor: pointer;
+        padding: 8px 10px;
+      }
+      .boot-skip:hover { color: white; }
+      .boot-stage {
+        flex: 1; display: grid; place-items: center; padding: 16px 32px 24px; min-height: 0; overflow-y: auto;
+      }
+      .boot-scene { width: min(760px, 100%); text-align: center; }
+      .boot-kicker {
+        color: var(--lime); font-size: 14px; font-weight: 850;
+        letter-spacing: .14em; text-transform: uppercase; margin-bottom: 20px;
+        opacity: 0; animation: bootIn .55s ease forwards;
+      }
+      .boot-scene h1 {
+        margin: 0 0 22px; font-size: clamp(32px, 4.4vw, 50px);
+        line-height: 1.12; letter-spacing: -.035em; font-weight: 850; text-wrap: balance;
+        opacity: 0; animation: bootIn .6s ease .12s forwards;
+      }
+      .boot-scene .lead {
+        margin: 0 auto; max-width: 640px; color: #c9d8cf; font-size: clamp(18px, 2vw, 21px); line-height: 1.5;
+        text-wrap: balance;
+        opacity: 0; animation: bootIn .6s ease .28s forwards;
+      }
+      .boot-pieces { display: grid; gap: 10px; margin: 28px auto 0; max-width: 520px; text-align: left; }
+      .boot-pieces article {
+        display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: center;
+        padding: 14px 16px; border-radius: 12px; background: #163025;
+        opacity: 0; transform: translateY(12px);
+        animation: bootIn .5s ease forwards;
+      }
+      .boot-pieces article:nth-child(1) { animation-delay: .35s; }
+      .boot-pieces article:nth-child(2) { animation-delay: .55s; }
+      .boot-pieces article:nth-child(3) { animation-delay: .75s; }
+      .boot-pieces i {
+        width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+        background: var(--nav); color: var(--lime); font-size: 12px; font-weight: 800; font-style: normal;
+      }
+      .boot-eyes {
+        display: grid; grid-template-columns: 1fr 18px 1fr; gap: 14px; align-items: center;
+        margin: 28px auto 0; max-width: 640px; text-align: left;
+        opacity: 0; animation: bootIn .55s ease .4s forwards;
+      }
+      .boot-eyes ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+      .boot-eyes li {
+        padding: 12px 14px; border-radius: 10px; background: #1a2f26;
+        color: #8fa198; font-size: 13px; font-weight: 650;
+      }
+      .boot-eyes .win {
+        padding: 18px 16px; border-radius: 14px; background: #17382c;
+        outline: 1px solid rgba(214,255,67,.35);
+      }
+      .boot-eyes .win b { display: block; color: var(--lime); font-size: 15px; margin-bottom: 8px; }
+      .boot-eyes .win p { margin: 0; color: #dce7e0; font-size: 13px; line-height: 1.45; }
+      .boot-eyes .vs { color: #5d7368; font-size: 12px; font-weight: 800; text-align: center; }
+      .boot-video {
+        width: min(560px, 100%); aspect-ratio: 16/9; margin: 22px auto 0;
+        border: 1px dashed #3d5449; border-radius: 16px; background: #13241c;
+        display: grid; place-items: center; gap: 6px; color: #8fa198;
+        opacity: 0; animation: bootIn .55s ease .35s forwards;
+      }
+      .boot-video strong { color: #dce7e0; font-size: 14px; }
+      .boot-video span { font-size: 12px; }
+      .boot-play {
+        width: 52px; height: 52px; border-radius: 50%; background: var(--lime); color: var(--nav);
+        display: grid; place-items: center; font-size: 18px; margin-bottom: 4px;
+      }
+      .boot-cta {
+        margin-top: 22px; opacity: 0; animation: bootIn .5s ease .5s forwards;
+      }
+      .boot-cta .primary {
+        height: 52px; padding: 0 26px; font-size: 17px;
+        background: var(--lime); color: var(--nav); border-color: var(--lime);
+      }
+      @keyframes bootIn { to { opacity: 1; transform: none; } }
+      .boot-nav {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 18px 28px 42px; flex-shrink: 0;
+      }
+      .boot-progress {
+        display: flex; flex-direction: column; align-items: center; gap: 8px;
+        position: relative;
+      }
+      .boot-dots { display: flex; gap: 8px; }
+      .boot-dots button {
+        width: 10px; height: 10px; padding: 0; border: 0; border-radius: 50%;
+        background: #365046; cursor: pointer; transition: width .2s ease, background .2s ease;
+      }
+      .boot-dots button.seen { background: #6f8a7c; }
+      .boot-dots button:hover { background: #a3b5ab; }
+      .boot-dots button.on { width: 28px; border-radius: 99px; background: var(--lime); }
+      .boot-step { color: #8fa198; font-size: 13px; font-weight: 700; letter-spacing: .02em; }
+      .boot-hint {
+        position: absolute; top: calc(100% + 6px); white-space: nowrap;
+        color: #5d7368; font-size: 12px; font-weight: 600;
+      }
+      .boot-back, .boot-next { height: 46px; padding: 0 22px; font-size: 16px; min-width: 130px; }
+      .boot-back {
+        border: 1px solid #365046; border-radius: 10px; background: transparent;
+        color: #c9d8cf; font-weight: 700; cursor: pointer;
+      }
+      .boot-back:hover { border-color: #6f8a7c; color: white; background: rgba(255,255,255,.04); }
+      .boot-next { justify-content: center; }
+      .boot-scene.wide { width:min(920px,100%); }
+      .boot-accent { color:var(--lime); }
+      .boot-big-number {
+        margin:28px 0 10px;color:var(--lime);font-size:clamp(72px,11vw,120px);
+        font-weight:900;letter-spacing:-.06em;line-height:.9;
+        opacity:0;animation:bootScale .7s cubic-bezier(.2,.8,.2,1) .28s forwards;
+      }
+      .boot-big-caption {
+        margin:0 auto;max-width:640px;color:#e8f0ea;font-size:clamp(18px,2vw,21px);font-weight:750;line-height:1.4;
+        opacity:0;animation:bootIn .5s ease .46s forwards;
+      }
+      @keyframes bootScale {
+        from {opacity:0;transform:scale(.82);}
+        to {opacity:1;transform:scale(1);}
+      }
+      .boot-timeline {
+        width:min(720px,100%);margin:44px auto 0;position:relative;
+        display:grid;grid-template-columns:repeat(4,1fr);gap:0;
+        opacity:0;animation:bootIn .55s ease .55s forwards;
+      }
+      .boot-timeline:before {
+        content:"";position:absolute;left:12.5%;right:12.5%;top:13px;height:2px;background:#365046;
+      }
+      .boot-timeline div {position:relative;padding-top:36px;color:#a3b5ab;font-size:15px;font-weight:700;line-height:1.3;}
+      .boot-timeline div:before {
+        content:"";position:absolute;top:7px;left:50%;width:13px;height:13px;border-radius:50%;
+        transform:translateX(-50%);background:#365046;border:2px solid #0e1c16;
+      }
+      .boot-timeline div:first-child {color:var(--lime);}
+      .boot-timeline div:first-child:before {background:var(--lime);box-shadow:0 0 0 6px rgba(214,255,67,.12);}
+      .boot-timeline div:last-child {color:#e8f0ea;}
+      .boot-timeline div:last-child:before {background:#e8f0ea;}
+      .gap-viz {
+        width:min(720px,100%);margin:34px auto 0;display:grid;grid-template-columns:170px 1fr 170px;
+        gap:14px;align-items:center;opacity:0;animation:bootIn .55s ease .42s forwards;
+      }
+      .gap-end {
+        padding:18px;border-radius:14px;background:#173026;text-align:left;border:1px solid #29463a;
+      }
+      .gap-end small {display:block;color:#8fa198;font-size:13px;text-transform:uppercase;letter-spacing:.08em;}
+      .gap-end b {display:block;margin-top:5px;font-size:19px;}
+      .gap-line {position:relative;height:58px;display:flex;align-items:center;}
+      .gap-line:before {
+        content:"";width:100%;height:8px;border-radius:8px;background:#243a30;
+      }
+      .gap-line:after {
+        content:"90 días sin esa caja";position:absolute;left:50%;top:0;transform:translateX(-50%);
+        white-space:nowrap;color:var(--lime);font-size:14px;font-weight:800;
+      }
+      .gap-pulse {
+        position:absolute;left:calc(50% - 7px);width:14px;height:14px;border-radius:50%;background:var(--lime);
+      }
+      .moat-flow {
+        width:min(880px,100%);margin:36px auto 0;display:grid;grid-template-columns:1fr 200px 1fr;
+        gap:32px;align-items:center;opacity:0;animation:bootIn .55s ease .4s forwards;
+      }
+      .source-stack {display:grid;gap:10px;}
+      .source-pill {
+        position:relative;padding:14px 18px;border-radius:12px;background:#172c23;border:1px solid #294037;
+        color:#c9d8cf;font-size:16px;font-weight:750;text-align:left;
+      }
+      .source-pill:after {
+        content:"";position:absolute;right:-33px;top:50%;width:32px;height:2px;
+        background:linear-gradient(90deg,#365046,var(--lime));
+      }
+      .source-stack.right .source-pill:after {
+        right:auto;left:-33px;background:linear-gradient(90deg,var(--lime),#365046);
+      }
+      .embat-core {
+        aspect-ratio:1;border-radius:50%;display:grid;place-items:center;position:relative;
+        background:var(--lime);color:var(--nav);font-size:26px;font-weight:900;
+        box-shadow:0 0 0 14px rgba(214,255,67,.08),0 0 60px rgba(214,255,67,.14);
+      }
+      .embat-core:after {
+        content:"vista completa";position:absolute;bottom:-36px;color:var(--lime);
+        font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;
+      }
+      .moat-note {
+        margin:52px auto 0;color:#e8f0ea;font-size:clamp(17px,1.9vw,20px);font-weight:700;
+        opacity:0;animation:bootIn .5s ease .72s forwards;
+      }
+      .proof-grid {
+        width:min(820px,100%);margin:34px auto 0;display:grid;grid-template-columns:1fr 1fr;
+        gap:16px;text-align:left;opacity:0;animation:bootIn .55s ease .38s forwards;
+      }
+      .proof-card {padding:26px 24px;border-radius:16px;background:#172a22;border:1px solid #294037;}
+      .proof-card.win {background:#15372a;border-color:rgba(214,255,67,.42);}
+      .proof-card small {display:block;color:#a3b5ab;font-size:13px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;}
+      .proof-card h3 {margin:12px 0 0;font-size:20px;line-height:1.3;}
+      .proof-money {display:flex;align-items:center;gap:10px;font-size:36px;font-weight:850;letter-spacing:-.04em;}
+      .proof-money del {color:#8fa198;text-decoration:none;}
+      .proof-money span {color:#5d7368;font-size:17px;}
+      .proof-money b {color:var(--lime);}
+      .proof-card p {margin:10px 0 0;color:#9db0a6;font-size:14px;line-height:1.5;}
+      .early-badge {
+        display:inline-flex;margin-top:16px;padding:9px 13px;border-radius:9px;
+        color:var(--lime);background:#203f31;font-size:14px;font-weight:800;
+      }
+      .final-lockup {
+        margin:30px auto 0;display:flex;flex-wrap:wrap;justify-content:center;gap:10px;
+        opacity:0;animation:bootIn .5s ease .36s forwards;
+      }
+      .final-lockup span {
+        padding:10px 16px;border:1px solid #365046;border-radius:999px;
+        color:#c9d8cf;font-size:16px;font-weight:700;
+      }
+      .boot-footnote {margin:18px 0 0;color:#8fa198;font-size:14px;}
+      .risk-bars {width:min(780px,100%);margin:34px auto 0;display:grid;gap:14px;text-align:left;}
+      .risk-row {display:grid;grid-template-columns:110px 1fr;gap:16px;align-items:center;}
+      .risk-row small {color:#a3b5ab;font-size:15px;font-weight:800;text-align:right;}
+      .risk-row.good small {color:var(--lime);}
+      .risk-track {
+        position:relative;height:46px;border-radius:10px;overflow:hidden;
+        background:#152520 repeating-linear-gradient(90deg,transparent 0 calc(100%/12 - 1px),#294037 calc(100%/12 - 1px) calc(100%/12));
+        border:1px solid #294037;
+      }
+      .risk-fill {position:absolute;inset:0 auto 0 0;display:block;}
+      .risk-row.bad .risk-fill {width:100%;background:linear-gradient(90deg,#4d2626,#6b2f2f);}
+      .risk-row.good .risk-fill {width:calc(100%/12);background:var(--lime);}
+      .risk-label {
+        position:absolute;top:50%;transform:translateY(-50%);left:16px;
+        font-size:15px;font-weight:800;white-space:nowrap;
+      }
+      .risk-row.bad .risk-label {color:#ffd2d2;}
+      .risk-row.good .risk-label {left:calc(100%/12 + 16px);color:#e8f0ea;}
+      .risk-punch {margin:34px auto 0;font-size:clamp(24px,2.6vw,32px);font-weight:850;letter-spacing:-.03em;}
+      .early-badge.big {margin-top:20px;padding:11px 16px;font-size:15px;}
+      .score-showcase {
+        width:min(720px,100%);margin:32px auto 0;padding:26px 30px;border-radius:18px;
+        display:grid;grid-template-columns:132px 1fr;gap:28px;align-items:center;text-align:left;
+        background:#15372a;border:1px solid rgba(214,255,67,.38);
+      }
+      .score-orb {
+        width:132px;height:132px;border-radius:50%;display:grid;place-items:center;
+        background:var(--lime);color:var(--nav);font-size:45px;font-weight:900;letter-spacing:-.06em;
+        box-shadow:0 0 0 10px rgba(214,255,67,.08);
+      }
+      .score-orb span {font-size:16px;letter-spacing:-.02em;margin-left:3px;}
+      .score-copy small {
+        display:block;color:var(--lime);font-size:13px;font-weight:850;
+        letter-spacing:.1em;text-transform:uppercase;
+      }
+      .score-copy h3 {margin:8px 0 8px;color:#f4f8f5;font-size:24px;line-height:1.25;}
+      .score-copy p {margin:0;color:#c9d8cf;font-size:17px;line-height:1.5;}
+      .score-chips {display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+      .score-chips span {
+        padding:9px 14px;border-radius:999px;background:#203f31;color:#f4f8f5;
+        font-size:15px;font-weight:750;
+      }
+      .ownership-card {
+        width:min(740px,100%);margin:32px auto 0;padding:26px 28px;border-radius:18px;
+        background:#172a22;border:1px solid #294037;text-align:left;
+      }
+      .ownership-list {display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+      .ownership-list div {padding:18px;border-radius:14px;background:#1d352a;color:#c9d8cf;font-size:15px;font-weight:650;line-height:1.4;}
+      .ownership-list b {display:block;margin-bottom:6px;color:var(--lime);font-size:19px;font-weight:850;}
+      .privacy-lock {
+        margin-top:16px;padding:16px 18px;border-radius:14px;display:flex;align-items:center;gap:14px;
+        background:#0f2119;color:#c9d8cf;font-size:17px;font-weight:600;line-height:1.4;
+      }
+      .privacy-lock b {color:var(--lime);font-weight:850;}
+      .privacy-lock i {
+        width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;
+        background:var(--lime);color:var(--nav);font-style:normal;font-size:15px;
+      }
+      .consent-flow {
+        width:min(860px,100%);margin:34px auto 0;display:grid;
+        grid-template-columns:1fr 38px 1fr 38px 1fr;gap:10px;align-items:stretch;text-align:left;
+      }
+      .consent-step {
+        padding:20px;border-radius:16px;background:#172a22;border:1px solid #294037;
+      }
+      .consent-step.active {background:#15372a;border-color:rgba(214,255,67,.45);}
+      .consent-step small {display:block;color:#8fa198;font-size:13px;font-weight:850;letter-spacing:.08em;text-transform:uppercase;}
+      .consent-step b {display:block;margin-top:10px;color:#f4f8f5;font-size:19px;line-height:1.25;}
+      .consent-step p {margin:8px 0 0;color:#a9bbb0;font-size:15px;line-height:1.45;}
+      .consent-step.active small,.consent-step.active b {color:var(--lime);}
+      .consent-arrow {color:#6f8a7c;font-size:24px;font-weight:900;text-align:center;align-self:center;}
+      .share-note {margin:24px auto 0;color:#a9bbb0;font-size:17px;font-weight:700;}
+      .share-note b {color:#f4f8f5;}
+      .outcome-grid {
+        width:min(820px,100%);margin:32px auto 0;display:grid;grid-template-columns:1fr 1fr;
+        gap:16px;text-align:left;
+      }
+      .outcome-card {padding:26px;border-radius:16px;background:#172a22;border:1px solid #294037;}
+      .outcome-card.good {background:#15372a;border-color:rgba(214,255,67,.42);}
+      .outcome-card small {display:block;color:#a3b5ab;font-size:13px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;}
+      .outcome-card.good small {color:var(--lime);}
+      .outcome-card h3 {margin:12px 0 8px;color:#f4f8f5;font-size:23px;line-height:1.25;}
+      .outcome-card p {margin:0;color:#c9d8cf;font-size:16px;line-height:1.5;}
+      .partner-note {margin:26px auto 0;color:#f4f8f5;font-size:clamp(18px,2vw,21px);font-weight:750;}
+      .boot-scene { animation:sceneReveal .32s ease; }
+      @keyframes sceneReveal {
+        from {opacity:0;transform:translateY(5px);}
+        to {opacity:1;transform:none;}
+      }
+      .boot-kicker,
+      .boot-scene h1,
+      .boot-scene .lead,
+      .boot-big-number,
+      .boot-big-caption,
+      .boot-timeline,
+      .gap-viz,
+      .moat-flow,
+      .moat-note,
+      .proof-grid,
+      .final-lockup,
+      .boot-cta {
+        opacity:1;
+        animation:none;
+        transform:none;
+      }
+      .proof-card.simple { text-align:center; }
+      .proof-card.simple .proof-money { justify-content:center; margin-top:18px; }
+      .boot-cta { margin-top: 30px; }
+      @media (max-width: 760px) {
+        .boot-top, .boot-nav { padding-left: 18px; padding-right: 18px; }
+        .boot-stage { padding: 8px 18px 16px; }
+        .boot-back, .boot-next { min-width: 0; padding: 0 16px; font-size: 15px; }
+        .boot-hint { display: none !important; }
+        .boot-timeline div { font-size: 13px; }
+        .moat-flow { grid-template-columns: 1fr 120px 1fr; gap: 22px; }
+        .source-pill { font-size: 14px; padding: 12px 12px; }
+        .source-pill:after { right: -23px; width: 22px; }
+        .source-stack.right .source-pill:after { left: -23px; }
+        .embat-core { font-size: 20px; }
+        .embat-core:after { font-size: 11px; bottom: -30px; }
+        .moat-note { margin-top: 44px; }
+        .proof-money { font-size: 30px; }
+        .risk-row { grid-template-columns: 1fr; gap: 6px; }
+        .risk-row small { text-align: left; }
+        .risk-label { font-size: 13px; }
+        .score-showcase { grid-template-columns:90px 1fr;gap:18px;padding:20px; }
+        .score-orb { width:90px;height:90px;font-size:34px; }
+        .score-orb span { font-size:13px; }
+        .score-copy h3 { font-size:20px; }
+        .outcome-card { padding:20px; }
+        .outcome-card h3 { font-size:20px; }
+      }
+      @media (max-width: 560px) {
+        .ownership-list,.outcome-grid { grid-template-columns:1fr; }
+        .consent-flow { grid-template-columns:1fr;gap:8px; }
+        .consent-step { min-height:0; }
+        .consent-arrow { transform:rotate(90deg);font-size:20px; }
+      }
+
+      main { padding: 30px 30px 60px; max-width: 1560px; margin: 0 auto; }
+      .page { display: none; animation: fade .2s ease; }
+      .page.active { display: block; }
+      @keyframes fade { from { opacity: .3; transform: translateY(4px); } }
+
+      .page-head {
+        display: flex; align-items: flex-end; justify-content: space-between;
+        margin-bottom: 24px;
+      }
+      .eyebrow {
+        color: var(--green); font-size: 11px; font-weight: 800;
+        text-transform: uppercase; letter-spacing: .13em; margin-bottom: 7px;
+      }
+      h1 { margin: 0; font-size: 31px; line-height: 1.1; letter-spacing: -.035em; }
+      h2 { margin: 0; font-size: 18px; letter-spacing: -.02em; }
+      h3 { margin: 0; font-size: 14px; }
+      .subtitle { margin: 8px 0 0; color: var(--muted); }
+      .period {
+        padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px;
+        background: var(--surface); color: var(--ink-2);
+      }
+
+      .narrative {
+        min-height: 82px; margin-bottom: 16px; padding: 18px 20px;
+        border-radius: var(--radius); color: white; background: var(--nav);
+        display: flex; align-items: center; justify-content: space-between; gap: 24px;
+        overflow: hidden; position: relative;
+      }
+      .narrative:after {
+        content:""; position:absolute; width:180px; height:180px; right:13%; top:-80px;
+        border: 1px solid #3d5449; border-radius: 50%;
+      }
+      .narrative-copy { position: relative; z-index: 1; display: flex; gap: 13px; align-items: center; }
+      .pulse {
+        width: 9px; height: 9px; border-radius: 50%; background: var(--lime);
+        box-shadow: 0 0 0 5px rgba(214,255,67,.12);
+      }
+      .narrative b { color: var(--lime); }
+      .narrative .primary { background: var(--lime); color: var(--nav); border-color: var(--lime); position: relative; z-index: 1; }
+
+      .kpis {
+        display: grid; grid-template-columns: 1.15fr 1fr 1fr 1fr 1fr;
+        gap: 12px; margin-bottom: 16px;
+      }
+      .kpi {
+        min-height: 132px; padding: 17px 18px;
+        border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+        display: flex; flex-direction: column; justify-content: space-between;
+      }
+      .kpi.hero { color: white; background: #1d3429; border-color: #1d3429; }
+      .kpi-top { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+      .kpi.hero .kpi-top { color: #afc0b7; }
+      .kpi-value { font-size: 26px; font-weight: 800; letter-spacing: -.035em; }
+      .kpi.hero .kpi-value { color: var(--lime); }
+      .delta { font-size: 11px; font-weight: 700; }
+      .delta.up { color: var(--green); }
+      .delta.down { color: var(--red); }
+      .spark { width: 100%; height: 28px; }
+      .risk-strip { height: 6px; border-radius: 6px; overflow: hidden; display: flex; background: var(--surface-2); }
+      .risk-strip i:nth-child(1){width:54%;background:var(--green)}
+      .risk-strip i:nth-child(2){width:31%;background:var(--amber)}
+      .risk-strip i:nth-child(3){width:15%;background:var(--red)}
+
+      .workspace-grid { display: grid; grid-template-columns: minmax(0,1fr) 322px; gap: 16px; }
+      .panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+      .panel-head { padding: 17px 18px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); }
+      .panel-tools { display: flex; gap: 8px; }
+      .filter {
+        height: 32px; padding: 0 10px; border: 1px solid var(--line);
+        border-radius: 8px; color: var(--ink-2); background: white;
+      }
+      table { width: 100%; border-collapse: collapse; }
+      th {
+        padding: 11px 14px; color: var(--muted); background: #fafbfa;
+        text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+        border-bottom: 1px solid var(--line);
+      }
+      td { padding: 13px 14px; border-bottom: 1px solid #ebefec; vertical-align: middle; }
+      tr:last-child td { border-bottom: 0; }
+      tbody tr { transition: 120ms ease; }
+      tbody > tr:hover { background: #f8faf8; }
+      .holding-row { cursor: pointer; }
+      .holding-name { display: flex; align-items: center; gap: 10px; font-weight: 750; }
+      .chev { width: 18px; height: 18px; transition: transform .18s ease; color: var(--muted); }
+      .holding-row.open .chev { transform: rotate(90deg); }
+      .company-row { display: none; background: #fbfcfb; cursor: pointer; }
+      .company-row.visible { display: table-row; }
+      .company-row td:first-child { padding-left: 45px; }
+      .company-name { font-weight: 650; }
+      .company-id { color: var(--muted); font-size: 10px; margin-top: 3px; }
+      .score {
+        display: inline-grid; place-items: center; min-width: 34px; height: 26px;
+        padding: 0 7px; border-radius: 8px; font-weight: 800;
+      }
+      .score.good { color: var(--green); background: var(--green-soft); }
+      .score.watch { color: var(--amber); background: var(--amber-soft); }
+      .score.bad { color: var(--red); background: var(--red-soft); }
+      .status {
+        display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+        font-size: 11px; font-weight: 700;
+      }
+      .status:before { content:""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+      .status.good { color: var(--green); }
+      .status.watch { color: var(--amber); }
+      .status.bad { color: var(--red); }
+      .trend { font-weight: 700; font-size: 12px; }
+      .action {
+        padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px;
+        font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+      }
+      .action.reduce { color: var(--red); border-color: #f0c0bd; background: var(--red-soft); }
+      .action.expand { color: var(--green); border-color: #b9dfcd; background: var(--green-soft); }
+      .action.keep { color: var(--ink-2); background: var(--surface-2); }
+      .alert-num {
+        min-width: 24px; height: 24px; border-radius: 8px; padding: 0 7px;
+        display: inline-grid; place-items: center; background: var(--red-soft);
+        color: var(--red); font-size: 11px; font-weight: 800;
+      }
+
+      .side-insight { padding: 18px; }
+      .donut-wrap { display: grid; place-items: center; margin: 12px 0 15px; position: relative; }
+      .donut {
+        width: 150px; height: 150px; border-radius: 50%;
+        background: conic-gradient(var(--green) 0 54%, var(--amber) 54% 85%, var(--red) 85%);
+        display: grid; place-items: center;
+      }
+      .donut:after { content:""; width: 108px; height: 108px; border-radius: 50%; background: white; }
+      .donut-center { position: absolute; text-align: center; }
+      .donut-center b { display:block; font-size: 25px; }
+      .donut-center span { color: var(--muted); font-size: 10px; }
+      .legend { display: grid; gap: 10px; }
+      .legend-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; }
+      .legend-key { display:flex; align-items:center; gap:8px; }
+      .dot { width:7px;height:7px;border-radius:50%; }
+      .mini-callout {
+        margin-top: 18px; padding: 14px; border-radius: 10px;
+        background: var(--amber-soft); color: #80510a; font-size: 12px; line-height: 1.45;
+      }
+
+      .drawer-backdrop {
+        position: fixed; inset: 0; z-index: 69; background: rgba(13,26,20,.22);
+        opacity: 0; pointer-events: none; transition: opacity .22s;
+      }
+      .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+      .drawer {
+        position: fixed; inset: 0 0 0 auto; z-index: 70; width: min(640px, 96vw);
+        background: var(--surface); border-left: 1px solid var(--line);
+        transform: translateX(101%); transition: transform .28s cubic-bezier(.2,.8,.2,1);
+        display: flex; flex-direction: column;
+      }
+      .drawer.open { transform: translateX(0); }
+      .drawer-head { padding: 20px 22px 17px; border-bottom: 1px solid var(--line); flex-shrink:0; }
+      .drawer-title { display:flex; justify-content:space-between; gap:12px; }
+      .close {
+        width:34px;height:34px;border:1px solid var(--line);border-radius:9px;background:white;cursor:pointer;
+      }
+      .crumb { color:var(--muted);font-size:11px;margin-bottom:7px; }
+      .drawer-body { flex:1; min-height:0; padding: 20px 22px 40px; overflow-y:auto; display:grid; gap:16px; }
+      .score-hero {
+        display:grid;grid-template-columns:118px 1fr;gap:18px;align-items:center;
+        padding:18px;border-radius:12px;background:var(--nav);color:white;
+      }
+      .ring {
+        width:102px;height:102px;border-radius:50%;display:grid;place-items:center;
+        background:conic-gradient(var(--amber) 0 68%, #365046 68%);
+        position:relative;
+      }
+      .ring:after {content:"";width:77px;height:77px;border-radius:50%;background:var(--nav);}
+      .ring strong {position:absolute;font-size:29px;color:#fff;}
+      .score-hero p {margin:5px 0 0;color:#b8c9c0;font-size:12px;line-height:1.5;}
+      .decision-card {
+        padding:16px;border:1px solid var(--line);border-radius:12px;
+      }
+      .decision-top {display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+      .decision-badge {padding:6px 9px;border-radius:7px;background:var(--amber-soft);color:var(--amber);font-weight:800;font-size:11px;white-space:nowrap;flex-shrink:0;}
+      .decision-grid {display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+      .decision-metric {padding-top:10px;border-top:1px solid var(--line);}
+      .decision-metric span {display:block;color:var(--muted);font-size:10px;margin-bottom:5px;}
+      .decision-metric b {font-size:17px;}
+      .blocks {display:grid;gap:10px;}
+      .block-line {display:grid;grid-template-columns:170px 1fr 34px;gap:10px;align-items:center;font-size:11px;}
+      .bar {height:8px;border-radius:8px;background:var(--surface-2);overflow:hidden;}
+      .bar i {display:block;height:100%;border-radius:inherit;}
+      .bar .a {width:74%;background:var(--green);}
+      .bar .b {width:61%;background:var(--amber);}
+      .bar .c {width:57%;background:var(--amber);}
+      .bar .d {width:44%;background:var(--red);}
+      .gates {display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+      .gate {padding:10px;border:1px solid var(--line);border-radius:9px;display:flex;gap:8px;align-items:center;font-size:11px;}
+      .gate i {width:17px;height:17px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:9px;font-weight:900;}
+      .gate.ok i {color:var(--green);background:var(--green-soft);}
+      .gate.fail {border-color:#efc3c0;background:#fffafa;}
+      .gate.fail i {color:var(--red);background:var(--red-soft);}
+      .snapshot-grid {display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0;}
+      .snapshot-grid div {padding:10px;border-radius:9px;background:var(--surface-2);}
+      .snapshot-grid span {display:block;color:var(--muted);font-size:9px;}
+      .snapshot-grid b {display:block;margin-top:4px;font-size:18px;}
+      .snapshot-grid b.down {color:var(--red);}
+      .snapshot-grid b.up {color:var(--green);}
+      .ai-typing:after {content:"▍";color:var(--green);animation:blink .9s step-end infinite;}
+      @keyframes blink {50%{opacity:0}}
+      .compare-table {width:100%;}
+      .compare-table th {font-size:9px;}
+      #holdingFlowSvg {width:100%;height:290px;}
+      .holding-flow-tools {display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+      .menu-table td,.menu-table th {padding:9px 8px;}
+      .score-bridge {padding:14px 16px;}
+      .score-bridge-top {display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;}
+      .score-bridge-top b {font-size:28px;letter-spacing:-.04em;}
+      .score-mini {display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0 12px;}
+      .score-mini div {padding:8px;border-radius:8px;background:var(--surface-2);text-align:center;}
+      .score-mini span {display:block;color:var(--muted);font-size:9px;font-weight:700;}
+      .score-mini b {display:block;margin-top:3px;font-size:16px;}
+      .driver-list {display:grid;gap:8px;}
+      .driver {padding:10px 12px;border:1px solid var(--line);border-radius:9px;}
+      .driver b {display:block;font-size:11px;margin-bottom:3px;}
+      .driver p {margin:0;color:var(--ink-2);font-size:11px;line-height:1.45;}
+      .block-line small {display:block;color:var(--muted);font-size:9px;font-weight:500;}
+      .drawer-tabs {
+        display:grid;grid-template-columns:1fr 1fr;padding:5px;margin:14px 22px 0;
+        border:1px solid var(--line);border-radius:10px;background:var(--surface-2);
+        flex-shrink:0;
+      }
+      .drawer-tabs.three {grid-template-columns:1fr 1fr 1fr;}
+      .drawer-tab[data-tab="flow"] {display:none;}
+      .drawer-tabs.three .drawer-tab[data-tab="flow"] {display:block;}
+      .drawer-tab {
+        border:0;border-radius:7px;padding:9px;background:transparent;cursor:pointer;
+        color:var(--muted);font-size:12px;font-weight:750;
+      }
+      .drawer-tab.active {background:white;color:var(--ink);}
+      .tab-content {display:none;gap:16px;}
+      .tab-content.active {display:grid;}
+      .ai-summary {
+        padding:16px;border:1px solid #b8d9ca;border-radius:12px;background:#f4faf7;
+      }
+      .ai-head {display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+      .ai-label {
+        display:inline-flex;align-items:center;gap:7px;color:var(--green);
+        font-size:10px;font-weight:850;letter-spacing:.09em;text-transform:uppercase;
+      }
+      .ai-label:before {content:"✦";font-size:13px;}
+      .ai-summary p {margin:0;color:var(--ink-2);font-size:12px;line-height:1.58;}
+      .citation {
+        display:inline-flex;padding:2px 5px;border:0;border-radius:5px;
+        color:var(--green);background:var(--green-soft);font-size:9px;font-weight:850;
+        cursor:pointer;vertical-align:1px;
+      }
+      .ai-actions {display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid #d4e8de;}
+      .ask-ai {border:0;background:transparent;color:var(--green);font-size:11px;font-weight:800;cursor:pointer;}
+      .ai-note {color:var(--muted);font-size:9px;}
+      .forecast-controls {display:flex;gap:6px;}
+      .forecast-controls button {
+        border:1px solid var(--line);border-radius:6px;background:white;padding:5px 7px;
+        color:var(--muted);font-size:9px;cursor:pointer;
+      }
+      .forecast-controls button.active {color:var(--ink);background:var(--surface-2);font-weight:800;}
+      .decision-answer {
+        padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:white;
+        display:flex;justify-content:space-between;align-items:center;gap:14px;
+      }
+      .decision-answer .yes {color:var(--ink);font-size:15px;font-weight:800;letter-spacing:-.02em;}
+      .decision-answer p {margin:4px 0 0;color:var(--muted);font-size:11px;}
+      .entity-view {display:none;}
+      .entity-view.active {display:block;}
+      .holding-link {
+        border:0;background:transparent;padding:0;color:inherit;font-weight:750;cursor:pointer;
+        text-align:left;border-bottom:1px dashed var(--line-strong);
+      }
+      .holding-link:hover {color:var(--green);}
+      .group-health {display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+      .health-cell {padding:11px;border-radius:9px;background:var(--surface-2);}
+      .health-cell b {display:block;font-size:18px;margin-top:4px;}
+      .health-cell span {color:var(--muted);font-size:9px;}
+      .waterfall {display:grid;gap:8px;}
+      .wf-row {display:grid;grid-template-columns:1.2fr 90px 40px;gap:8px;align-items:center;font-size:11px;}
+      .wf-row b {text-align:right;font-variant-numeric:tabular-nums;}
+      .wf-bar {height:8px;border-radius:8px;background:var(--surface-2);position:relative;overflow:hidden;}
+      .wf-bar i {position:absolute;top:0;bottom:0;border-radius:inherit;}
+      .alert-lead {
+        padding:14px 16px;border-radius:12px;background:var(--red-soft);
+        border:1px solid #efc3c0;
+      }
+      .alert-lead .alert-title {display:block;color:var(--red);font-size:12px;font-weight:800;margin-bottom:4px;}
+      .alert-lead p {margin:0;color:#7a2e29;font-size:11px;line-height:1.5;}
+      .alert-lead strong {color:#7a2e29;}
+      .tae-split {display:grid;gap:7px;margin-top:10px;}
+      .tae-row {display:flex;justify-content:space-between;font-size:11px;color:var(--ink-2);}
+      .use-pills {display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+      .use-pill {padding:12px;border:1px solid var(--line);border-radius:10px;}
+      .use-pill.active {border-color:#7b9488;background:#f4faf7;}
+      .use-pill span {display:block;color:var(--muted);font-size:9px;margin-bottom:4px;}
+      .limit-compare {display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+      .limit-box {padding:12px;border-radius:10px;background:var(--surface-2);}
+      .limit-box span {display:block;color:var(--muted);font-size:9px;}
+      .limit-box b {display:block;margin-top:4px;font-size:18px;}
+      .limit-box.cut b {color:var(--red);}
+      .lend {
+        display:inline-flex;padding:3px 7px;border-radius:6px;
+        font-size:10px;font-weight:800;letter-spacing:.02em;
+      }
+      .lend.yes {background:var(--green-soft);color:var(--green);}
+      .lend.no {background:var(--red-soft);color:var(--red);}
+      .lend.mix {background:var(--amber-soft);color:var(--amber);}
+      .was {color:var(--muted);font-weight:600;}
+
+      .drawer-meta {
+        display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+        margin-top:10px;color:var(--ink-2);font-size:12px;
+      }
+      .drawer-meta .dot {color:var(--muted);}
+
+      .verdict-row {
+        display:flex;justify-content:space-between;align-items:center;gap:10px;
+        margin-bottom:14px;padding:10px 12px;border-radius:10px;background:var(--surface-2);
+      }
+      .verdict-row.off {background:var(--red-soft);}
+      .verdict-row .label {font-size:14px;font-weight:800;color:var(--green);}
+      .verdict-row.off .label {color:var(--red);}
+      .verdict-row .meta {color:var(--muted);font-size:11px;font-weight:700;}
+
+      .finance-kicker {
+        color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+      }
+      .product-line {margin:0 0 14px;color:var(--ink-2);font-size:12px;line-height:1.55;}
+      .signal {margin-top:12px;padding:10px 12px;border-radius:9px;font-size:12px;line-height:1.45;border:1px solid var(--line);}
+      .signal b {display:block;margin-bottom:3px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;}
+      .signal p {margin:0;}
+      .signal.to-lender {background:var(--red-soft);border-color:#efc3c0;color:#7a2e29;}
+      .signal.to-company {background:var(--green-soft);border-color:#b9dfcd;color:#0f5c3c;}
+      .signal.to-stable {background:var(--surface-2);color:var(--ink-2);}
+      .finance-arrow {text-align:center;color:var(--muted);font-size:16px;font-weight:800;}
+      .finance-board {padding:16px;border:1px solid var(--line);border-radius:12px;background:white;}
+      .recalc-grid {display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;}
+      .recalc-grid article {padding:12px;border-radius:10px;background:var(--surface-2);}
+      .recalc-grid article.now {outline:1px solid var(--line-strong);background:#f4faf7;}
+      .recalc-grid span {display:block;color:var(--muted);font-size:9px;}
+      .recalc-grid b {display:block;margin:4px 0 2px;font-size:22px;letter-spacing:-.04em;}
+      .recalc-grid p {margin:0;color:var(--ink-2);font-size:11px;}
+      .hist-table {width:100%;margin-top:2px;border-collapse:collapse;}
+      .drawer-meta .action {padding:3px 7px;font-size:9px;}
+      .hist-table th,.hist-table td {padding:7px 6px;text-align:right;font-size:11px;border-bottom:1px solid var(--line);}
+      .hist-table th:first-child,.hist-table td:first-child {text-align:left;color:var(--muted);}
+      .hist-table th {color:var(--muted);font-size:9px;font-weight:700;}
+      .hist-table td {color:var(--ink);font-weight:700;}
+      .hist-table tr:last-child td {border:0;}
+      .hist-table .now {background:#f4faf7;}
+      .section-label {margin:0 0 8px;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;}
+
+      .compare-toolbar {display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+      .compare-chips {display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+      .chip {
+        display:inline-flex;align-items:center;gap:8px;padding:6px 8px 6px 10px;
+        border:1px solid var(--line);border-radius:999px;background:white;font-size:12px;font-weight:700;
+      }
+      .chip button {border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;}
+      .compare-empty {
+        padding:48px 24px;border:2px dashed var(--line-strong);border-radius:16px;
+        text-align:center;background:#f7f9f7;
+      }
+      .compare-empty h2 {margin:8px 0 6px;font-size:22px;}
+      .compare-empty p {margin:0 0 16px;color:var(--muted);}
+      .picker-backdrop {
+        position:fixed;inset:0;z-index:80;background:rgba(18,37,28,.48);
+        display:none;
+      }
+      .picker-backdrop.open {display:block;}
+      .picker-modal {
+        position:fixed;z-index:81;left:50%;top:50%;transform:translate(-50%,-50%);
+        width:min(760px,94vw);max-height:86vh;display:none;flex-direction:column;
+        background:white;border-radius:16px;box-shadow:0 28px 80px rgba(18,37,28,.28);
+      }
+      .picker-modal.open {display:flex;}
+      .picker-head {display:flex;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line);}
+      .picker-head h2 {margin:0;font-size:20px;}
+      .picker-head p {margin:4px 0 0;color:var(--muted);font-size:12px;}
+      .picker-body {padding:16px 20px;overflow:auto;min-height:0;}
+      .picker-body input {
+        width:100%;height:40px;margin-bottom:12px;padding:0 12px;
+        border:1px solid var(--line);border-radius:10px;background:var(--paper);
+      }
+      .picker-row {
+        width:100%;display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:center;
+        margin-bottom:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+        background:white;text-align:left;cursor:pointer;
+      }
+      .picker-row.selected {border-color:var(--green);background:var(--green-soft);}
+      .picker-check {
+        width:18px;height:18px;border:1.5px solid var(--line-strong);border-radius:5px;
+        display:grid;place-items:center;font-size:11px;font-weight:900;color:transparent;
+      }
+      .picker-row.selected .picker-check {color:var(--nav);background:var(--lime);border-color:var(--lime);}
+      .picker-row small {display:block;color:var(--muted);margin-top:2px;font-size:10px;}
+      .picker-foot {
+        display:flex;justify-content:space-between;align-items:center;gap:12px;
+        padding:14px 20px;border-top:1px solid var(--line);
+      }
+      .picker-count {color:var(--muted);font-size:12px;font-weight:700;}
+
+      .compare-work {display:grid;gap:16px;}
+      .compare-pool {
+        border:1px solid var(--line);border-radius:var(--radius);background:white;
+        position:sticky;top:88px;max-height:calc(100vh - 112px);
+        display:flex;flex-direction:column;overflow:hidden;
+      }
+      .pool-head {padding:16px 16px 12px;border-bottom:1px solid var(--line);}
+      .pool-head p {margin:4px 0 10px;color:var(--muted);font-size:11px;}
+      .pool-head input {
+        width:100%;height:36px;padding:0 10px;border:1px solid var(--line);
+        border-radius:8px;background:var(--paper);
+      }
+      .pool-list {overflow:auto;padding:10px;}
+      .pool-group {margin-bottom:12px;}
+      .pool-group-head {
+        display:flex;justify-content:space-between;align-items:center;gap:8px;
+        padding:6px 4px 8px;color:var(--ink);font-size:11px;font-weight:800;
+      }
+      .pool-group-head button {
+        border:0;background:transparent;color:var(--green);font-size:10px;font-weight:800;cursor:pointer;
+      }
+      .pool-item {
+        display:grid;grid-template-columns:14px 1fr auto;gap:8px;align-items:center;
+        margin-bottom:6px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;
+        background:white;cursor:grab;user-select:none;
+      }
+      .pool-item:active {cursor:grabbing;}
+      .pool-item.in-use {opacity:.62;background:var(--surface-2);}
+      .pool-item .grip {color:#b4c0ba;font-size:11px;letter-spacing:-1px;}
+      .pool-item b {display:block;font-size:12px;}
+      .pool-item small {display:block;color:var(--muted);font-size:10px;margin-top:2px;}
+      .compare-stage {display:grid;gap:14px;min-width:0;}
+      .drop-slots {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+      .drop-slot {
+        min-height:236px;padding:14px;border:2px dashed #9aada3;border-radius:14px;
+        background:#eef3ef;color:var(--ink-2);transition:160ms ease;
+      }
+      .drop-slot.over {border-color:var(--green);background:var(--green-soft);color:#0f5c3c;}
+      .drop-slot.empty {
+        display:grid;place-items:center;text-align:center;width:100%;cursor:pointer;
+        font:inherit;font-size:13px;font-weight:750;color:var(--ink-2);
+      }
+      .drop-slot.empty:hover {border-color:var(--green);background:var(--green-soft);color:#0f5c3c;}
+      .slot-plus {
+        width:52px;height:52px;margin-bottom:10px;border:2px dashed #7b9488;border-radius:50%;
+        display:grid;place-items:center;font-size:32px;font-weight:400;line-height:1;color:var(--ink);
+        background:white;
+      }
+      .drop-slot.empty:hover .slot-plus {border-color:var(--green);color:var(--green);}
+      .drop-slot.filled {border-style:solid;border-color:var(--line);background:white;}
+      .slot-card {height:100%;display:flex;flex-direction:column;}
+      .slot-card-top {display:flex;justify-content:space-between;gap:8px;align-items:flex-start;}
+      .slot-remove {
+        width:28px;height:28px;border:1px solid var(--line);border-radius:8px;
+        background:white;cursor:pointer;color:var(--muted);
+      }
+      .compare-score {font-size:22px;font-weight:850;letter-spacing:-.04em;margin:12px 0 2px;white-space:nowrap;}
+      .compare-bars {display:grid;gap:8px;margin-top:12px;}
+      .compare-bar {display:grid;grid-template-columns:18px 1fr 28px;gap:6px;align-items:center;font-size:11px;}
+      .compare-chart {padding:20px;border:1px solid var(--line);border-radius:var(--radius);background:white;}
+      .comparison-svg {height:250px;width:100%;}
+      .range-presets {display:flex;gap:6px;flex-wrap:wrap;}
+      .range-presets button {
+        height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px;
+        background:white;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;
+      }
+      .range-presets button.active {color:var(--nav);background:var(--lime);border-color:var(--lime);}
+      .group-flag {
+        display:flex;justify-content:space-between;align-items:center;gap:12px;
+        padding:14px 16px;border-radius:12px;font-size:13px;font-weight:750;
+      }
+      .group-flag.same {background:var(--green-soft);color:#0f5c3c;border:1px solid #b9dfcd;}
+      .group-flag.mixed {background:var(--amber-soft);color:#80510a;border:1px solid #efd3a0;}
+      .group-flag.idle {background:var(--surface-2);color:var(--muted);border:1px solid var(--line);}
+      .group-flag button {border:0;background:transparent;color:inherit;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+      .holding-pill {
+        display:inline-flex;margin-top:5px;padding:3px 7px;border-radius:6px;
+        background:var(--green-soft);color:var(--green);font-size:10px;font-weight:750;
+      }
+      .holding-pill.diff {background:var(--surface-2);color:var(--ink-2);}
+      #compare .ai-summary {margin:0;}
+
+      .flow-layout {display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;}
+      .flow-panel {position:relative;min-height:600px;border:1px solid var(--line);border-radius:var(--radius);background:white;overflow:hidden;}
+      .flow-toolbar {position:absolute;left:18px;right:18px;top:16px;z-index:2;display:flex;justify-content:space-between;}
+      .holding-select {
+        height:42px;min-width:220px;padding:0 12px;border:1px solid var(--line);
+        border-radius:10px;background:white;color:var(--ink);font-weight:700;
+      }
+      .segmented {padding:3px;border:1px solid var(--line);border-radius:9px;background:#f5f7f5;display:flex;}
+      .segmented button {border:0;border-radius:6px;padding:6px 10px;background:transparent;font-size:11px;cursor:pointer;}
+      .segmented button.active {background:white;font-weight:750;}
+      #flowSvg {width:100%;height:600px;}
+      .edge {fill:none;stroke:#92a49a;stroke-linecap:round;opacity:.5;transition:opacity .18s,stroke-width .18s;}
+      .edge.hot {stroke:var(--red);opacity:.75;}
+      .edge.inflow {stroke:var(--green);}
+      .flow-moving {stroke-dasharray:7 10;animation:dash 1.6s linear infinite;}
+      @keyframes dash {to{stroke-dashoffset:-34}}
+      .node {cursor:pointer;transition:opacity .18s;}
+      .node circle {stroke:white;stroke-width:4;}
+      .node text {font-size:11px;font-weight:750;fill:var(--ink);}
+      .node .sub {font-size:9px;font-weight:500;fill:var(--muted);}
+      .flow-aside {display:grid;gap:14px;}
+      .metric-card {padding:17px;border:1px solid var(--line);border-radius:var(--radius);background:white;}
+      .flow-stat {display:flex;align-items:flex-end;justify-content:space-between;margin-top:12px;}
+      .flow-stat b {font-size:26px;}
+      .relationship {display:grid;gap:8px;margin-top:12px;}
+      .relation {padding:10px;border:1px solid var(--line);border-radius:9px;}
+      .relation-top {display:flex;justify-content:space-between;font-size:11px;font-weight:700;}
+      .relation small {display:block;color:var(--muted);margin-top:4px;}
+
+      @media (max-width: 1100px) {
+        .kpis { grid-template-columns: repeat(3,1fr); }
+        .workspace-grid { grid-template-columns:1fr; }
+        .side-insight { display:none; }
+        .boot-eyes { grid-template-columns: 1fr; }
+        .boot-eyes .vs { display: none; }
+      }
+      @media (max-width: 760px) {
+        .app { grid-template-columns:1fr; }
+        .rail { display:none; }
+        .shell { grid-column:1; }
+        main { padding:20px 14px 50px; }
+        .topbar { padding:0 14px; }
+        .search-wrap { display:none; }
+        .kpis { grid-template-columns:1fr 1fr; }
+        .page-head {align-items:flex-start;gap:12px;flex-direction:column;}
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail">
+        <div class="logo">G.</div>
+        <nav class="rail-nav">
+          <button class="rail-btn active" data-page="portfolio" title="Cartera">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 14h5"/></svg>
+          </button>
+          <button class="rail-btn" data-page="compare" title="Comparar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 4v16M16 4v16M4 8h8M12 16h8"/></svg>
+          </button>
+        </nav>
+        <div class="rail-spacer"></div>
+        <button class="rail-btn" title="Configuración">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5L9 6.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4L5 11a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.4 3.1h5l.4-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2.1-1.5c.1-.3.1-.7.1-1Z"/></svg>
+        </button>
+        <div class="avatar">AR</div>
+      </aside>
+
+      <div class="shell">
+        <header class="topbar">
+          <div class="brandline">
+            <strong>Embat Flow</strong><span class="slash">/</span><span>X-Ray</span>
+          </div>
+          <div class="top-actions">
+            <div class="search-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+              <input class="search" placeholder="Buscar holding o empresa…" />
+            </div>
+            <button class="ghost" type="button" onclick="startBoot(true)">Qué es Embat Flow</button>
+            <button class="ghost">Escenario demo⌄</button>
+            <button class="primary">Exportar informe</button>
+          </div>
+        </header>
+
+        <main>
+          <section class="page active" id="portfolio">
+            <div class="page-head" id="tourHead">
+              <div>
+                <div class="eyebrow">Pulsómetro de cartera</div>
+                <h1>El crédito se recálcula cada mes</h1>
+                <p class="subtitle">Hoy es una radiografía anual. Aquí el límite y el precio se mueven con los movimientos de ayer.</p>
+              </div>
+              <select class="period"><option>Agosto 2026</option><option>Julio 2026</option></select>
+            </div>
+
+            <div class="narrative" id="tourNarrative">
+              <div class="narrative-copy">
+                <span class="pulse"></span>
+                <span><b>12 holdings requieren revisión.</b> Quien presta lo ve meses antes de que se note en los papeles.</span>
+              </div>
+              <button class="primary" onclick="openDrawer()">Revisar prioridad →</button>
+            </div>
+
+            <div class="kpis" id="tourKpis">
+              <article class="kpi hero">
+                <div class="kpi-top"><span>Exposición total</span><span class="delta">vs. jul</span></div>
+                <div class="kpi-value mono">€24,8M</div>
+                <div style="color:#afc0b7;font-size:11px">vs. julio · cierre definido</div>
+              </article>
+              <article class="kpi">
+                <div class="kpi-top"><span>Límite recomendado</span><span class="delta up">+4,2%</span></div>
+                <div class="kpi-value mono">€18,2M</div>
+                <div style="color:var(--muted);font-size:11px">73% de la exposición</div>
+              </article>
+              <article class="kpi">
+                <div class="kpi-top"><span>Salud de cartera</span><span>1.286</span></div>
+                <div class="kpi-value mono">54% <small style="font-size:12px;color:var(--muted)">sana</small></div>
+                <div class="risk-strip"><i></i><i></i><i></i></div>
+              </article>
+              <article class="kpi">
+                <div class="kpi-top"><span>Alertas estructurales</span><span class="delta down">+6</span></div>
+                <div class="kpi-value mono">38</div>
+                <div style="color:var(--red);font-size:11px;font-weight:700">12 de alta prioridad</div>
+              </article>
+              <article class="kpi">
+                <div class="kpi-top"><span>Dependencia intragrupo</span><span>D5</span></div>
+                <div class="kpi-value mono">21,4%</div>
+                <div style="color:var(--muted);font-size:11px">90 empresas por encima del 50%</div>
+              </article>
+            </div>
+
+            <div class="workspace-grid">
+              <div class="panel" id="tourHoldings">
+                <div class="panel-head">
+                  <div><h2>Holdings</h2><div style="color:var(--muted);font-size:11px;margin-top:3px">Ordenados por exposición en riesgo</div></div>
+                  <div class="panel-tools">
+                    <select class="filter"><option>Todos los estados</option><option>Riesgo</option></select>
+                    <select class="filter"><option>Mayor exposición</option><option>Menor score</option></select>
+                  </div>
+                </div>
+                <div style="overflow-x:auto">
+                  <table>
+                    <thead><tr><th>Holding / empresa</th><th>Score</th><th>¿Se presta?</th><th>Circulante jul → ago</th><th>Acción</th><th>Alertas</th></tr></thead>
+                    <tbody>
+                      <tr class="holding-row open" data-group="norte">
+                        <td><div class="holding-name"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg><button class="holding-link" onclick="event.stopPropagation();openHoldingDrawer('Grupo Norte Industrial','decision')">Grupo Norte Industrial</button> <span style="color:var(--muted);font-size:10px;font-weight:500">4 empresas</span></div></td>
+                        <td><span class="score watch">64</span></td><td><span class="lend mix">Techo · 3/4</span></td><td class="mono"><span class="was">€1,63M</span> → <b>€1,42M</b></td><td><span class="action reduce">Reducir</span></td><td><span class="alert-num">3</span></td>
+                      </tr>
+                      <tr class="company-row visible" data-parent="norte" onclick="openDrawer('Norte Componentes S.L.')"><td><div class="company-name">Norte Componentes S.L.</div><div class="company-id">COMP_0284 · 41% del grupo</div></td><td><span class="score watch">68</span></td><td><span class="lend yes">Sí</span></td><td class="mono"><span class="was">€580k</span> → <b>€420k</b></td><td><span class="action reduce">Reducir</span></td><td><span class="alert-num">2</span></td></tr>
+                      <tr class="company-row visible" data-parent="norte" onclick="openDrawer('Logística Norte S.A.')"><td><div class="company-name">Logística Norte S.A.</div><div class="company-id">COMP_0931 · 28% del grupo</div></td><td><span class="score good">78</span></td><td><span class="lend yes">Sí</span></td><td class="mono"><span class="was">€580k</span> → <b>€610k</b></td><td><span class="action expand">Ampliar</span></td><td>—</td></tr>
+                      <tr class="company-row visible" data-parent="norte" onclick="openDrawer('Norte Servicios S.L.')"><td><div class="company-name">Norte Servicios S.L.</div><div class="company-id">COMP_1172 · 19% del grupo</div></td><td><span class="score bad">42</span></td><td><span class="lend no">No</span></td><td class="mono"><span class="was">€90k</span> → <b>€0</b></td><td><span class="action reduce">Cerrar</span></td><td><span class="alert-num">4</span></td></tr>
+                      <tr class="company-row visible" data-parent="norte" onclick="openDrawer('Packaging Norte S.L.')"><td><div class="company-name">Packaging Norte S.L.</div><div class="company-id">COMP_1208 · 12% del grupo</div></td><td><span class="score good">73</span></td><td><span class="lend yes">Sí</span></td><td class="mono"><span class="was">€390k</span> → <b>€390k</b></td><td><span class="action keep">Mantener</span></td><td>—</td></tr>
+
+                      <tr class="holding-row" data-group="levante">
+                        <td><div class="holding-name"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg><button class="holding-link" onclick="event.stopPropagation();openHoldingDrawer('Levante Foods','decision')">Levante Foods</button> <span style="color:var(--muted);font-size:10px;font-weight:500">6 empresas</span></div></td>
+                        <td><span class="score good">76</span></td><td><span class="lend yes">Techo · 6/6</span></td><td class="mono"><span class="was">€2,02M</span> → <b>€2,18M</b></td><td><span class="action expand">Ampliar</span></td><td>—</td>
+                      </tr>
+                      <tr class="company-row" data-parent="levante" onclick="openDrawer('Levante Fresh S.L.')"><td><div class="company-name">Levante Fresh S.L.</div><div class="company-id">COMP_0412 · 32% del grupo</div></td><td><span class="score good">81</span></td><td><span class="lend yes">Sí</span></td><td class="mono"><span class="was">€780k</span> → <b>€810k</b></td><td><span class="action expand">Ampliar</span></td><td>—</td></tr>
+                      <tr class="company-row" data-parent="levante" onclick="openDrawer('Conservas del Turia')"><td><div class="company-name">Conservas del Turia</div><div class="company-id">COMP_0688 · 24% del grupo</div></td><td><span class="score good">74</span></td><td><span class="lend yes">Sí</span></td><td class="mono"><span class="was">€540k</span> → <b>€540k</b></td><td><span class="action keep">Mantener</span></td><td>—</td></tr>
+
+                      <tr class="holding-row" data-group="atlas">
+                        <td><div class="holding-name"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg><button class="holding-link" onclick="event.stopPropagation();openHoldingDrawer('Atlas Retail Group','decision')">Atlas Retail Group</button> <span style="color:var(--muted);font-size:10px;font-weight:500">3 empresas</span></div></td>
+                        <td><span class="score watch">57</span></td><td><span class="lend mix">Techo · 2/3</span></td><td class="mono"><span class="was">€1,02M</span> → <b>€870k</b></td><td><span class="action reduce">Reducir</span></td><td><span class="alert-num">2</span></td>
+                      </tr>
+                      <tr class="company-row" data-parent="atlas" onclick="openDrawer('Atlas Stores Iberia')"><td><div class="company-name">Atlas Stores Iberia</div><div class="company-id">COMP_0771 · 62% del grupo</div></td><td><span class="score watch">59</span></td><td><span class="lend yes">Sí</span></td><td class="mono"><span class="was">€640k</span> → <b>€520k</b></td><td><span class="action reduce">Reducir</span></td><td><span class="alert-num">2</span></td></tr>
+
+                      <tr class="holding-row" data-group="sol">
+                        <td><div class="holding-name"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg><button class="holding-link" onclick="event.stopPropagation();openHoldingDrawer('Sol Hospitality','decision')">Sol Hospitality</button> <span style="color:var(--muted);font-size:10px;font-weight:500">8 empresas</span></div></td>
+                        <td><span class="score good">82</span></td><td><span class="lend yes">Techo · 8/8</span></td><td class="mono"><span class="was">€2,96M</span> → <b>€3,04M</b></td><td><span class="action keep">Mantener</span></td><td>—</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <aside class="panel side-insight">
+                <h3>Distribución de cartera</h3>
+                <div class="donut-wrap">
+                  <div class="donut"></div>
+                  <div class="donut-center"><b>1.286</b><span>empresas</span></div>
+                </div>
+                <div class="legend">
+                  <div class="legend-row"><span class="legend-key"><i class="dot" style="background:var(--green)"></i>Sanas</span><b>694</b></div>
+                  <div class="legend-row"><span class="legend-key"><i class="dot" style="background:var(--amber)"></i>Vigilar</span><b>399</b></div>
+                  <div class="legend-row"><span class="legend-key"><i class="dot" style="background:var(--red)"></i>Riesgo</span><b>193</b></div>
+                </div>
+                <div class="mini-callout"><b>Señal emergente</b><br/>La dependencia intragrupo creció 6,4 pp en Grupo Norte. Dos filiales ya reciben más de la mitad de su caja del holding.</div>
+              </aside>
+            </div>
+          </section>
+
+          <section class="page" id="compare">
+            <div class="page-head">
+              <div><div class="eyebrow">Análisis relativo</div><h1>Comparar empresas</h1><p class="subtitle">Tres huecos. Pulsa + para meter una empresa. El corte es agosto 2026.</p></div>
+              <span class="period">Agosto 2026</span>
+            </div>
+            <div class="compare-toolbar">
+              <div class="compare-chips" id="compareChips"></div>
+              <button class="primary" type="button" onclick="openComparePicker()">Seleccionar empresas</button>
+            </div>
+            <div class="compare-stage">
+              <div class="drop-slots" id="compareSlots"></div>
+              <div class="group-flag same" id="compareGroupFlag">
+                <span id="compareGroupCopy">Mismo holding · Grupo Norte Industrial</span>
+                <button type="button" id="compareGroupBtn" onclick="openHoldingDrawer('Grupo Norte Industrial','flow')">Ver flujo del holding →</button>
+              </div>
+              <section class="ai-summary" id="compareAi">
+                <div class="ai-head"><span class="ai-label">Resumen IA de la comparación</span><span class="ai-note" id="compareAiNote">Corte ago. 2026</span></div>
+                <p id="compareAiText"></p>
+                <div class="ai-actions"><span class="ai-note" id="compareAiMeta"></span><button class="ask-ai" type="button" onclick="showCompareAiQuestion()">Preguntar sobre esta comparación →</button></div>
+              </section>
+              <section class="decision-card" id="compareSnapshotCard">
+                <h3 style="margin-bottom:10px">Circulante lado a lado · julio vs agosto</h3>
+                <table class="compare-table" id="compareSnapshot"></table>
+              </section>
+            </div>
+          </section>
+
+        </main>
+      </div>
+    </div>
+
+    <div class="drawer-backdrop" id="drawerBackdrop" onclick="closeDrawer()"></div>
+    <aside class="drawer" id="companyDrawer">
+      <div class="drawer-head">
+        <div class="drawer-title">
+          <div>
+            <div class="crumb" id="drawerCrumb">Grupo Norte Industrial / Empresa</div>
+            <h2 id="drawerCompany">Norte Componentes S.L.</h2>
+            <div class="drawer-meta" id="drawerMeta"></div>
+          </div>
+          <button class="close" onclick="closeDrawer()">×</button>
+        </div>
+      </div>
+      <div class="drawer-tabs" id="drawerTabs">
+        <button class="drawer-tab active" data-tab="decision" onclick="switchDrawerTab('decision')">Circulante</button>
+        <button class="drawer-tab" data-tab="score" onclick="switchDrawerTab('score')">Score</button>
+        <button class="drawer-tab" data-tab="flow" onclick="switchDrawerTab('flow')">Flujo</button>
+      </div>
+      <div class="drawer-body">
+        <div class="entity-view active" id="companyView">
+          <div class="tab-content active" data-content="decision" id="companyDecisionTab">
+            <section class="finance-board" id="companyFinanceBoard"></section>
+            <section class="ai-summary" id="tourAi">
+              <div class="ai-head"><span class="ai-label">Qué tienes que saber</span><span class="ai-note">Lectura de la decisión · el LLM no calcula</span></div>
+              <p id="companyAiDecision"></p>
+              <div class="ai-actions"><span class="ai-note">Explica L, TAE y acción ya calculados</span><button class="ask-ai" onclick="showAiQuestion()">¿Qué tiene que mejorar? →</button></div>
+            </section>
+            <section class="alert-lead" id="companyAlert"></section>
+            <section class="decision-card" id="companyEvidence"></section>
+            <section class="decision-card">
+              <h3 style="margin-bottom:10px">La bolsa, dos tirones</h3>
+              <p style="color:var(--muted);font-size:11px;margin:0 0 10px">Paga hoy, cobra en 60–90 días. Un solo límite para las dos direcciones.</p>
+              <div class="use-pills" id="companyUses"></div>
+            </section>
+            <section class="decision-card score-bridge" id="companyScoreBridge"></section>
+            <section class="decision-card">
+              <h3 style="margin-bottom:8px">Desglose TAE · recálculo agosto</h3>
+              <div class="tae-split" id="companyTae"></div>
+            </section>
+            <section class="decision-card">
+              <h3 style="margin-bottom:12px">Puertas de elegibilidad</h3>
+              <div class="gates" id="companyGates"></div>
+            </section>
+            <section class="decision-card">
+              <h3 style="margin-bottom:10px">Menú de financiación</h3>
+              <table class="menu-table" id="companyMenu"></table>
+              <p style="margin:10px 0 0;color:var(--muted);font-size:9px" id="companyMenuNote"></p>
+            </section>
+          </div>
+
+          <div class="tab-content" data-content="score">
+            <section class="ai-summary">
+              <div class="ai-head"><span class="ai-label">Análisis del score</span><span class="ai-note">Corte ago. 2026 · el LLM no calcula</span></div>
+              <p id="companyAiScore"></p>
+              <div class="ai-actions"><span class="ai-note">A 45% · B 30% · C 25% · D ±20 del grupo</span><button class="ask-ai" onclick="showAiQuestion()">Preguntar sobre el score →</button></div>
+            </section>
+            <div class="score-hero">
+              <div class="ring" id="companyRing"><strong id="companyScoreValue">68</strong></div>
+              <div>
+                <div style="display:flex;gap:8px;align-items:center"><span class="status" id="companyStatus">Vigilar</span><span style="color:#83998d">·</span><span id="companyTrend" style="font-size:11px;font-weight:700">↓ 8 pts</span></div>
+                <h2 style="margin-top:10px" id="companyScoreTitle">Deterioro estructural</h2>
+                <p id="companyScoreLead">Dos señales llevan más de dos meses empeorando.</p>
+              </div>
+            </div>
+            <section class="decision-card">
+              <div style="display:flex;justify-content:space-between;margin-bottom:15px"><h3>Los cuatro bloques</h3><span style="color:var(--muted);font-size:10px">Confianza 82%</span></div>
+              <p style="color:var(--muted);font-size:11px;margin:0 0 12px">El score 0–100 es la foto del mes. De aquí salen el límite y el precio, no de las cuentas anuales.</p>
+              <div class="blocks" id="companyBlocks"></div>
+            </section>
+            <section class="decision-card">
+              <h3>Corte definido · agosto 2026</h3>
+              <p style="color:var(--muted);font-size:9px;margin:4px 0 0">Solo este cierre frente al anterior. Sin proyección.</p>
+              <div class="snapshot-grid">
+                <div><span>Score julio</span><b id="companyPrevScore">76</b></div>
+                <div><span>Score agosto</span><b id="companyNowScore">68</b></div>
+                <div><span>Cambio</span><b id="companyScoreDelta" class="down">−8</b></div>
+              </div>
+            </section>
+            <section class="decision-card">
+              <h3 style="margin-bottom:10px">Qué mueve el score este mes</h3>
+              <div class="driver-list" id="companyDrivers"></div>
+            </section>
+            <section class="decision-card">
+              <h3 style="margin-bottom:8px">Cómo entra en el recálculo</h3>
+              <p id="companyScoreToLimit" style="margin:0;color:var(--ink-2);font-size:12px;line-height:1.55"></p>
+              <div class="ai-actions" style="border:0;padding-top:12px;margin-top:4px"><button class="ask-ai" type="button" onclick="switchDrawerTab('decision')">Ver recálculo de circulante →</button></div>
+            </section>
+          </div>
+        </div>
+
+        <div class="entity-view" id="holdingView">
+          <div class="tab-content active" data-content="score">
+            <section class="ai-summary">
+              <div class="ai-head"><span class="ai-label">Resumen IA del holding</span><span class="ai-note">4 empresas · confianza 88%</span></div>
+              <p>Grupo Norte está en vigilancia con score consolidado 64. Logística aporta la mayor parte del soporte <button class="citation">D4</button>, mientras Norte Componentes y Servicios concentran el deterioro. La interdependencia del 34,8% <button class="citation">D5</button> hace que un cierre relevante pueda propagarse al resto.</p>
+              <div class="ai-actions"><span class="ai-note">Métricas consolidadas, sin transferencias internas</span><button class="ask-ai" onclick="showAiQuestion()">Preguntar sobre el holding →</button></div>
+            </section>
+            <div class="score-hero">
+              <div class="ring" style="background:conic-gradient(var(--amber) 0 64%, #365046 64%)"><strong>64</strong></div>
+              <div><span class="status watch">Vigilar</span><h2 style="margin-top:10px">Riesgo concentrado</h2><p>Dos de cuatro empresas requieren actuación.</p></div>
+            </div>
+            <section class="decision-card">
+              <h3 style="margin-bottom:10px">Salud de las empresas</h3>
+              <div class="group-health"><div class="health-cell"><span>Sanas</span><b style="color:var(--green)">2</b></div><div class="health-cell"><span>Vigilar</span><b style="color:var(--amber)">1</b></div><div class="health-cell"><span>Riesgo</span><b style="color:var(--red)">1</b></div></div>
+            </section>
+            <section class="decision-card">
+              <div class="blocks">
+                <div class="block-line"><span>Score consolidado</span><div class="bar"><i style="width:64%;background:var(--amber)"></i></div><b>64</b></div>
+                <div class="block-line"><span>Soporte neto · D4</span><div class="bar"><i style="width:56%;background:var(--green)"></i></div><b>56%</b></div>
+                <div class="block-line"><span>Interdependencia · D5</span><div class="bar"><i style="width:35%;background:var(--amber)"></i></div><b>35%</b></div>
+              </div>
+            </section>
+          </div>
+          <div class="tab-content" data-content="flow">
+            <section class="ai-summary">
+              <div class="ai-head"><span class="ai-label">Flujo interno</span><span class="ai-note">Corte ago. 2026 · D5</span></div>
+              <p>Quién sostiene a quién en este holding. El grosor es volumen transferido; el rojo es contagio. No es un préstamo al grupo.</p>
+            </section>
+            <section class="decision-card">
+              <div class="holding-flow-tools">
+                <span style="color:var(--muted);font-size:10px">Interdependencia D5 · 34,8%</span>
+                <button class="primary" type="button" onclick="animateFlow()" style="height:32px;padding:0 10px">▶ Reproducir</button>
+              </div>
+              <svg id="holdingFlowSvg" viewBox="0 0 900 520">
+                <defs>
+                  <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#92a49a"/></marker>
+                  <marker id="arrowRed" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#c7463e"/></marker>
+                  <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#16865b"/></marker>
+                </defs>
+                <g>
+                  <path class="edge inflow" d="M235 154 C360 120 430 165 533 210" stroke-width="13" marker-end="url(#arrowGreen)"/>
+                  <path class="edge hot" d="M550 244 C500 340 410 360 295 396" stroke-width="9" marker-end="url(#arrowRed)"/>
+                  <path class="edge" d="M259 423 C390 480 550 465 672 373" stroke-width="5" marker-end="url(#arrow)"/>
+                  <path class="edge inflow" d="M693 334 C700 240 670 180 611 138" stroke-width="7" marker-end="url(#arrowGreen)"/>
+                </g>
+                <g class="node" transform="translate(190 130)" onclick="openDrawer('Logística Norte S.A.')">
+                  <circle r="40" fill="#e1f4eb"/><circle r="32" fill="#16865b"/><text text-anchor="middle" y="58">Logística</text><text class="sub" text-anchor="middle" y="72">78 · aporta</text>
+                </g>
+                <g class="node" transform="translate(558 235)" onclick="openDrawer('Norte Componentes S.L.')">
+                  <circle r="50" fill="#fff0d1"/><circle r="41" fill="#c47a08"/><text text-anchor="middle" y="68">Componentes</text><text class="sub" text-anchor="middle" y="82">68 · recibe</text>
+                </g>
+                <g class="node" transform="translate(246 412)" onclick="openDrawer('Norte Servicios S.L.')">
+                  <circle r="36" fill="#fde9e7"/><circle r="28" fill="#c7463e"/><text text-anchor="middle" y="52">Servicios</text><text class="sub" text-anchor="middle" y="66">42 · riesgo</text>
+                </g>
+                <g class="node" transform="translate(710 350)" onclick="openDrawer('Packaging Norte S.L.')">
+                  <circle r="32" fill="#e1f4eb"/><circle r="24" fill="#16865b"/><text text-anchor="middle" y="48">Packaging</text><text class="sub" text-anchor="middle" y="62">73</text>
+                </g>
+              </svg>
+              <div class="relationship" style="margin-top:8px">
+                <div class="relation"><div class="relation-top"><span>Logística → Componentes</span><span style="color:var(--green)">€2,1M</span></div><small>Soporte recurrente</small></div>
+                <div class="relation"><div class="relation-top"><span>Componentes → Servicios</span><span style="color:var(--red)">€1,4M</span></div><small>Riesgo de contagio</small></div>
+              </div>
+            </section>
+          </div>
+          <div class="tab-content" data-content="decision">
+            <section class="decision-answer">
+              <div><div class="yes">No se presta al holding</div><p>El crédito va a las empresas, bajo un techo de grupo. Acción: redistribuir.</p></div>
+              <span class="decision-badge">3 de 4 elegibles</span>
+            </section>
+            <section class="decision-card">
+              <h3 style="margin-bottom:10px">Techo de circulante jul → ago</h3>
+              <div class="decision-grid">
+                <div class="decision-metric"><span>Techo julio</span><b>€1,63M</b></div>
+                <div class="decision-metric"><span>Techo agosto</span><b>€1,42M</b></div>
+                <div class="decision-metric"><span>Corte</span><b style="color:var(--red)">−€210k</b></div>
+              </div>
+            </section>
+            <section class="ai-summary">
+              <div class="ai-head"><span class="ai-label">Qué tienes que saber</span><span class="ai-note">Techo de grupo, no préstamo al holding</span></div>
+              <p>Un banco ve la filial que tiene delante. Embat ve el grupo entero. El límite se da al grupo: prestar a cinco filiales no son cinco préstamos, es uno que depende de que el holding aguante. El 54% de los grupos con deuda la tienen repartida. El crédito va a las empresas, bajo un techo.</p>
+              <div class="ai-actions"><span class="ai-note">Asignación sujeta a Σ L_i ≤ techo</span><button class="ask-ai" onclick="showAiQuestion()">Preguntar sobre el holding →</button></div>
+            </section>
+            <section class="alert-lead">
+              <span class="alert-title">Alerta de contagio · mayo 2026</span>
+              <p>Cuando Servicios dejó de cubrir obligaciones, el motor recortó el techo del grupo y marcó Componentes como reducir. La alerta salió 3 meses antes del cierre de agosto.</p>
+            </section>
+            <section class="decision-card">
+              <h3 style="margin-bottom:10px">Reparto por empresa</h3>
+              <table class="menu-table">
+                <thead><tr><th>Empresa</th><th>¿Se presta?</th><th>Jul</th><th>Ago</th><th>Acción</th></tr></thead>
+                <tbody>
+                  <tr><td>Logística Norte</td><td>Sí</td><td>€580k</td><td>€610k</td><td><span class="action expand">Ampliar</span></td></tr>
+                  <tr><td>Norte Componentes</td><td>Sí</td><td>€580k</td><td>€420k</td><td><span class="action reduce">Reducir</span></td></tr>
+                  <tr><td>Packaging Norte</td><td>Sí</td><td>€390k</td><td>€390k</td><td><span class="action keep">Mantener</span></td></tr>
+                  <tr><td>Norte Servicios</td><td>No</td><td>€90k</td><td>€0</td><td><span class="action reduce">Cerrar</span></td></tr>
+                </tbody>
+              </table>
+            </section>
+            <section class="decision-card">
+              <h3 style="margin-bottom:10px">Por qué el techo no es la suma</h3>
+              <div class="blocks">
+                <div class="block-line"><span>Suma standalone</span><div class="bar"><i style="width:100%;background:var(--muted)"></i></div><b>€1,84M</b></div>
+                <div class="block-line"><span>Menos caja interna</span><div class="bar"><i style="width:23%;background:var(--amber)"></i></div><b>−€420k</b></div>
+                <div class="block-line"><span>Techo D4/D5</span><div class="bar"><i style="width:77%;background:var(--green)"></i></div><b>€1,42M</b></div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="picker-backdrop" id="pickerBackdrop" onclick="closeComparePicker()"></div>
+    <div class="picker-modal" id="comparePicker" role="dialog" aria-modal="true">
+      <div class="picker-head">
+        <div>
+          <h2>Seleccionar empresas</h2>
+          <p id="pickerHint">Hasta 3. Pulsa un hueco o elige aquí. Verás si se presta, lo de julio y el recálculo.</p>
+        </div>
+        <button class="close" type="button" onclick="closeComparePicker()">×</button>
+      </div>
+      <div class="picker-body">
+        <input id="compareSearch" type="search" placeholder="Buscar empresa o holding" oninput="renderComparePicker()">
+        <div id="pickerList"></div>
+      </div>
+      <div class="picker-foot">
+        <span class="picker-count" id="pickerCount">0 / 3</span>
+        <div style="display:flex;gap:8px">
+          <button class="ghost" type="button" onclick="closeComparePicker()">Cancelar</button>
+          <button class="primary" type="button" id="pickerConfirm" onclick="confirmComparePicker()">Comparar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="boot open" id="boot" aria-hidden="false">
+      <div class="boot-top">
+        <div class="boot-brand"><b>F.</b> Embat Flow</div>
+        <button class="boot-skip" type="button" id="bootSkip" onclick="endBoot()">Saltar introducción</button>
+      </div>
+      <div class="boot-stage" id="bootStage"></div>
+      <div class="boot-nav">
+        <button class="boot-back" type="button" id="bootBack" onclick="prevBoot()">← Atrás</button>
+        <div class="boot-progress">
+          <div class="boot-dots" id="bootDots"></div>
+          <span class="boot-step" id="bootStep">1 de 8</span>
+          <span class="boot-hint" id="bootHint">También puedes usar las flechas ← → del teclado</span>
+        </div>
+        <button class="primary boot-next" type="button" id="bootNext" onclick="nextBoot()">Siguiente →</button>
+      </div>
+    </div>
+
+    <script>
+      const pageButtons = document.querySelectorAll("[data-page]");
+      const pages = document.querySelectorAll(".page");
+      pageButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          pageButtons.forEach((b) => b.classList.remove("active"));
+          pages.forEach((p) => p.classList.remove("active"));
+          button.classList.add("active");
+          document.getElementById(button.dataset.page).classList.add("active");
+        });
+      });
+
+      document.querySelectorAll(".holding-row").forEach((row) => {
+        row.addEventListener("click", () => {
+          const group = row.dataset.group;
+          row.classList.toggle("open");
+          document.querySelectorAll(`[data-parent="${group}"]`).forEach((company) => {
+            company.classList.toggle("visible", row.classList.contains("open"));
+          });
+        });
+      });
+
+      function resetDrawerTabs() {
+        document.querySelectorAll(".drawer-tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === "decision"));
+        document.querySelectorAll(".tab-content").forEach((content) => content.classList.toggle("active", content.dataset.content === "decision"));
+      }
+      function setDrawerMode(holding) {
+        document.getElementById("drawerTabs").classList.toggle("three", holding);
+      }
+      function openDrawer(name = "Norte Componentes S.L.", tab = "decision") {
+        const company = companyByFull(name) || companyById("comp");
+        fillCompanyDrawer(company);
+        document.getElementById("companyView").classList.add("active");
+        document.getElementById("holdingView").classList.remove("active");
+        setDrawerMode(false);
+        resetDrawerTabs();
+        document.getElementById("companyDrawer").classList.add("open");
+        document.getElementById("drawerBackdrop").classList.add("open");
+        if (tab !== "decision") switchDrawerTab(tab);
+      }
+      function openHoldingDrawer(name = "Grupo Norte Industrial", tab = "decision") {
+        document.getElementById("drawerCompany").textContent = name;
+        document.getElementById("drawerCrumb").textContent = "Cartera / Holding · no es prestatario";
+        fillHoldingFinance();
+        document.getElementById("holdingView").classList.add("active");
+        document.getElementById("companyView").classList.remove("active");
+        setDrawerMode(true);
+        resetDrawerTabs();
+        document.getElementById("companyDrawer").classList.add("open");
+        document.getElementById("drawerBackdrop").classList.add("open");
+        if (tab !== "decision") switchDrawerTab(tab);
+      }
+      function switchDrawerTab(tabName) {
+        const entity = document.querySelector(".entity-view.active");
+        document.querySelectorAll(".drawer-tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === tabName));
+        entity.querySelectorAll(".tab-content").forEach((content) => content.classList.toggle("active", content.dataset.content === tabName));
+      }
+      function animateFlow() {
+        const edges = document.querySelectorAll("#holdingFlowSvg .edge");
+        edges.forEach((edge) => edge.classList.add("flow-moving"));
+        setTimeout(() => edges.forEach((edge) => edge.classList.remove("flow-moving")), 4500);
+      }
+      function showAiQuestion() {
+        const content = document.querySelector(".entity-view.active .tab-content.active");
+        let demo = content.querySelector(".ai-question-demo");
+        if (demo) {
+          demo.remove();
+          return;
+        }
+        demo = document.createElement("section");
+        demo.className = "decision-card ai-question-demo";
+        demo.innerHTML = `
+          <div class="ai-label">Pregunta contextual</div>
+          <p style="margin:9px 0 10px;font-size:12px;font-weight:700">¿Qué tendría que mejorar para recuperar el límite anterior?</p>
+          <p style="margin:0;color:var(--ink-2);font-size:11px;line-height:1.55">Reducir el vencido sin cobrar por debajo del 40% <button class="citation">C4</button> y detener el deterioro de fiabilidad durante dos cierres consecutivos <button class="citation">B2</button>. Con el resto de condiciones estables, el motor volvería a evaluar una ampliación.</p>`;
+        content.querySelector(".ai-summary").insertAdjacentElement("afterend", demo);
+      }
+      function closeDrawer() {
+        document.getElementById("companyDrawer").classList.remove("open");
+        document.getElementById("drawerBackdrop").classList.remove("open");
+      }
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        if (document.getElementById("boot").classList.contains("open")) return;
+        if (document.getElementById("comparePicker").classList.contains("open")) {
+          closeComparePicker();
+          return;
+        }
+        closeDrawer();
+      });
+
+      const HOLDING_LABELS = {
+        norte: "Grupo Norte Industrial",
+        levante: "Levante Foods",
+        atlas: "Atlas Retail Group",
+        sol: "Sol Hospitality"
+      };
+      const ACTION_LABEL = { expand: "Ampliar", keep: "Mantener", reduce: "Reducir", close: "Cerrar" };
+      const COMPANIES = [
+        {
+          id: "comp", name: "Norte Componentes", full: "Norte Componentes S.L.", holding: "norte",
+          status: "watch", statusLabel: "Vigilar", title: "Deterioro estructural", lead: "Dos señales llevan más de dos meses empeorando.",
+          action: "reduce", score: 68, prevScore: 76, eligible: true, color: "#c47a08", trend: "↓ 8 pts",
+          a: 74, b: 61, c: 57, d: -6, cobros: 280000, pagos: 140000,
+          history: [
+            { m: "May", lend: true, L: 580000, tae: "8,2%", days: 90, action: "keep" },
+            { m: "Jun", lend: true, L: 580000, tae: "8,2%", days: 90, action: "keep" },
+            { m: "Jul", lend: true, L: 580000, tae: "8,5%", days: 90, action: "reduce" },
+            { m: "Ago", lend: true, L: 420000, tae: "9,0%", days: 60, action: "reduce" }
+          ],
+          taeRows: [["Base por score", "7,4%"], ["Prima de plazo (60 d)", "+0,5%"], ["Prima de confianza", "+0,6%"], ["Tendencia (deterioro)", "+0,5%"], ["TAE final", "9,0%"]],
+          gates: [[1, "Historial ≥ 6 meses"], [1, "Score 68 ≥ 45"], [1, "Fiabilidad B ≥ 40"], [1, "Caja 2,1× gasto 60d"], [0, "C4 38% · umbral 40%"], [1, "Sin cross-default"]],
+          menu: [["30 días", "€210k", "8,5%", "€1.488"], ["60 días · natural", "€420k", "9,0%", "€6.300", "now"], ["90 días", "No ofertado", "—", "—", "off"]],
+          menuNote: "90 días queda fuera: el ciclo de cobro no lo sostiene.",
+          alertTitle: "Alerta emitida 3 meses antes",
+          alert: "Mayo 2026: el motor pasó de <strong>mantener</strong> a <strong>reducir</strong> cuando el vencido superó el 25%. Hoy el analista ve el mismo veredicto, no una sorpresa de agosto.",
+          aiScore: "Norte Componentes permanece en vigilancia con score 68. Buena capacidad <button class=\"citation\">A · 74</button>, deterioro de fiabilidad <button class=\"citation\">B2</button> y 38% de vencido sin cobrar <button class=\"citation\">C4</button>.",
+          aiDecision: "Sí se presta, pero el recálculo baja el límite de €580k a €420k y el plazo de 90 a 60 días. El driver es el vencido <button class=\"citation\">C4 · 38%</button>. El holding no es el prestatario."
+        },
+        {
+          id: "logi", name: "Logística Norte", full: "Logística Norte S.A.", holding: "norte",
+          status: "good", statusLabel: "Sana", title: "Sostiene al grupo", lead: "Aporta caja neta al resto del holding.",
+          action: "expand", score: 78, prevScore: 74, eligible: true, color: "#16865b", trend: "↑ 4 pts",
+          a: 84, b: 77, c: 69, d: 8, cobros: 430000, pagos: 180000,
+          history: [
+            { m: "May", lend: true, L: 520000, tae: "7,4%", days: 90, action: "keep" },
+            { m: "Jun", lend: true, L: 540000, tae: "7,2%", days: 90, action: "expand" },
+            { m: "Jul", lend: true, L: 580000, tae: "7,1%", days: 90, action: "expand" },
+            { m: "Ago", lend: true, L: 610000, tae: "6,8%", days: 90, action: "expand" }
+          ],
+          taeRows: [["Base por score", "6,4%"], ["Prima de plazo (90 d)", "+0,5%"], ["Prima de confianza", "0,0%"], ["Tendencia (mejora)", "−0,1%"], ["TAE final", "6,8%"]],
+          gates: [[1, "Historial ≥ 6 meses"], [1, "Score 78 ≥ 45"], [1, "Fiabilidad B ≥ 40"], [1, "Caja 3,4× gasto 60d"], [1, "C4 9% · umbral 40%"], [1, "Sin cross-default"]],
+          menu: [["30 días", "€305k", "6,3%", "€1.605"], ["60 días", "€488k", "6,5%", "€5.286"], ["90 días · natural", "€610k", "6,8%", "€10.370", "now"]],
+          menuNote: "Plazo natural 90 días: el ciclo de cobro lo sostiene.",
+          alertTitle: "Sin alerta estructural",
+          alert: "Tres cierres seguidos de ampliación. El motor no recorta: Logística es el soporte neto del grupo <button class=\"citation\">D4</button>.",
+          aiScore: "Logística Norte está sana con score 78. Capacidad alta <button class=\"citation\">A · 84</button> y bajo vencido. Aporta soporte al grupo.",
+          aiDecision: "Sí se presta y se amplía: de €580k en julio a €610k en agosto, TAE 7,1% → 6,8%. Misma empresa, mejores condiciones."
+        },
+        {
+          id: "serv", name: "Norte Servicios", full: "Norte Servicios S.L.", holding: "norte",
+          status: "bad", statusLabel: "Riesgo", title: "Fuera de elegibilidad", lead: "El grifo se cierra este cierre.",
+          action: "close", score: 42, prevScore: 56, eligible: false, color: "#c7463e", trend: "↓ 14 pts",
+          a: 38, b: 49, c: 46, d: -12, cobros: 0, pagos: 0,
+          history: [
+            { m: "May", lend: true, L: 210000, tae: "9,4%", days: 60, action: "reduce" },
+            { m: "Jun", lend: true, L: 180000, tae: "10,1%", days: 60, action: "reduce" },
+            { m: "Jul", lend: true, L: 90000, tae: "11,0%", days: 30, action: "reduce" },
+            { m: "Ago", lend: false, L: 0, tae: "—", days: 0, action: "close" }
+          ],
+          taeRows: [["Base por score", "—"], ["Prima de plazo", "—"], ["Prima de confianza", "—"], ["Tendencia", "—"], ["TAE final", "No ofertado"]],
+          gates: [[1, "Historial ≥ 6 meses"], [0, "Score 42 < 45"], [1, "Fiabilidad B ≥ 40"], [0, "Caja 0,4× gasto 60d"], [0, "C4 51% · umbral 40%"], [1, "Sin cross-default"]],
+          menu: [["30 días", "No ofertado", "—", "—", "off"], ["60 días", "No ofertado", "—", "—", "off"], ["90 días", "No ofertado", "—", "—", "off"]],
+          menuNote: "No hay menú: no es elegible este cierre.",
+          alertTitle: "Alerta de cierre · mayo 2026",
+          alert: "Tres recortes seguidos. En agosto cruza el umbral de score y C4: se cierra. La alerta salió 3 meses antes.",
+          aiScore: "Norte Servicios cae a 42. Capacidad rota <button class=\"citation\">A · 38</button> y vencido en 51% <button class=\"citation\">C4</button>.",
+          aiDecision: "No se presta. En julio aún había €90k; el recálculo de agosto es €0. Cerrar, no reducir otra vez."
+        },
+        {
+          id: "pack", name: "Packaging Norte", full: "Packaging Norte S.L.", holding: "norte",
+          status: "good", statusLabel: "Sana", title: "Estable", lead: "Mismas condiciones que el mes anterior.",
+          action: "keep", score: 73, prevScore: 73, eligible: true, color: "#16865b", trend: "→ estable",
+          a: 76, b: 71, c: 64, d: 2, cobros: 250000, pagos: 140000,
+          history: [
+            { m: "May", lend: true, L: 390000, tae: "7,8%", days: 60, action: "keep" },
+            { m: "Jun", lend: true, L: 390000, tae: "7,8%", days: 60, action: "keep" },
+            { m: "Jul", lend: true, L: 390000, tae: "7,8%", days: 60, action: "keep" },
+            { m: "Ago", lend: true, L: 390000, tae: "7,8%", days: 60, action: "keep" }
+          ],
+          taeRows: [["Base por score", "7,0%"], ["Prima de plazo (60 d)", "+0,5%"], ["Prima de confianza", "0,0%"], ["Tendencia", "0,0%"], ["TAE final", "7,8%"]],
+          gates: [[1, "Historial ≥ 6 meses"], [1, "Score 73 ≥ 45"], [1, "Fiabilidad B ≥ 40"], [1, "Caja 2,6× gasto 60d"], [1, "C4 12% · umbral 40%"], [1, "Sin cross-default"]],
+          menu: [["30 días", "€195k", "7,3%", "€1.185"], ["60 días · natural", "€390k", "7,8%", "€5.070", "now"], ["90 días", "No ofertado", "—", "—", "off"]],
+          menuNote: "Sin cambio de condiciones respecto a julio.",
+          alertTitle: "Sin alerta",
+          alert: "Cuatro cierres en mantener. El recálculo confirma el mismo límite y el mismo TAE.",
+          aiScore: "Packaging Norte se mantiene en 73, sana. Sin deterioro de bloques.",
+          aiDecision: "Sí se presta. Julio €390k · agosto €390k. Acción: mantener. No hay recálculo que cambiar."
+        },
+        {
+          id: "fresh", name: "Levante Fresh", full: "Levante Fresh S.L.", holding: "levante",
+          status: "good", statusLabel: "Sana", title: "Mejora de capacidad", lead: "Tres ampliaciones seguidas.",
+          action: "expand", score: 81, prevScore: 74, eligible: true, color: "#16865b", trend: "↑ 7 pts",
+          a: 86, b: 80, c: 72, d: 4, cobros: 540000, pagos: 270000,
+          history: [
+            { m: "May", lend: true, L: 720000, tae: "6,9%", days: 90, action: "expand" },
+            { m: "Jun", lend: true, L: 760000, tae: "6,7%", days: 90, action: "expand" },
+            { m: "Jul", lend: true, L: 780000, tae: "6,6%", days: 90, action: "expand" },
+            { m: "Ago", lend: true, L: 810000, tae: "6,4%", days: 90, action: "expand" }
+          ],
+          taeRows: [["Base por score", "5,8%"], ["Prima de plazo (90 d)", "+0,5%"], ["Prima de confianza", "0,0%"], ["Tendencia (mejora)", "−0,1%"], ["TAE final", "6,4%"]],
+          gates: [[1, "Historial ≥ 6 meses"], [1, "Score 81 ≥ 45"], [1, "Fiabilidad B ≥ 40"], [1, "Caja 3,8× gasto 60d"], [1, "C4 7% · umbral 40%"], [1, "Sin cross-default"]],
+          menu: [["30 días", "€405k", "5,9%", "€1.990"], ["60 días", "€648k", "6,1%", "€6.588"], ["90 días · natural", "€810k", "6,4%", "€12.960", "now"]],
+          menuNote: "Mejores condiciones que en julio: más límite, menos TAE.",
+          alertTitle: "Sin alerta",
+          alert: "El motor amplía por cuarto mes. No hay señal de contagio en Levante.",
+          aiScore: "Levante Fresh sube a 81. Capacidad fuerte <button class=\"citation\">A · 86</button>.",
+          aiDecision: "Sí se presta y se amplía: €780k → €810k, TAE 6,6% → 6,4%. Mismo plazo de 90 días."
+        },
+        {
+          id: "turia", name: "Conservas del Turia", full: "Conservas del Turia", holding: "levante",
+          status: "good", statusLabel: "Sana", title: "Estable", lead: "Recálculo idéntico al cierre anterior.",
+          action: "keep", score: 74, prevScore: 74, eligible: true, color: "#16865b", trend: "→ estable",
+          a: 78, b: 73, c: 68, d: 1, cobros: 360000, pagos: 180000,
+          history: [
+            { m: "May", lend: true, L: 520000, tae: "7,4%", days: 60, action: "keep" },
+            { m: "Jun", lend: true, L: 540000, tae: "7,4%", days: 60, action: "expand" },
+            { m: "Jul", lend: true, L: 540000, tae: "7,4%", days: 60, action: "keep" },
+            { m: "Ago", lend: true, L: 540000, tae: "7,4%", days: 60, action: "keep" }
+          ],
+          taeRows: [["Base por score", "6,9%"], ["Prima de plazo (60 d)", "+0,5%"], ["Prima de confianza", "0,0%"], ["Tendencia", "0,0%"], ["TAE final", "7,4%"]],
+          gates: [[1, "Historial ≥ 6 meses"], [1, "Score 74 ≥ 45"], [1, "Fiabilidad B ≥ 40"], [1, "Caja 2,8× gasto 60d"], [1, "C4 11% · umbral 40%"], [1, "Sin cross-default"]],
+          menu: [["30 días", "€270k", "6,9%", "€1.552"], ["60 días · natural", "€540k", "7,4%", "€6.660", "now"], ["90 días", "No ofertado", "—", "—", "off"]],
+          menuNote: "Julio y agosto coinciden: mantener.",
+          alertTitle: "Sin alerta",
+          alert: "Tras la ampliación de junio, dos cierres de mantener.",
+          aiScore: "Conservas del Turia se mantiene en 74, dentro de Levante Foods.",
+          aiDecision: "Sí se presta. €540k en julio y €540k en agosto. TAE 7,4% · 60 días. Acción: mantener."
+        },
+        {
+          id: "atlas", name: "Atlas Stores Iberia", full: "Atlas Stores Iberia", holding: "atlas",
+          status: "watch", statusLabel: "Vigilar", title: "Recorte de límite", lead: "El recálculo recorta plazo y cantidad.",
+          action: "reduce", score: 59, prevScore: 68, eligible: true, color: "#c47a08", trend: "↓ 9 pts",
+          a: 62, b: 55, c: 51, d: -4, cobros: 340000, pagos: 180000,
+          history: [
+            { m: "May", lend: true, L: 680000, tae: "8,4%", days: 90, action: "keep" },
+            { m: "Jun", lend: true, L: 650000, tae: "8,6%", days: 90, action: "reduce" },
+            { m: "Jul", lend: true, L: 640000, tae: "8,8%", days: 90, action: "reduce" },
+            { m: "Ago", lend: true, L: 520000, tae: "9,6%", days: 60, action: "reduce" }
+          ],
+          taeRows: [["Base por score", "8,2%"], ["Prima de plazo (60 d)", "+0,5%"], ["Prima de confianza", "+0,4%"], ["Tendencia (deterioro)", "+0,5%"], ["TAE final", "9,6%"]],
+          gates: [[1, "Historial ≥ 6 meses"], [1, "Score 59 ≥ 45"], [1, "Fiabilidad B ≥ 40"], [1, "Caja 1,6× gasto 60d"], [0, "C4 36% · umbral 40%"], [1, "Sin cross-default"]],
+          menu: [["30 días", "€260k", "9,1%", "€1.971"], ["60 días · natural", "€520k", "9,6%", "€8.320", "now"], ["90 días", "No ofertado", "—", "—", "off"]],
+          menuNote: "90 días sale del menú este cierre.",
+          alertTitle: "Alerta emitida 3 meses antes",
+          alert: "Junio: primera reducción. Agosto confirma el recorte y acorta el plazo a 60 días.",
+          aiScore: "Atlas Stores baja a 59. Vencido cerca del umbral <button class=\"citation\">C4 · 36%</button>.",
+          aiDecision: "Sí se presta, con recálculo a la baja: €640k → €520k, TAE 8,8% → 9,6%, plazo 90 → 60 días."
+        }
+      ];
+      function companyById(id) {
+        return COMPANIES.find((company) => company.id === id);
+      }
+      function companyByFull(name) {
+        return COMPANIES.find((company) => company.full === name);
+      }
+      function formatLimit(limit) {
+        return limit === 0 ? "€0" : "€" + (limit / 1000).toFixed(0) + "k";
+      }
+      function formatDelta(n) {
+        if (!n) return "sin cambio";
+        return (n > 0 ? "+" : "−") + "€" + Math.abs(n / 1000).toFixed(0) + "k";
+      }
+      function julOf(company) { return company.history[2]; }
+      function agoOf(company) { return company.history[3]; }
+      function scoreDrivers(company) {
+        const byId = {
+          comp: [
+            ["C4 · vencido sin cobrar", "38%, umbral 40%. Si cruza, se cierra. Es el driver del recorte de límite."],
+            ["B2 · racha de impagos", "Dos cierres seguidos sin pagar una obligación esperada. No es un mes suelto."],
+            ["A · capacidad", "74: todavía hay caja. El negocio no va mal; el cobro llega tarde."]
+          ],
+          logi: [
+            ["A · capacidad", "84. Sobramos caja tras operar. Por eso el motor amplía."],
+            ["D4 · soporte de grupo", "Logística aporta caja neta al resto. El holding no pide prestado: esta empresa sostiene."],
+            ["C4 · vencido", "9%. El cobro llega; no hay alerta de contagio aquí."]
+          ],
+          serv: [
+            ["Score bajo el umbral", "42 < 45. La puerta de elegibilidad cierra la bolsa."],
+            ["C4 · vencido", "51%, por encima del 40%. Nuevas disposiciones, no."],
+            ["A · capacidad", "38. Ya no queda caja tras la operación."]
+          ],
+          pack: [
+            ["Sin driver adverso", "A 76 · B 71 · C 64. El pulso mensual confirma el mismo score."],
+            ["D · grupo", "+2. Ni sostiene ni arrastra. El recálculo es mantener."]
+          ],
+          fresh: [
+            ["A · capacidad", "86 y subiendo. Tres ampliaciones seguidas salen de este bloque."],
+            ["C4 · vencido", "7%. El ciclo de cobro aguanta 90 días."]
+          ],
+          turia: [
+            ["Estable en banda B", "Score 74 dos meses. El motor no mueve L ni TAE."],
+            ["A · capacidad", "78. Caja suficiente para mantener 60 días."]
+          ],
+          atlas: [
+            ["C4 · vencido", "36%, cerca del umbral 40%. El recorte de plazo a 60 días sale de aquí."],
+            ["Score en banda C", "59, desde 68. Baja L y sube TAE."],
+            ["B · fiabilidad", "55. Todavía pasa la puerta (≥ 40), pero ya no es holgado."]
+          ]
+        };
+        return byId[company.id] || [["Score del mes", "Corte agosto 2026. El análisis vive en A, B, C y D."]];
+      }
+      function fillHoldingFinance() {
+        document.getElementById("drawerMeta").innerHTML = `
+          <span>Techo julio €1,63M → agosto <b>€1,42M</b></span>
+          <span class="dot">·</span>
+          <span>3 de 4 elegibles</span>`;
+      }
+      function fillFinanceStrip(company) {
+        const jul = julOf(company);
+        const ago = agoOf(company);
+        document.getElementById("drawerMeta").innerHTML = `
+          <span>Score ${company.score}</span>
+          <span class="dot">·</span>
+          <span>${formatLimit(jul.L)} → <b>${formatLimit(ago.L)}</b></span>
+          <span class="dot">·</span>
+          <span>${ACTION_LABEL[company.action]}</span>`;
+      }
+      function fillCompanyDrawer(company) {
+        document.getElementById("drawerCompany").textContent = company.full;
+        document.getElementById("drawerCrumb").textContent = HOLDING_LABELS[company.holding] + " / Empresa";
+        fillFinanceStrip(company);
+        const delta = company.score - company.prevScore;
+        document.getElementById("companyAiScore").innerHTML = company.aiScore;
+        document.getElementById("companyScoreValue").textContent = company.score;
+        const ringColor = company.status === "good" ? "#16865b" : company.status === "bad" ? "#c7463e" : "#c47a08";
+        document.getElementById("companyRing").style.background = "conic-gradient(" + ringColor + " 0 " + company.score + "%, #365046 " + company.score + "%)";
+        const status = document.getElementById("companyStatus");
+        status.className = "status " + company.status;
+        status.textContent = company.statusLabel;
+        const trend = document.getElementById("companyTrend");
+        trend.textContent = company.trend;
+        trend.style.color = delta < 0 ? "#ff938b" : delta > 0 ? "#9be7c4" : "#c5d4cc";
+        document.getElementById("companyScoreTitle").textContent = company.title;
+        document.getElementById("companyScoreLead").textContent = company.lead;
+        document.getElementById("companyBlocks").innerHTML = [
+          ["A · Capacidad", "45% · ¿queda caja tras operar?", company.a, "#16865b"],
+          ["B · Fiabilidad", "30% · ¿paga lo que debe?", company.b, "#c47a08"],
+          ["C · Dependencia", "25% · clientes, cobro, vencido", company.c, company.c < 50 ? "#c7463e" : "#c47a08"],
+          ["D · Grupo", "±20 · suma o resta, no es préstamo al holding", company.d, company.d < 0 ? "#c7463e" : "#16865b"]
+        ].map((row) => `<div class="block-line"><span>${row[0]}<small>${row[1]}</small></span><div class="bar"><i style="width:${Math.min(100, Math.abs(row[2]))}%;background:${row[3]}"></i></div><b>${row[2]}</b></div>`).join("");
+        document.getElementById("companyPrevScore").textContent = company.prevScore;
+        document.getElementById("companyNowScore").textContent = company.score;
+        const deltaEl = document.getElementById("companyScoreDelta");
+        deltaEl.textContent = (delta > 0 ? "+" : "") + delta;
+        deltaEl.className = delta < 0 ? "down" : delta > 0 ? "up" : "";
+        document.getElementById("companyDrivers").innerHTML = scoreDrivers(company).map((row) =>
+          `<div class="driver"><b>${row[0]}</b><p>${row[1]}</p></div>`
+        ).join("");
+        const band = company.score >= 75 ? "A" : company.score >= 60 ? "B" : company.score >= 45 ? "C" : "fuera";
+        document.getElementById("companyScoreToLimit").innerHTML = company.eligible
+          ? `Score <b>${company.score}</b> este mes (julio ${company.prevScore}) entra en banda <b>${band}</b>. De ese número salen el límite, el TAE y la acción <b>${ACTION_LABEL[company.action]}</b>. El motor de decisión no inventa: lee el score. Sin este pulso, el banco seguiría con las cuentas de hace 8 meses.`
+          : `Score <b>${company.score}</b> no pasa la puerta (≥ 45). Por eso la bolsa se cierra: L = €0. El análisis de A/B/C/D explica el cierre; el recálculo solo lo ejecuta.`;
+        const bridge = document.getElementById("companyScoreBridge");
+        bridge.innerHTML = `
+          <div class="score-bridge-top">
+            <div>
+              <div class="finance-kicker" style="color:var(--muted)">El recálculo sale de este score</div>
+              <div style="display:flex;gap:10px;align-items:baseline;margin-top:4px"><b>${company.score}</b><span class="status ${company.status}">${company.statusLabel}</span><span style="color:var(--muted);font-size:11px;font-weight:700">${company.trend}</span></div>
+            </div>
+            <button class="ask-ai" type="button" onclick="switchDrawerTab('score')">Ver análisis →</button>
+          </div>
+          <div class="score-mini">
+            <div><span>A · 45%</span><b>${company.a}</b></div>
+            <div><span>B · 30%</span><b>${company.b}</b></div>
+            <div><span>C · 25%</span><b>${company.c}</b></div>
+            <div><span>D · grupo</span><b>${company.d}</b></div>
+          </div>
+          <p style="margin:0;color:var(--ink-2);font-size:12px;line-height:1.5">${company.title}. ${company.lead} El LLM explica; el score calcula.</p>`;
+        const jul = julOf(company);
+        const ago = agoOf(company);
+        const board = document.getElementById("companyFinanceBoard");
+        board.className = "finance-board";
+        const signal = company.action === "expand"
+          ? `<div class="signal to-company"><b>Señal a la empresa</b><p>El perfil ha mejorado. Puede pedir más o pagar menos. Este es el informe para negociar.</p></div>`
+          : (company.action === "keep"
+            ? `<div class="signal to-stable"><b>Sin cambio este mes</b><p>El recálculo confirma las mismas condiciones. Un banco no habría mirado hasta dentro de un año.</p></div>`
+            : `<div class="signal to-lender"><b>Señal a quien presta</b><p>Se ajusta ahora, meses antes de que se note en los papeles. El límite del año pasado se habría quedado congelado.</p></div>`);
+        board.innerHTML = `
+          <div class="verdict-row${company.eligible ? "" : " off"}">
+            <span class="label">${company.eligible ? "Sí se le presta" : "No se le presta"}</span>
+            <span class="meta">${ACTION_LABEL[company.action]} · corte ago. 2026</span>
+          </div>
+          <p class="section-label">Julio → recálculo de agosto</p>
+          <div class="recalc-grid">
+            <article>
+              <span>Te prestábamos · julio</span>
+              <b>${formatLimit(jul.L)}</b>
+              <p>TAE ${jul.tae} · ${jul.days ? jul.days + " días" : "—"} · ${ACTION_LABEL[jul.action]}</p>
+            </article>
+            <article class="now">
+              <span>Recálculo · agosto</span>
+              <b>${formatLimit(ago.L)}</b>
+              <p>TAE ${ago.tae} · ${ago.days ? ago.days + " días" : "cerrado"} · ${formatDelta(ago.L - jul.L)}</p>
+            </article>
+          </div>`;
+        document.getElementById("companyEvidence").innerHTML = `
+          <p class="section-label">Condiciones mes a mes</p>
+          <table class="hist-table">
+            <thead><tr><th>Condición</th>${company.history.map((row) => "<th>" + row.m + "</th>").join("")}</tr></thead>
+            <tbody>
+              <tr><td>¿Se presta?</td>${company.history.map((row, i) => "<td" + (i === 3 ? " class='now'" : "") + ">" + (row.lend ? "Sí" : "No") + "</td>").join("")}</tr>
+              <tr><td>Límite</td>${company.history.map((row, i) => "<td" + (i === 3 ? " class='now'" : "") + ">" + formatLimit(row.L) + "</td>").join("")}</tr>
+              <tr><td>TAE</td>${company.history.map((row, i) => "<td" + (i === 3 ? " class='now'" : "") + ">" + row.tae + "</td>").join("")}</tr>
+              <tr><td>Plazo</td>${company.history.map((row, i) => "<td" + (i === 3 ? " class='now'" : "") + ">" + (row.days ? row.days + " d" : "—") + "</td>").join("")}</tr>
+              <tr><td>Acción</td>${company.history.map((row, i) => "<td" + (i === 3 ? " class='now'" : "") + ">" + ACTION_LABEL[row.action] + "</td>").join("")}</tr>
+            </tbody>
+          </table>
+          ${signal}`;
+        document.getElementById("companyUses").innerHTML = company.eligible
+          ? `<div class="use-pill active"><span>Anticipar cobros</span><b>${formatLimit(company.cobros)}</b><p style="margin:6px 0 0;font-size:10px;color:var(--muted)">Cobra hoy facturas que llegarían en 60–90 días</p></div>
+             <div class="use-pill"><span>Aplazar pagos</span><b>${formatLimit(company.pagos)}</b><p style="margin:6px 0 0;font-size:10px;color:var(--muted)">Paga a proveedores con la bolsa, no con caja propia</p></div>`
+          : `<div class="use-pill"><span>Anticipar cobros</span><b>€0</b><p style="margin:6px 0 0;font-size:10px;color:var(--muted)">Sin disposición</p></div>
+             <div class="use-pill"><span>Aplazar pagos</span><b>€0</b><p style="margin:6px 0 0;font-size:10px;color:var(--muted)">Sin disposición</p></div>`;
+        document.getElementById("companyAiDecision").innerHTML = company.aiDecision;
+        document.getElementById("companyAlert").innerHTML = `<span class="alert-title">${company.alertTitle}</span><p>${company.alert}</p>`;
+        document.getElementById("companyTae").innerHTML = company.taeRows.map((row, i) =>
+          `<div class="tae-row"${i === company.taeRows.length - 1 ? " style='padding-top:6px;border-top:1px solid var(--line);font-weight:800;color:var(--ink)'" : ""}><span>${row[0]}</span><b>${row[1]}</b></div>`
+        ).join("");
+        document.getElementById("companyGates").innerHTML = company.gates.map((gate) =>
+          `<div class="gate ${gate[0] ? "ok" : "fail"}"><i>${gate[0] ? "✓" : "!"}</i>${gate[1]}</div>`
+        ).join("");
+        document.getElementById("companyMenu").innerHTML = "<thead><tr><th>Plazo</th><th>Cantidad máx.</th><th>TAE</th><th>Coste</th></tr></thead><tbody>" +
+          company.menu.map((row) => {
+            const on = row[4] === "now";
+            const off = row[4] === "off";
+            const cell = (value) => on ? `<td><b>${value}</b></td>` : `<td${off ? " style='color:var(--muted)'" : ""}>${value}</td>`;
+            return "<tr>" + cell(row[0]) + cell(row[1]) + cell(row[2]) + cell(row[3]) + "</tr>";
+          }).join("") + "</tbody>";
+        document.getElementById("companyMenuNote").textContent = company.menuNote;
+      }
+      let compareSlots = [null, null, null];
+      let pickerDraft = [];
+      let pickerSlot = null;
+      function selectedCompanies() {
+        return compareSlots.map(companyById).filter(Boolean);
+      }
+      function compactSlots(ids) {
+        const clean = ids.filter(Boolean).slice(0, 3);
+        return [clean[0] || null, clean[1] || null, clean[2] || null];
+      }
+      function renderComparePicker() {
+        const query = (document.getElementById("compareSearch").value || "").toLowerCase();
+        const groups = {};
+        COMPANIES.forEach((company) => {
+          const hay = (company.name + " " + HOLDING_LABELS[company.holding]).toLowerCase();
+          if (query && !hay.includes(query)) return;
+          (groups[company.holding] ||= []).push(company);
+        });
+        document.getElementById("pickerList").innerHTML = Object.keys(groups).map((holding) => {
+          const companies = groups[holding];
+          return `<div class="pool-group">
+            <div class="pool-group-head">
+              <span>${HOLDING_LABELS[holding]}</span>
+              <button type="button" onclick="pickerWholeHolding('${holding}')">Todo el grupo</button>
+            </div>
+            ${companies.map((company) => {
+              const jul = julOf(company);
+              const ago = agoOf(company);
+              const selected = pickerDraft.includes(company.id);
+              return `<button type="button" class="picker-row${selected ? " selected" : ""}" onclick="chooseCompareCompany('${company.id}')">
+                <span class="picker-check">✓</span>
+                <div><b>${company.name}</b><small>${HOLDING_LABELS[company.holding]} · ${company.eligible ? "Sí se presta" : "No se presta"}</small></div>
+                <b class="mono">${formatLimit(jul.L)} → ${formatLimit(ago.L)}</b>
+              </button>`;
+            }).join("")}
+          </div>`;
+        }).join("") || `<p style="color:var(--muted);font-size:12px;padding:12px">Sin resultados.</p>`;
+        document.getElementById("pickerCount").textContent = pickerDraft.length + " / 3";
+      }
+      function togglePicker(id) {
+        const index = pickerDraft.indexOf(id);
+        if (index !== -1) pickerDraft.splice(index, 1);
+        else if (pickerDraft.length < 3) pickerDraft.push(id);
+        renderComparePicker();
+      }
+      function pickerWholeHolding(holding) {
+        const ids = COMPANIES.filter((company) => company.holding === holding).slice(0, 3).map((company) => company.id);
+        if (pickerSlot === null) {
+          pickerDraft = ids;
+          renderComparePicker();
+          return;
+        }
+        compareSlots[pickerSlot] = ids[0] || null;
+        closeComparePicker();
+        renderCompareBoard();
+      }
+      function openComparePicker(slotIndex) {
+        pickerSlot = typeof slotIndex === "number" ? slotIndex : null;
+        pickerDraft = selectedCompanies().map((company) => company.id);
+        const search = document.getElementById("compareSearch");
+        if (search) search.value = "";
+        document.getElementById("pickerHint").textContent = pickerSlot === null
+          ? "Hasta 3. Pulsa un hueco o elige aquí."
+          : "Elige la empresa para este hueco.";
+        document.getElementById("pickerConfirm").style.display = pickerSlot === null ? "" : "none";
+        renderComparePicker();
+        document.getElementById("pickerBackdrop").classList.add("open");
+        document.getElementById("comparePicker").classList.add("open");
+      }
+      function closeComparePicker() {
+        pickerSlot = null;
+        document.getElementById("pickerBackdrop").classList.remove("open");
+        document.getElementById("comparePicker").classList.remove("open");
+      }
+      function chooseCompareCompany(id) {
+        if (pickerSlot === null) {
+          togglePicker(id);
+          return;
+        }
+        const existing = compareSlots.indexOf(id);
+        if (existing !== -1 && existing !== pickerSlot) compareSlots[existing] = null;
+        compareSlots[pickerSlot] = id;
+        closeComparePicker();
+        renderCompareBoard();
+      }
+      function confirmComparePicker() {
+        compareSlots = compactSlots(pickerDraft);
+        closeComparePicker();
+        renderCompareBoard();
+      }
+      function removeFromCompare(index) {
+        compareSlots[index] = null;
+        renderCompareBoard();
+      }
+      function renderCompareBoard() {
+        const visible = selectedCompanies();
+        const sameHolding = visible.length > 1 && visible.every((company) => company.holding === visible[0].holding);
+        document.getElementById("compareChips").innerHTML = visible.map((company) =>
+          `<span class="chip">${company.name}</span>`
+        ).join("");
+        document.getElementById("compareSlots").innerHTML = compareSlots.map((id, index) => {
+          const company = companyById(id);
+          if (!company) {
+            return `<button type="button" class="drop-slot empty" onclick="openComparePicker(${index})">
+              <span class="slot-plus">+</span>
+              <span>Añadir empresa</span>
+            </button>`;
+          }
+          const jul = julOf(company);
+          const ago = agoOf(company);
+          const actionClass = company.action === "expand" ? "expand" : company.action === "keep" ? "keep" : "reduce";
+          return `<div class="drop-slot filled">
+            <div class="slot-card">
+              <div class="slot-card-top">
+                <div>
+                  <h3 style="cursor:pointer" onclick="openDrawer('${company.full}', 'decision')">${company.name}</h3>
+                  <span class="holding-pill${sameHolding ? "" : " diff"}">${HOLDING_LABELS[company.holding]}</span>
+                </div>
+                <button class="slot-remove" type="button" onclick="removeFromCompare(${index})">×</button>
+              </div>
+              <div style="margin-top:12px"><span class="lend ${company.eligible ? "yes" : "no"}">${company.eligible ? "Sí se presta" : "No se presta"}</span></div>
+              <div class="compare-score" style="color:${company.color}">${formatLimit(jul.L)} → ${formatLimit(ago.L)}</div>
+              <span class="trend">TAE ${jul.tae} → ${ago.tae} · ${(jul.days || "—")}d → ${(ago.days || "—")}d</span>
+              <div style="margin-top:auto;padding-top:12px;display:flex;justify-content:space-between;align-items:center">
+                <span class="score ${company.status}">${company.score}</span>
+                <span class="action ${actionClass}">${ACTION_LABEL[company.action]}</span>
+              </div>
+            </div>
+          </div>`;
+        }).join("");
+        const flag = document.getElementById("compareGroupFlag");
+        const btn = document.getElementById("compareGroupBtn");
+        const aiBox = document.getElementById("compareAi");
+        const tableCard = document.getElementById("compareSnapshotCard");
+        let aiPlain = "";
+        let aiHtml = "";
+        if (visible.length === 0) {
+          flag.className = "group-flag idle";
+          document.getElementById("compareGroupCopy").textContent = "Aún no hay empresas en la comparación";
+          btn.style.display = "none";
+          aiBox.style.display = "none";
+          tableCard.style.display = "none";
+          document.getElementById("compareAiMeta").textContent = "0 empresas";
+          aiPlain = "Selecciona empresas para generar el resumen.";
+          aiHtml = aiPlain;
+        } else if (visible.length === 1) {
+          const only = visible[0];
+          const jul = julOf(only);
+          const ago = agoOf(only);
+          flag.className = "group-flag idle";
+          document.getElementById("compareGroupCopy").textContent = only.name + " · añade otra para comparar";
+          btn.style.display = "none";
+          aiBox.style.display = "";
+          tableCard.style.display = "";
+          document.getElementById("compareAiMeta").textContent = "1 empresa";
+          aiPlain = only.name + ": " + (only.eligible ? "sí se presta" : "no se presta") + ". Julio " + formatLimit(jul.L) + " → agosto " + formatLimit(ago.L) + ", TAE " + jul.tae + " → " + ago.tae + ". Añade una segunda para comparar.";
+          aiHtml = aiPlain;
+        } else if (sameHolding) {
+          const label = HOLDING_LABELS[visible[0].holding];
+          flag.className = "group-flag same";
+          document.getElementById("compareGroupCopy").textContent = "Mismo holding · " + label + " · " + visible.length + " empresas";
+          btn.style.display = "";
+          btn.textContent = "Ver flujo del holding →";
+          btn.onclick = () => openHoldingDrawer(label, "flow");
+          aiBox.style.display = "";
+          tableCard.style.display = "";
+          document.getElementById("compareAiMeta").textContent = visible.length + " empresas · mismo holding";
+          const lines = visible.map((company) => company.name + " " + (company.eligible ? "sí" : "no") + " " + formatLimit(julOf(company).L) + "→" + formatLimit(agoOf(company).L));
+          aiPlain = "Comparando " + visible.map((c) => c.name).join(", ") + " dentro de " + label + ". " + lines.join(". ") + ". Comparten techo de grupo. El motor decide por empresa, no presta al holding.";
+          aiHtml = "Comparando " + visible.map((c) => c.name).join(", ") + " dentro de " + label + ". " + lines.join(". ") + ". Comparten techo. Contagio y aval <button class=\"citation\">D4</button> <button class=\"citation\">D5</button> son comunes. El motor decide por empresa.";
+        } else {
+          const n = new Set(visible.map((company) => company.holding)).size;
+          flag.className = "group-flag mixed";
+          document.getElementById("compareGroupCopy").textContent = "Holdings distintos · " + n + " grupos · no hay contagio directo";
+          btn.style.display = "";
+          btn.textContent = "Entendido";
+          btn.onclick = () => {};
+          aiBox.style.display = "";
+          tableCard.style.display = "";
+          document.getElementById("compareAiMeta").textContent = visible.length + " empresas · " + n + " holdings";
+          const lines = visible.map((company) => company.name + ": " + (company.eligible ? "sí" : "no") + ", " + formatLimit(julOf(company).L) + " → " + formatLimit(agoOf(company).L));
+          aiPlain = "Mezclas " + n + " holdings. " + lines.join(". ") + ". Sirve para ranking de condiciones, no para riesgo de contagio.";
+          aiHtml = aiPlain;
+        }
+        if (visible.length) streamCompareAi(aiPlain, aiHtml);
+        const table = document.getElementById("compareSnapshot");
+        table.innerHTML = visible.length
+          ? "<thead><tr><th>Empresa</th><th>¿Se presta?</th><th>L jul</th><th>L ago</th><th>TAE jul → ago</th><th>Plazo</th><th>Acción</th></tr></thead><tbody>" +
+            visible.map((company) => {
+              const jul = julOf(company);
+              const ago = agoOf(company);
+              return "<tr><td>" + company.name + "</td><td>" + (company.eligible ? "Sí" : "No") + "</td><td>" + formatLimit(jul.L) + "</td><td><b>" + formatLimit(ago.L) + "</b></td><td>" + jul.tae + " → " + ago.tae + "</td><td>" + (jul.days || "—") + "d → " + (ago.days || "—") + "d</td><td>" + ACTION_LABEL[company.action] + "</td></tr>";
+            }).join("") + "</tbody>"
+          : "";
+      }
+      let compareAiKey = null;
+      let compareAiTimer = 0;
+      function streamCompareAi(plain, html) {
+        const key = selectedCompanies().map((company) => company.id).join("|");
+        if (key === compareAiKey) return;
+        compareAiKey = key;
+        window.clearInterval(compareAiTimer);
+        const el = document.getElementById("compareAiText");
+        const note = document.getElementById("compareAiNote");
+        el.classList.add("ai-typing");
+        note.textContent = "Generando…";
+        el.textContent = "";
+        let i = 0;
+        compareAiTimer = window.setInterval(() => {
+          i += 3;
+          el.textContent = plain.slice(0, i);
+          if (i >= plain.length) {
+            window.clearInterval(compareAiTimer);
+            el.classList.remove("ai-typing");
+            el.innerHTML = html;
+            note.textContent = "Corte ago. 2026 · generado ahora";
+          }
+        }, 18);
+      }
+      function showCompareAiQuestion() {
+        const box = document.getElementById("compareAi");
+        let demo = box.parentElement.querySelector(".compare-ai-q");
+        if (demo) {
+          demo.remove();
+          return;
+        }
+        demo = document.createElement("section");
+        demo.className = "ai-summary compare-ai-q";
+        demo.innerHTML = `<div class="ai-label">Pregunta contextual</div>
+          <p style="margin:9px 0 8px;font-size:12px;font-weight:700">¿Por qué compararlas juntas cambia la decisión?</p>
+          <p style="margin:0;color:var(--ink-2);font-size:12px;line-height:1.55">Si son del mismo holding, el techo es compartido. Si son de grupos distintos, cada límite vive solo.</p>`;
+        box.insertAdjacentElement("afterend", demo);
+      }
+      const BOOT_SCENES = [
+        {
+          next: "Siguiente",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">El problema</div>
+            <h1>Una empresa puede vender mucho<br>y aun así <span class="boot-accent">necesitar dinero.</span></h1>
+            <div class="boot-big-number">90 días</div>
+            <div class="boot-big-caption">pasan entre pagar a sus proveedores y cobrar de sus clientes</div>
+            <div class="boot-timeline">
+              <div>Paga al proveedor</div><div>30 días</div><div>60 días</div><div>El cliente paga</div>
+            </div>
+          </div>`
+        },
+        {
+          next: "Siguiente",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">Cómo se decide hoy</div>
+            <h1>El banco decide con las cuentas<br><span class="boot-accent">del año pasado.</span></h1>
+            <div class="boot-big-number">1 vez al año</div>
+            <div class="boot-big-caption">se revisa el crédito, aunque el negocio cambie cada mes</div>
+          </div>`
+        },
+        {
+          next: "Siguiente",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">Qué es Embat</div>
+            <h1>Las empresas ya usan Embat<br>para <span class="boot-accent">ver todo su dinero.</span></h1>
+            <p class="lead">Su tesorería al día: cada movimiento de sus cuentas bancarias y cada factura.</p>
+            <div class="moat-flow">
+              <div class="source-stack">
+                <div class="source-pill">Banco A</div>
+                <div class="source-pill">Banco B</div>
+                <div class="source-pill">Banco C</div>
+              </div>
+              <div class="embat-core">Embat</div>
+              <div class="source-stack right">
+                <div class="source-pill">Facturas</div>
+                <div class="source-pill">Cobros y pagos</div>
+                <div class="source-pill">Empresas del grupo</div>
+              </div>
+            </div>
+            <div class="moat-note">Un banco solo ve su cuenta. Embat ve la empresa completa.</div>
+          </div>`
+        },
+        {
+          next: "Siguiente",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">La idea</div>
+            <h1>Con esos datos, Embat Flow pone<br>a cada empresa <span class="boot-accent">una nota cada mes.</span></h1>
+            <div class="score-showcase">
+              <div class="score-orb">82<span>/100</span></div>
+              <div class="score-copy">
+                <small>Salud financiera</small>
+                <h3>Una nota de 0 a 100, siempre explicada</h3>
+                <p>Y de la nota sale una oferta de financiación:</p>
+                <div class="score-chips"><span>Cuánto</span><span>A qué plazo</span><span>A qué precio</span></div>
+              </div>
+            </div>
+          </div>`
+        },
+        {
+          next: "Siguiente",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">Primero, la empresa</div>
+            <h1>La nota es de la empresa.<br><span class="boot-accent">La ve ella. Nadie más.</span></h1>
+            <p class="lead">Sabe cómo está, por qué, y cuánto debería costarle financiarse.</p>
+            <div class="ownership-card">
+              <div class="ownership-list">
+                <div><b>Su nota</b>Cómo está su salud financiera</div>
+                <div><b>El porqué</b>Qué la sube y qué la baja</div>
+                <div><b>Su oferta</b>Cuánto, a qué plazo y a qué precio</div>
+              </div>
+              <div class="privacy-lock"><i>🔒</i><span><b>Nadie más ve sus datos.</b> Ni sus movimientos, ni sus facturas, ni su nota. Todo se queda en Embat.</span></div>
+            </div>
+          </div>`
+        },
+        {
+          next: "Siguiente",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">La empresa decide</div>
+            <h1>Solo se comparte si la empresa pulsa<br><span class="boot-accent">“Pedir financiación”.</span></h1>
+            <div class="consent-flow">
+              <div class="consent-step">
+                <small>1 · Privado</small>
+                <b>Ve su nota y su oferta</b>
+                <p>Todo se queda dentro de Embat.</p>
+              </div>
+              <div class="consent-arrow">→</div>
+              <div class="consent-step active">
+                <small>2 · Decide</small>
+                <b>Pide financiación</b>
+                <p>Solo entonces se comparte.</p>
+              </div>
+              <div class="consent-arrow">→</div>
+              <div class="consent-step">
+                <small>3 · Quien presta</small>
+                <b>Recibe nota y oferta</b>
+                <p>Un banco o fondo que pone el dinero.</p>
+              </div>
+            </div>
+            <div class="share-note">Se comparte la decisión. <b>Nunca sus movimientos, facturas ni saldos.</b></div>
+          </div>`
+        },
+        {
+          next: "Siguiente",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">Mientras dura el crédito</div>
+            <h1>El crédito se adapta a<br><span class="boot-accent">cómo va la empresa.</span></h1>
+            <div class="outcome-grid">
+              <div class="outcome-card good">
+                <small>Si mejora</small>
+                <h3>Más límite o mejor precio</h3>
+                <p>Sin esperar al cierre del año.</p>
+              </div>
+              <div class="outcome-card">
+                <small>Si empeora</small>
+                <h3>El límite baja poco a poco</h3>
+                <p>Antes de que sea un problema, para los dos.</p>
+              </div>
+            </div>
+            <div class="partner-note">Quien presta lo ve <span class="boot-accent">meses antes</span> que con las cuentas anuales.</div>
+          </div>`
+        },
+        {
+          next: "Entrar a Embat Flow",
+          html: `<div class="boot-scene wide">
+            <div class="boot-kicker">Embat Flow</div>
+            <h1>La empresa paga lo que merece.<br><span class="boot-accent">Quien presta, nunca a ciegas.</span></h1>
+            <div class="final-lockup">
+              <span>Una nota cada mes</span><span>Un crédito que se adapta</span><span>La empresa decide</span>
+            </div>
+            <div class="boot-cta">
+              <button class="primary" type="button" onclick="endBoot()">Entrar a Embat Flow →</button>
+            </div>
+            <p class="boot-footnote">Embat conecta a la empresa con quien presta. Embat no presta.</p>
+          </div>`
+        }
+      ];
+      let bootIndex = 0;
+      const BOOT_VIDEO_MODE = new URLSearchParams(location.search).get("modo") === "video";
+      function startBoot(force) {
+        if (!force && !BOOT_VIDEO_MODE && sessionStorage.getItem("embat-flow-boot-v2")) {
+          endBoot(true);
+          return;
+        }
+        bootIndex = 0;
+        const boot = document.getElementById("boot");
+        boot.className = BOOT_VIDEO_MODE ? "boot open video" : "boot open";
+        boot.setAttribute("aria-hidden", "false");
+        document.getElementById("bootDots").innerHTML = BOOT_SCENES
+          .map((_, i) => `<button type="button" aria-label="Ir al paso ${i + 1}" onclick="showBoot(${i})"></button>`)
+          .join("");
+        showBoot(0);
+      }
+      function showBoot(index) {
+        bootIndex = index;
+        const scene = BOOT_SCENES[index];
+        const total = BOOT_SCENES.length;
+        const first = index === 0;
+        const last = index === total - 1;
+        document.getElementById("bootStage").innerHTML = scene.html;
+        document.getElementById("bootNext").textContent = scene.next + " →";
+        document.getElementById("bootNext").style.visibility = last ? "hidden" : "visible";
+        document.getElementById("bootBack").style.visibility = first ? "hidden" : "visible";
+        document.getElementById("bootSkip").style.visibility = last ? "hidden" : "visible";
+        document.getElementById("bootStep").textContent = `${index + 1} de ${total}`;
+        document.getElementById("bootHint").style.display = first ? "" : "none";
+        document.querySelectorAll("#bootDots button").forEach((dot, i) => {
+          dot.classList.toggle("on", i === index);
+          dot.classList.toggle("seen", i < index);
+          if (i === index) dot.setAttribute("aria-current", "step");
+          else dot.removeAttribute("aria-current");
+        });
+        document.getElementById("bootStage").scrollTop = 0;
+      }
+      function nextBoot() {
+        if (bootIndex >= BOOT_SCENES.length - 1) {
+          endBoot();
+          return;
+        }
+        showBoot(bootIndex + 1);
+      }
+      function prevBoot() {
+        if (bootIndex <= 0) return;
+        showBoot(bootIndex - 1);
+      }
+      function endBoot(silent) {
+        if (!silent) sessionStorage.setItem("embat-flow-boot-v2", "1");
+        const boot = document.getElementById("boot");
+        boot.className = "boot";
+        boot.setAttribute("aria-hidden", "true");
+      }
+      document.addEventListener("keydown", (event) => {
+        if (!document.getElementById("boot").classList.contains("open")) return;
+        const onButton = event.target && event.target.tagName === "BUTTON";
+        if (event.key === "Escape") endBoot();
+        else if (event.key === "ArrowLeft" || event.key === "Backspace") { event.preventDefault(); prevBoot(); }
+        else if (event.key === "ArrowRight" || event.key === " " || (event.key === "Enter" && !onButton)) {
+          event.preventDefault();
+          nextBoot();
+        }
+      });
+      renderCompareBoard();
+      startBoot(false);
+    </script>
+  </body>
+</html>

@@ -7,9 +7,11 @@
 /generated
 /.next/
 /out/
+/output/
 /build
 *.tsbuildinfo
 next-env.d.ts
+/analysis/transaction_categories.csv
 
 # testing
 /coverage
@@ -30,9 +32,20 @@ pnpm-debug.log*
 
 # python virtual-env
 .venv
+__pycache__/
+*.pyc
 
 # datos derivados del analisis (se regeneran con analysis/01_panel.py)
 analysis/*.parquet
+analysis/out_*.txt
+
+# tmp files
+tmp/
+scoring-artifacts/
+
+# impeccable live-mode runtime state (config.json and design.json are committed)
+.impeccable/live/sessions/
+.playwright-mcp/
 
 # tmp files
 tmp/
@@ -42,3 +55,7 @@ tmp/
 
 # Claude Code local overrides (project skills in .claude/skills are committed)
 .claude/settings.local.json
+
+# local tooling
+/.claude/worktrees/
+/.cursor/
