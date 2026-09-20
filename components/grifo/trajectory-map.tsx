@@ -1,14 +1,22 @@
 "use client";
 
-import { Pause, Play } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Search, X } from "lucide-react";
 import { useState } from "react";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
+import { CompanyPicker, PORTFOLIO_PICKER_FILTERS } from "@/components/grifo/company-picker";
 import { Panel } from "@/components/grifo/panel";
-import { useMonthPlayer } from "@/components/grifo/use-month-player";
+import {
+  DIRECCION_OPTIONS,
+  ESTADO_OPTIONS,
+  FilterSelect,
+} from "@/components/grifo/portfolio-filters";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/core/utils";
 import { formatMonthShort, formatScore, formatSigned } from "@/lib/features/portfolio/format";
+import { fetchPortfolio, portfolioKeys } from "@/lib/features/portfolio/queries";
+import type { PortfolioSearchState } from "@/lib/features/portfolio/search-params";
 import type { PortfolioListRow } from "@/lib/features/portfolio/types";
 import { ACCION } from "@/lib/features/portfolio/vocabulary";
 
@@ -24,9 +32,10 @@ const TREND_CUT = 6;
 const MIN_TREND_AXIS = 10;
 const HOT_R = 8;
 
+/** Mismo código que "Hot este mes": fuego (rojo) para lo que mejora, hielo (azul) para lo que cae. */
 const TONE = {
-  mejora: "var(--status-healthy)",
-  deterioro: "var(--status-risk)",
+  mejora: "var(--status-risk)",
+  deterioro: "var(--color-sky-600)",
   estable: "var(--status-none)",
 } satisfies Record<PortfolioListRow["direction"], string>;
 
@@ -80,17 +89,29 @@ function spread(points: { id: string; x: number; y: number }[]): Map<string, num
  */
 export function TrajectoryMap({
   rows,
-  months,
+  month,
+  filters,
+  onChange,
   onOpenCompany,
+  onHoverCompany,
   className,
 }: {
   rows: PortfolioListRow[];
-  months: string[];
+  month: string;
+  filters: PortfolioSearchState;
+  onChange: (update: Partial<PortfolioSearchState>) => void;
   onOpenCompany: (companyId: string) => void;
+  onHoverCompany?: (companyId: string | null) => void;
   className?: string;
 }) {
   const [hovered, setHovered] = useState<string | null>(null);
-  const { playing, toggle } = useMonthPlayer(months);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+
+  const hover = (companyId: string | null) => {
+    setHovered(companyId);
+    onHoverCompany?.(companyId);
+  };
 
   const plotted = rows.filter((row) => row.trend3m !== null);
   const maxTrend = Math.max(
@@ -105,36 +126,80 @@ export function TrajectoryMap({
     PLOT_H / 2 -
     (Math.min(trendAxis, Math.max(-trendAxis, trend)) / trendAxis) * (PLOT_H / 2);
 
+  /** Por defecto solo se dibujan las hot: el resto de la cartera queda como fondo del cuadrante, no como nube de puntos. */
   const hot = plotted.filter((row) => row.hot !== null);
-  const hotX = spread(
-    hot.map((row) => ({ id: row.company.id, x: x(row.score), y: y(row.trend3m!) })),
+  const hotIds = new Set(hot.map((row) => row.company.id));
+
+  /** "Buscar empresa" añade su punto aunque no sea hot ni pase los filtros activos:
+      se resuelve contra la cartera sin filtrar, la misma que usa el propio buscador. */
+  const pickerFilters = { ...PORTFOLIO_PICKER_FILTERS, mes: month };
+  const { data: fullPortfolio } = useQuery({
+    queryKey: portfolioKeys.list(pickerFilters),
+    queryFn: () => fetchPortfolio(pickerFilters),
+    enabled: pinnedIds.length > 0,
+    staleTime: 60 * 60 * 1000,
+  });
+  const pinned = pinnedIds
+    .filter((id) => !hotIds.has(id))
+    .map((id) => fullPortfolio?.rows.find((row) => row.company.id === id))
+    .filter((row): row is PortfolioListRow => !!row && row.trend3m !== null);
+
+  const marked = [...hot, ...pinned];
+  const markedX = spread(
+    marked.map((row) => ({ id: row.company.id, x: x(row.score), y: y(row.trend3m!) })),
   );
-  const active = hovered ? plotted.find((row) => row.company.id === hovered) : undefined;
+  const active = hovered ? marked.find((row) => row.company.id === hovered) : undefined;
 
   return (
     <Panel
       title="Hoy y hacia dónde va"
       description="Derecha: mejor score hoy. Arriba: mejora en tres meses."
       className={cn("flex flex-col", className)}
-      bodyClassName="flex flex-1 flex-col gap-2 p-3"
-      aside={
+      bodyClassName="flex flex-1 flex-col gap-3 p-3"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterSelect
+          label="Filtrar por estado"
+          value={filters.estado}
+          options={ESTADO_OPTIONS}
+          onChange={(value) => onChange({ estado: value as PortfolioSearchState["estado"] })}
+        />
+        <FilterSelect
+          label="Filtrar por tendencia"
+          value={filters.direccion}
+          options={DIRECCION_OPTIONS}
+          onChange={(value) => onChange({ direccion: value as PortfolioSearchState["direccion"] })}
+        />
         <Button
           variant="outline"
           size="sm"
-          onClick={toggle}
-          aria-pressed={playing}
-          disabled={months.length < 2}
+          onClick={() => setPickerOpen(true)}
+          className="ml-auto"
         >
-          {playing ? (
-            <Pause aria-hidden className="size-3.5" />
-          ) : (
-            <Play aria-hidden className="size-3.5" />
-          )}
-          {playing ? "Pausar" : "Ver el año"}
+          <Search aria-hidden className="size-3.5" />
+          Buscar empresa
         </Button>
-      }
-    >
-      <div className="relative" onMouseLeave={() => setHovered(null)}>
+      </div>
+
+      {pinnedIds.length > 0 ? (
+        <ul className="-mt-1 flex flex-wrap items-center gap-1.5">
+          {pinnedIds.map((companyId) => (
+            <li key={companyId}>
+              <button
+                type="button"
+                onClick={() => setPinnedIds((prev) => prev.filter((id) => id !== companyId))}
+                className="bg-secondary hover:bg-secondary/70 flex items-center gap-1 rounded-full py-1 pr-1.5 pl-2.5 font-mono text-xs transition-colors duration-150"
+              >
+                {companyId}
+                <X aria-hidden className="text-muted-foreground size-3.5" />
+                <span className="sr-only">Quitar del gráfico</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <div className="relative" onMouseLeave={() => hover(null)}>
         <svg viewBox={`0 0 ${W} ${H}`} aria-hidden className="h-auto w-full overflow-visible">
           {/* Cuatro cuadrantes coloreados: salud hoy × trayectoria a 3 meses. */}
           <rect
@@ -228,27 +293,9 @@ export function TrajectoryMap({
             </text>
           </g>
 
-          {/* El resto de la cartera, en gris: contexto, no protagonista. */}
-          {plotted
-            .filter((row) => row.hot === null && row.company.id !== hovered)
-            .map((row) => (
-              <circle
-                key={row.company.id}
-                cx={x(row.score)}
-                cy={y(row.trend3m!)}
-                r={3.5}
-                fill="var(--status-none)"
-                stroke="var(--card)"
-                strokeWidth={1.5}
-                opacity={0.55}
-                className="transition-[cx,cy] duration-500 ease-out"
-              />
-            ))}
-
-          {/* La estela solo de la empresa señalada: seis meses, del más viejo al de hoy.
-              Va después de la nube gris para que no quede tapada por los demás puntos. */}
+          {/* La estela solo de la empresa señalada: seis meses, del más viejo al de hoy. */}
           {active && active.trail.length > 1 ? (
-            <g stroke={active.hot ? TONE[active.direction] : "var(--foreground)"}>
+            <g stroke={TONE[active.direction]}>
               <polyline
                 points={active.trail
                   .map((point) => `${x(point.score)},${y(point.trend3m)}`)
@@ -272,25 +319,13 @@ export function TrajectoryMap({
             </g>
           ) : null}
 
-          {/* El punto señalado va el último de su grupo para quedar siempre arriba. */}
-          {active && active.hot === null ? (
-            <circle
-              cx={x(active.score)}
-              cy={y(active.trend3m!)}
-              r={5}
-              fill="var(--foreground)"
-              stroke="var(--card)"
-              strokeWidth={1.5}
-              className="transition-[cx,cy] duration-500 ease-out"
-            />
-          ) : null}
-
-          {/* Las hot: color de su trayectoria y el número que tienen en la lista de al lado. */}
-          {hot.map((row) => (
+          {/* Las hot: color de su trayectoria y el número que tienen en la lista de al lado.
+              Las añadidas a mano por "Buscar empresa" llevan el mismo color pero sin número. */}
+          {marked.map((row) => (
             <g
               key={row.company.id}
               style={{
-                transform: `translate(${hotX.get(row.company.id) ?? x(row.score)}px, ${y(row.trend3m!)}px)`,
+                transform: `translate(${markedX.get(row.company.id) ?? x(row.score)}px, ${y(row.trend3m!)}px)`,
               }}
               className="transition-transform duration-500 ease-out"
             >
@@ -300,32 +335,34 @@ export function TrajectoryMap({
                 stroke="var(--card)"
                 strokeWidth={2}
               />
-              <text
-                y={3.5}
-                textAnchor="middle"
-                fontSize={10}
-                fontWeight={600}
-                fill="var(--card)"
-                className="tabular-nums"
-              >
-                {row.hot!.rank}
-              </text>
+              {row.hot ? (
+                <text
+                  y={3.5}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fontWeight={600}
+                  fill="var(--card)"
+                  className="tabular-nums"
+                >
+                  {row.hot.rank}
+                </text>
+              ) : null}
             </g>
           ))}
         </svg>
 
-        {plotted.map((row) => (
+        {marked.map((row) => (
           <button
             key={row.company.id}
             type="button"
             aria-label={`${row.company.id}: score ${formatScore(row.score)}, ${formatSigned(row.trend3m!)} en tres meses, ${ACCION[row.action].label}`}
-            onMouseEnter={() => setHovered(row.company.id)}
-            onFocus={() => setHovered(row.company.id)}
-            onBlur={() => setHovered(null)}
+            onMouseEnter={() => hover(row.company.id)}
+            onFocus={() => hover(row.company.id)}
+            onBlur={() => hover(null)}
             onClick={() => onOpenCompany(row.company.id)}
             className="focus-visible:ring-ring absolute size-6 -translate-x-1/2 -translate-y-1/2 rounded-full transition-[left,top] duration-500 ease-out focus-visible:ring-2 focus-visible:outline-none"
             style={{
-              left: `${(x(row.score) / W) * 100}%`,
+              left: `${((markedX.get(row.company.id) ?? x(row.score)) / W) * 100}%`,
               top: `${(y(row.trend3m!) / H) * 100}%`,
             }}
           />
@@ -377,18 +414,23 @@ export function TrajectoryMap({
           />
           Hot que cae
         </li>
-        <li className="flex items-center gap-1.5">
-          <span
-            aria-hidden
-            className="inline-block size-2 rounded-full"
-            style={{ background: TONE.estable }}
-          />
-          Resto de la cartera
-        </li>
         <li className="ml-auto hidden sm:list-item">
           El número es su puesto en la lista; pasa por encima para ver seis meses.
         </li>
       </ul>
+
+      <CompanyPicker
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        month={month}
+        title="Buscar empresa"
+        chosen={[...hotIds, ...pinnedIds]}
+        onPick={(companyId) => {
+          setPickerOpen(false);
+          setPinnedIds((prev) => (prev.includes(companyId) ? prev : [...prev, companyId]));
+          hover(companyId);
+        }}
+      />
     </Panel>
   );
 }

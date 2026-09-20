@@ -7,7 +7,7 @@ import { ActionBadge } from "@/components/grifo/action-badge";
 import { AlertsTimeline } from "@/components/grifo/company/alerts-timeline";
 import { Cascade } from "@/components/grifo/company/cascade";
 import { CoveragePanel } from "@/components/grifo/company/coverage-panel";
-import { ForecastImpactLine } from "@/components/grifo/company/forecast-impact";
+import { ForecastImpactFigures } from "@/components/grifo/company/forecast-impact";
 import { ForecastPanel } from "@/components/grifo/company/forecast-panel";
 import { GatesPanel } from "@/components/grifo/company/gates";
 import { GroupPanel } from "@/components/grifo/company/group-panel";
@@ -130,12 +130,13 @@ function DecisionLead({ file }: { file: CompanyFileResponse }) {
             <FeaturedAlert alerts={alerts} />
           </div>
         ) : null}
-        {/* Anticipación: dónde estará en 3 meses y qué cuesta. En sombra (decisión 38):
-            informa y ordena la agenda, pero la decisión de arriba no depende de ella. */}
-        {file.latest.forecast ? (
+        {/* Anticipación: dónde estará en 3 meses y qué cuesta, en cifras, no en
+            frase. En sombra (decisión 38): informa y ordena la agenda, pero la
+            decisión de arriba no depende de ella. */}
+        {file.latest.forecast?.impact ? (
           <div className="border-t px-4 py-2.5">
             <p className="text-muted-foreground text-xs">Anticipación a 3 meses</p>
-            <ForecastImpactLine forecast={file.latest.forecast} showAction className="mt-1" />
+            <ForecastImpactFigures impact={file.latest.forecast.impact} className="mt-2" />
           </div>
         ) : null}
       </section>

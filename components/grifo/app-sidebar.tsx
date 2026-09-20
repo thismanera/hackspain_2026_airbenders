@@ -196,10 +196,6 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <p className="text-muted-foreground px-2 py-1 text-xs leading-relaxed">
-          Datos de demostración sobre metadatos reales del dataset. Parámetros{" "}
-          <span className="font-mono">v1</span>.
-        </p>
       </SidebarFooter>
     </Sidebar>
   );
