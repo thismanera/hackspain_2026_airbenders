@@ -10,6 +10,7 @@ import { CompareTrend } from "@/components/grifo/peers/compare-trend";
 import { EmptySlot, Slot } from "@/components/grifo/peers/compare-slots";
 import { EntitySheet } from "@/components/grifo/sheet/entity-sheet";
 import { PageIntro } from "@/components/grifo/stat-card";
+import { TellMeMark } from "@/components/grifo/tellme-mark";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -208,14 +209,19 @@ export function ParesClient() {
         </Empty>
       ) : (
         <div className="flex flex-col gap-4">
-          <ul className="bg-card flex flex-col gap-1.5 rounded-[14px] border px-4 py-3 text-sm text-pretty">
-            {summarize(loaded).map((line) => (
-              <li key={line} className="flex gap-2">
-                <span aria-hidden className="bg-foreground/60 mt-2 size-1 shrink-0 rounded-full" />
-                {line}
-              </li>
-            ))}
-          </ul>
+          <section
+            aria-label="Lectura de inteligencia artificial"
+            className="ai-panel border-ai-border rounded-xl border px-4 py-3.5"
+          >
+            <p className="text-ai-accent mb-2.5 flex items-center gap-2 text-sm font-medium">
+              <TellMeMark size={64} className="size-8" />
+              <span className="ai-label text-base">TellMe</span>
+              <span className="sr-only">, redactada con plantilla, no decide</span>
+            </p>
+            <p className="text-ai-fg text-sm leading-relaxed text-pretty">
+              {summarize(loaded).join(" ")}
+            </p>
+          </section>
 
           <CompareTrend files={loaded} month={state.mes} />
           <CompareTable files={loaded} />

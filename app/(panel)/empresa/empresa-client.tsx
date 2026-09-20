@@ -1,18 +1,15 @@
 "use client";
 
-import { Building2, HandCoins } from "lucide-react";
+import { HandCoins } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState, useTransition } from "react";
 
-import { AlertsTimeline } from "@/components/grifo/company/alerts-timeline";
 import { BandLadderCard } from "@/components/grifo/company/band-ladder-card";
 import { BenchmarkExplorer } from "@/components/grifo/company/benchmark-explorer";
 import { Cascade } from "@/components/grifo/company/cascade";
 import { CoveragePanel } from "@/components/grifo/company/coverage-panel";
-import { GatesPanel } from "@/components/grifo/company/gates";
 import { GroupPanel } from "@/components/grifo/company/group-panel";
 import { LoanSimulator } from "@/components/grifo/company/loan-simulator";
-import { NegotiationReport } from "@/components/grifo/company/negotiation-report";
 import { OutlookPanel } from "@/components/grifo/company/outlook-panel";
 import {
   RcaFindingsCard,
@@ -21,10 +18,10 @@ import {
   RcaPlaybookList,
   RcaScenarios,
 } from "@/components/grifo/company/rca-panel";
-import { ConditionsTable } from "@/components/grifo/company/sheet-panels";
 import { CompanyPicker } from "@/components/grifo/company-picker";
-import { DetailRow, DetailStack, Panel } from "@/components/grifo/panel";
+import { DetailRow, DetailStack, Figure, Panel } from "@/components/grifo/panel";
 import { PageIntro } from "@/components/grifo/stat-card";
+import { TrendPill } from "@/components/grifo/table-figures";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -37,11 +34,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/core/utils";
 import {
+  formatApr,
   formatDecimal,
+  formatEuros,
   formatEurosCompact,
-  formatMonthLong,
-  formatPercent,
-  formatScore,
 } from "@/lib/features/portfolio/format";
 import {
   useBacktest,
@@ -60,6 +56,51 @@ const ScoreTrend = dynamic(
   () => import("@/components/grifo/company/score-trend").then((m) => m.ScoreTrend),
   { loading: () => <Skeleton className="h-64 w-full rounded-lg" /> },
 );
+
+/**
+ * El recálculo del mes en tres cifras, junto al importe: hay sitio de sobra a
+ * su lado. Sin la comparativa "antes X, ahora Y" en texto —la píldora ya dice
+ * cuánto y hacia dónde, y el mes concreto no cambia la decisión de nadie.
+ */
+function ConditionsSummary({
+  file,
+  className,
+}: {
+  file: Parameters<typeof LoanSimulator>[0]["file"];
+  className?: string;
+}) {
+  const current = file.latest.decision;
+  const previous = file.previous?.decision ?? null;
+  const limitDelta = previous && previous.limit > 0 ? current.limit - previous.limit : null;
+
+  return (
+    <Panel title="Qué ha cambiado este mes" className={className}>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-2">
+          <Figure
+            label="Límite vigente"
+            value={current.limit > 0 ? formatEuros(current.limit) : "Sin línea"}
+          />
+          {limitDelta ? (
+            <TrendPill
+              value={limitDelta}
+              format={(v) => `${v > 0 ? "+" : "−"}${formatEuros(Math.abs(v))}`}
+              tone={limitDelta > 0 ? "good" : "bad"}
+            />
+          ) : null}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Figure label="TAE" value={current.eligible ? formatApr(current.apr) : "—"} />
+          <Figure
+            label="Plazo máximo"
+            value={current.eligible ? `${current.maxTenorDays} días` : "—"}
+          />
+        </div>
+      </div>
+    </Panel>
+  );
+}
 
 /**
  * La serie del año largo y los dos puntos previstos, en la primera pantalla.
@@ -119,30 +160,13 @@ function CompanyView({
   return (
     <div className="flex flex-col gap-4">
       {/* La oferta es el titular de la página: lo que la empresa viene a ver y
-          lo único sobre lo que puede actuar. Todo lo demás la explica. */}
-      <LoanSimulator file={file} />
-
-      <DetailStack label="Detalle de la oferta">
-        <DetailRow title="Qué ha cambiado este mes" aside="límite, TAE y plazo">
-          <div className="-mx-4 -my-3">
-            <ConditionsTable file={file} />
-          </div>
-        </DetailRow>
-        {latest.decision.eligible ? (
-          <DetailRow title="Para llevar al banco" aside="condiciones de este mes">
-            <NegotiationReport inset file={file} />
-          </DetailRow>
-        ) : (
-          <DetailRow title="Por qué no hay línea" aside={`${latest.decision.gates.length}`}>
-            <GatesPanel inset gates={latest.decision.gates} />
-          </DetailRow>
-        )}
-        {latest.alerts.length > 0 ? (
-          <DetailRow title="Alertas" aside={`${latest.alerts.length}`}>
-            <AlertsTimeline inset alerts={latest.alerts} />
-          </DetailRow>
-        ) : null}
-      </DetailStack>
+          lo único sobre lo que puede actuar. El recálculo del mes cabe a su
+          lado en vez de debajo: la oferta no llena el ancho y dejarlo en
+          blanco no cuenta la misma historia que ponerlo a usarse. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <LoanSimulator file={file} className="lg:col-span-2" />
+        <ConditionsSummary file={file} className="h-fit" />
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <TrajectoryPanel file={file} className="lg:col-span-2" />
@@ -175,19 +199,6 @@ function CompanyView({
 
         <TabsContent value="score" className="flex flex-col gap-4 pt-4">
           <Cascade bare month={latest} />
-          <DetailStack label="Detalle del score">
-            {latest.forecast ? (
-              <DetailRow
-                title="Si nada cambia"
-                aside={`${formatScore(latest.forecast.scoreSoloPred3m)} en 3 m`}
-              >
-                <OutlookPanel inset month={latest} />
-              </DetailRow>
-            ) : null}
-            <DetailRow title="Cobertura del dato" aside={formatPercent(latest.confidence, 0)}>
-              <CoveragePanel inset coverage={latest.coverage} confidence={latest.confidence} />
-            </DetailRow>
-          </DetailStack>
         </TabsContent>
 
         {hasGroup && latest.group ? (
@@ -251,6 +262,13 @@ function CompanyView({
           </TabsContent>
         ) : null}
       </Tabs>
+
+      {/* El detalle del score, siempre visible al pie: no depende de qué
+          pestaña se mire y no necesita esconderse en un desplegable. */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <OutlookPanel month={latest} />
+        <CoveragePanel coverage={latest.coverage} confidence={latest.confidence} />
+      </div>
     </div>
   );
 }
@@ -268,17 +286,11 @@ export function EmpresaClient() {
       aria-busy={isPending}
     >
       <PageIntro
-        title="Mi score"
+        title="Tu score y oferta este mes"
         description={
           state.empresa
-            ? `Oferta calculada a cierre de ${formatMonthLong(state.mes)}. El partner solo la recibe si pides la línea (demo abierta, sin sesión).`
-            : "Tu score, por qué, y cuánto tienes disponible. El partner solo lo recibe si pides la línea."
-        }
-        aside={
-          <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
-            <Building2 aria-hidden className="size-4" />
-            {state.empresa ? "Cambiar de empresa" : "Elegir empresa"}
-          </Button>
+            ? null
+            : "Score, por qué, y cuánto hay disponible. El partner solo lo recibe si pides la línea."
         }
       />
 

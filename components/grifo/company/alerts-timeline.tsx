@@ -12,8 +12,8 @@ function leadMonths(alert: Alert): number {
 
 /**
  * La distancia entre "detectado" y "confirmado" es el argumento entero del
- * producto: los meses que el analista habría ganado. Por eso va escrita, no
- * deducible de dos fechas.
+ * producto: los meses que el analista habría ganado. Por eso va en una
+ * píldora visible, no enterrada en una frase con las dos fechas.
  */
 export function AlertsTimeline({
   alerts,
@@ -34,44 +34,36 @@ export function AlertsTimeline({
   }
 
   const list = (
-    <ul className={cn("divide-y", inset && "-mx-4 -my-3")}>
-        {alerts.map((alert) => {
-          const lead = leadMonths(alert);
-          return (
-            <li key={`${alert.type}-${alert.indicator}`} className="flex gap-2.5 px-4 py-3">
-              <AlertTriangle
-                aria-hidden
-                className={cn(
-                  "mt-0.5 size-4 shrink-0",
-                  alert.severity === "critica" ? "text-status-risk-fg" : "text-status-watch-fg",
-                )}
-              />
-              <div className="min-w-0">
-                <p className="text-sm text-pretty">{alert.label}</p>
-                <p className="text-muted-foreground mt-0.5 text-xs">
-                  Detectada en {formatMonthShort(alert.onsetMonth)}, confirmada en{" "}
-                  {formatMonthShort(alert.confirmedMonth)}
-                  {lead > 0 ? (
-                    <>
-                      {" · "}
-                      <span className="text-foreground font-medium">
-                        {lead} {lead === 1 ? "mes" : "meses"} de aviso
-                      </span>
-                    </>
-                  ) : null}
-                </p>
+    <ul className="flex flex-col gap-3">
+      {alerts.map((alert) => {
+        const lead = leadMonths(alert);
+        return (
+          <li key={`${alert.type}-${alert.indicator}`} className="flex items-start gap-2.5">
+            <AlertTriangle
+              aria-hidden
+              className={cn(
+                "mt-0.5 size-4 shrink-0",
+                alert.severity === "critica" ? "text-status-risk-fg" : "text-status-watch-fg",
+              )}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                <p className="text-sm font-medium text-pretty">{alert.label}</p>
+                {lead > 0 ? (
+                  <span className="bg-status-watch-surface text-status-watch-fg shrink-0 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums">
+                    {lead} {lead === 1 ? "mes" : "meses"} de aviso
+                  </span>
+                ) : null}
               </div>
-            </li>
-          );
-        })}
+              <p className="text-muted-foreground text-xs tabular-nums">
+                {formatMonthShort(alert.onsetMonth)} → {formatMonthShort(alert.confirmedMonth)}
+              </p>
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 
-  return inset ? (
-    list
-  ) : (
-    <Panel title="Alertas" bodyClassName="p-0">
-      {list}
-    </Panel>
-  );
+  return inset ? list : <Panel title="Alertas">{list}</Panel>;
 }

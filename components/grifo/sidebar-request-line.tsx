@@ -39,7 +39,7 @@ export function SidebarRequestLine({ className }: { className?: string }) {
     <div className={cn("px-2 pb-2", className)}>
       <RequestLineButton file={data} label="Pedir circulante" />
       <p className="text-muted-foreground mt-2 text-xs leading-relaxed text-pretty">
-        El partner verá tu score y tu límite. No verá movimientos ni facturas.
+        El partner verá la evolución de tu score. <br/>
       </p>
     </div>
   );

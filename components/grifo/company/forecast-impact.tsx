@@ -55,11 +55,17 @@ export function ForecastImpactLine({
 }
 
 /** Las cuatro cifras del impacto, para la ficha y la sheet. */
-export function ForecastImpactFigures({ impact }: { impact: ForecastImpact }) {
+export function ForecastImpactFigures({
+  impact,
+  className,
+}: {
+  impact: ForecastImpact;
+  className?: string;
+}) {
   const aprDelta =
     impact.aprNow !== null && impact.aprPred !== null ? impact.aprPred - impact.aprNow : null;
   return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+    <dl className={cn("grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4", className)}>
       <Figure
         label="Banda en 3 m"
         value={
@@ -71,7 +77,6 @@ export function ForecastImpactFigures({ impact }: { impact: ForecastImpact }) {
             </span>
           )
         }
-        hint={impact.tone === "igual" ? "Sin cambio" : impact.tone === "mejora" ? "Sube" : "Baja"}
       />
       <Figure
         label="Límite previsto"
@@ -79,9 +84,7 @@ export function ForecastImpactFigures({ impact }: { impact: ForecastImpact }) {
         hint={
           impact.limitDelta !== 0 ? (
             <span className={IMPACT_TONE[impact.tone]}>{signedEuros(impact.limitDelta)}</span>
-          ) : (
-            "Como hoy"
-          )
+          ) : undefined
         }
       />
       <Figure
@@ -90,9 +93,7 @@ export function ForecastImpactFigures({ impact }: { impact: ForecastImpact }) {
         hint={
           aprDelta !== null && aprDelta !== 0 ? (
             <span className={IMPACT_TONE[impact.tone]}>{formatSigned(aprDelta)} pp</span>
-          ) : (
-            "Base de la banda"
-          )
+          ) : undefined
         }
       />
       <Figure
@@ -107,7 +108,7 @@ export function ForecastImpactFigures({ impact }: { impact: ForecastImpact }) {
             ? "Menos intereses"
             : impact.annualDelta < 0
               ? "Más intereses"
-              : "Mismo coste"
+              : undefined
         }
       />
     </dl>

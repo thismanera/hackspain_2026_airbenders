@@ -2,7 +2,7 @@
 
 import { SearchX } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { HotList } from "@/components/grifo/hot-list";
 import { PortfolioFilters } from "@/components/grifo/portfolio-filters";
@@ -44,6 +44,7 @@ export function CarteraClient() {
   const [filters, setFilters] = usePortfolioFilters(startTransition);
   const { data } = usePortfolio(filters);
   const [, setSheet] = useSheetState();
+  const [hoveredCompany, setHoveredCompany] = useState<string | null>(null);
 
   const noneAtAll = data.totalUnfiltered === 0;
   const onChange = (update: Partial<typeof filters>) => void setFilters(update);
@@ -79,11 +80,18 @@ export function CarteraClient() {
           <div className="grid gap-4 lg:grid-cols-3">
             <TrajectoryMap
               rows={data.rows}
-              months={data.months}
+              month={data.month}
+              filters={filters}
+              onChange={onChange}
               onOpenCompany={openCompany}
+              onHoverCompany={setHoveredCompany}
               className="lg:col-span-2"
             />
-            <HotList rows={data.hot} onOpenCompany={openCompany} />
+            <HotList
+              rows={data.hot}
+              onOpenCompany={openCompany}
+              highlightedId={hoveredCompany}
+            />
           </div>
           <div className="grid gap-4 lg:grid-cols-3">
             <EstadoEvolution history={data.history} filters={filters} onChange={onChange} />

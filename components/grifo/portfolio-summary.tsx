@@ -1,19 +1,11 @@
 "use client";
 
-import {
-  ArrowDownRight,
-  ArrowLeftRight,
-  ArrowUpRight,
-  Compass,
-  ShieldAlert,
-  TrendingDown,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowLeftRight, ShieldAlert, TrendingDown, Wallet, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { TrendPill } from "@/components/grifo/table-figures";
 import { cn } from "@/lib/core/utils";
-import { formatEuros, formatMonthShort, formatSigned } from "@/lib/features/portfolio/format";
+import { formatMonthShort, formatSigned } from "@/lib/features/portfolio/format";
 import type { PortfolioSearchState } from "@/lib/features/portfolio/search-params";
 import type { PortfolioSummary } from "@/lib/features/portfolio/types";
 
@@ -42,20 +34,9 @@ function Delta({
       </span>
     );
   }
-  const Icon = value > 0 ? ArrowUpRight : ArrowDownRight;
   return (
     <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
-      <span
-        className={cn(
-          "inline-flex items-center gap-0.5 rounded-full py-px pr-1.5 pl-1 font-medium tabular-nums",
-          tone === "good" && "bg-status-healthy-surface text-status-healthy-fg",
-          tone === "bad" && "bg-status-risk-surface text-status-risk-fg",
-          tone === "neutral" && "bg-secondary text-secondary-foreground",
-        )}
-      >
-        <Icon aria-hidden className="size-3" strokeWidth={2.25} />
-        {format(value)}
-      </span>
+      <TrendPill value={value} format={format} tone={tone} />
       <span className="text-muted-foreground">vs. {formatMonthShort(previousMonth)}</span>
     </span>
   );
@@ -67,7 +48,6 @@ function KpiCard({
   value,
   unit,
   delta,
-  footer,
   accent,
   pressed,
   onToggle,
@@ -77,7 +57,6 @@ function KpiCard({
   value: string;
   unit?: string;
   delta: ReactNode;
-  footer?: ReactNode;
   accent: { tile: string };
   pressed?: boolean;
   onToggle?: () => void;
@@ -108,20 +87,16 @@ function KpiCard({
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="text-xl leading-tight font-semibold tracking-[-0.02em] tabular-nums sm:text-2xl">
+        <p className="text-3xl leading-tight font-semibold tracking-[-0.02em] tabular-nums sm:text-4xl">
           {value}
           {unit ? (
-            <span className="text-muted-foreground ml-1 text-sm font-normal sm:text-base">
+            <span className="text-muted-foreground ml-1.5 text-base font-normal sm:text-lg">
               {unit}
             </span>
           ) : null}
         </p>
         {delta}
       </div>
-
-      {footer ? (
-        <div className="text-muted-foreground truncate border-t pt-2.5 text-xs">{footer}</div>
-      ) : null}
     </Root>
   );
 }
@@ -143,35 +118,22 @@ export function PortfolioKpis({
 
   const riskOn = filters.estado === "riesgo";
   const deteriorationOn = filters.direccion === "deterioro";
-  const forecastOn = filters.prevision === "baja_banda";
-
-  const up = summary.byAccion.abrir + summary.byAccion.ampliar;
-  const down = summary.byAccion.reducir + summary.byAccion.cerrar;
-  // Un snapshot materializado antes de la previsión no trae el bloque: cero, no un error.
-  const forecast = summary.forecast ?? { bandUp: 0, bandDown: 0, annualDelta: 0 };
-  const forecastOf = (s: PortfolioSummary) => s.forecast?.bandDown ?? 0;
-  const money = forecast.annualDelta;
 
   return (
-    <section aria-label="Resumen del mes" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+    <section aria-label="Resumen del mes" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <KpiCard
         icon={Wallet}
-        label="Límite vivo"
-        value={formatEuros(summary.exposure)}
+        label="Con línea activa"
+        value={String(summary.eligible)}
+        unit={`de ${summary.total}`}
         accent={{ tile: "bg-status-healthy-surface text-status-healthy-fg" }}
         delta={
           <Delta
-            value={delta((s) => s.exposure)}
-            format={(v) => `${v > 0 ? "+" : "−"}${formatEuros(Math.abs(v))}`}
+            value={delta((s) => s.eligible)}
+            format={(v) => formatSigned(v, 0)}
             tone="neutral"
             previousMonth={previousMonth}
           />
-        }
-        footer={
-          <>
-            <span className="text-foreground tabular-nums">{summary.eligible}</span> empresas con
-            línea activa
-          </>
         }
       />
 
@@ -189,7 +151,6 @@ export function PortfolioKpis({
             previousMonth={previousMonth}
           />
         }
-        footer="Score <45 o impago 2 meses"
         pressed={riskOn}
         onToggle={() => onChange({ estado: riskOn ? "todos" : "riesgo" })}
       />
@@ -208,7 +169,6 @@ export function PortfolioKpis({
             previousMonth={previousMonth}
           />
         }
-        footer="Baja ≥6 pts en 3 meses"
         pressed={deteriorationOn}
         onToggle={() => onChange({ direccion: deteriorationOn ? "todas" : "deterioro" })}
       />
@@ -227,50 +187,6 @@ export function PortfolioKpis({
             previousMonth={previousMonth}
           />
         }
-        footer={
-          <>
-            <span className="text-status-healthy-fg tabular-nums">{up} suben</span>
-            {" · "}
-            <span className="text-status-risk-fg tabular-nums">{down} bajan</span>
-          </>
-        }
-      />
-
-      {/* La previsión va en sombra (decisión 38): no decide, pero dice quién va a
-          cambiar de banda y cuánto dinero hay en juego. Pulsar filtra las que bajan. */}
-      <KpiCard
-        icon={Compass}
-        label="Bajan de banda en 3 m"
-        value={String(forecast.bandDown)}
-        unit={`de ${summary.total}`}
-        accent={{ tile: "bg-status-watch-surface text-status-watch-fg" }}
-        delta={
-          <Delta
-            value={delta(forecastOf)}
-            format={(v) => formatSigned(v, 0)}
-            tone={delta(forecastOf) > 0 ? "bad" : "good"}
-            previousMonth={previousMonth}
-          />
-        }
-        footer={
-          <>
-            <span className="text-status-healthy-fg tabular-nums">{forecast.bandUp} suben</span>
-            {" · "}
-            <span
-              className={cn(
-                "tabular-nums",
-                money > 0 && "text-status-healthy-fg",
-                money < 0 && "text-status-risk-fg",
-              )}
-            >
-              {money === 0
-                ? "intereses sin cambio"
-                : `${money > 0 ? "+" : "−"}${formatEuros(Math.abs(money))}/año`}
-            </span>
-          </>
-        }
-        pressed={forecastOn}
-        onToggle={() => onChange({ prevision: forecastOn ? "todas" : "baja_banda" })}
       />
     </section>
   );

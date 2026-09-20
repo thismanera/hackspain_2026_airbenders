@@ -8,20 +8,21 @@ import { formatApr, formatEuros } from "@/lib/features/portfolio/format";
 import type { TenorOption } from "@/lib/features/portfolio/types";
 
 /**
- * La misma región factible que `OfferMenu`, pero para la vista de empresa: el
- * plazo se elige en una fila de fichas y las tres cifras que dependen de él se
- * leen de un vistazo. La tabla de cinco filas dice lo mismo, pero obliga a
- * comparar tres columnas para responder «¿cuánto me llevo y qué me cuesta?».
+ * El selector de plazo, controlado desde fuera: quien lo usa (`LoanSimulator`)
+ * necesita saber qué plazo está activo para que el número de cabecera —cuánto
+ * hay disponible— responda al plazo elegido en vez de vivir por su cuenta.
  */
 export function OfferTenorPicker({
   options,
+  value,
+  onChange,
   className,
 }: {
   options: TenorOption[];
+  value: number | null;
+  onChange: (days: number) => void;
   className?: string;
 }) {
-  const [days, setDays] = useState<number | null>(null);
-
   if (options.length === 0) {
     return (
       <p className={cn("text-muted-foreground text-sm text-pretty", className)}>
@@ -30,52 +31,39 @@ export function OfferTenorPicker({
     );
   }
 
-  const active = options.find((option) => option.days === days) ?? options[options.length - 1]!;
+  const activeDays = options.some((option) => option.days === value)
+    ? value
+    : options[options.length - 1]!.days;
 
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
-      <fieldset>
-        <legend className="text-muted-foreground mb-2.5 text-xs font-medium">Elige el plazo</legend>
-        <div className="flex flex-wrap gap-1.5">
-          {options.map((option) => {
-            const isActive = option.days === active.days;
-            return (
-              <label
-                key={option.days}
-                className={cn(
-                  "has-[:focus-visible]:ring-ring cursor-pointer rounded-full border px-3 py-1 text-xs font-medium tabular-nums transition-colors duration-150 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-offset-2",
-                  isActive
-                    ? "bg-primary text-primary-foreground border-transparent"
-                    : "bg-card hover:bg-muted",
-                )}
-              >
-                <input
-                  type="radio"
-                  name="tenor-picker"
-                  className="sr-only"
-                  checked={isActive}
-                  onChange={() => setDays(option.days)}
-                />
-                {option.days} días
-              </label>
-            );
-          })}
-        </div>
-      </fieldset>
-
-      <p aria-live="polite" className="text-sm leading-relaxed text-pretty">
-        Dispones de{" "}
-        <span className="font-semibold tabular-nums">{formatEuros(active.maxAmount)}</span> al{" "}
-        <span className="font-semibold tabular-nums">{formatApr(active.apr)}</span>
-        {active.cost > 0 ? (
-          <>
-            {" "}
-            · <span className="tabular-nums">{formatEuros(active.cost)}</span> de intereses
-          </>
-        ) : null}
-        .
-      </p>
-    </div>
+    <fieldset className={className}>
+      <legend className="sr-only">Elige el plazo</legend>
+      <div className="bg-muted inline-flex w-fit gap-0.5 rounded-full p-0.5">
+        {options.map((option) => {
+          const isActive = option.days === activeDays;
+          return (
+            <label
+              key={option.days}
+              className={cn(
+                "has-[:focus-visible]:ring-ring cursor-pointer rounded-full px-2.5 py-1 text-xs font-medium tabular-nums transition-colors duration-150 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-offset-2",
+                isActive
+                  ? "bg-card text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <input
+                type="radio"
+                name="tenor-picker"
+                className="sr-only"
+                checked={isActive}
+                onChange={() => onChange(option.days)}
+              />
+              {option.days}d
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
 

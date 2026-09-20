@@ -2,73 +2,61 @@
 
 import { Check, Printer } from "lucide-react";
 
-import { Panel } from "@/components/grifo/panel";
+import { Figure, Panel } from "@/components/grifo/panel";
 import { Button } from "@/components/ui/button";
 import { BANK_ASSUMPTIONS, bankComparison } from "@/lib/features/portfolio/bank-comparison";
-import {
-  formatApr,
-  formatDays,
-  formatEuros,
-  formatScore,
-  formatSigned,
-} from "@/lib/features/portfolio/format";
+import { formatApr, formatDays, formatEuros, formatSigned } from "@/lib/features/portfolio/format";
 import type { CompanyFileResponse } from "@/lib/features/portfolio/types";
 
-export function NegotiationReport({
-  file,
-  inset = false,
-}: {
-  file: CompanyFileResponse;
-  inset?: boolean;
-}) {
+/**
+ * Las condiciones del mes en cifras, para llevar al banco. Antes era un párrafo
+ * con las mismas tres cifras dentro de una frase; en tarjeta se leen de un
+ * vistazo como lo que son, tres datos, no una explicación.
+ */
+export function NegotiationReport({ file }: { file: CompanyFileResponse }) {
   const { latest } = file;
   const { decision } = latest;
   const comparison = bankComparison(decision);
 
-  const body = (
-    <div className="flex flex-col gap-3">
-      <p className="text-sm text-pretty">
-        {decision.eligible
-          ? `Línea de ${formatEuros(decision.limit)} al ${formatApr(decision.apr)}, hasta ${formatDays(decision.maxTenorDays)}. Score ${formatScore(latest.score)}, banda ${decision.band}.`
-          : `Este mes no hay línea. Score ${formatScore(latest.score)}, banda ${decision.band}.`}
-      </p>
-      <ul className="flex flex-col gap-2 text-sm">
-        <li className="flex items-start gap-2">
-          <Check aria-hidden className="text-status-healthy-fg mt-0.5 size-3.5 shrink-0" />
-          <span>Recalculada cada mes con movimientos y facturas, no con cuentas anuales.</span>
-        </li>
-        <li className="flex items-start gap-2">
-          <Check aria-hidden className="text-status-healthy-fg mt-0.5 size-3.5 shrink-0" />
-          <span>Sin aval de socios en la oferta de Embat.</span>
-        </li>
-        <li className="flex items-start gap-2">
-          <Check aria-hidden className="text-status-healthy-fg mt-0.5 size-3.5 shrink-0" />
-          <span>Lleva estas condiciones a tu banco si quieres igualar precio o plazo.</span>
-        </li>
-      </ul>
-      {comparison ? (
-        <p className="text-muted-foreground border-t pt-3 text-xs text-pretty">
-          Frente a una póliza bancaria al {formatApr(comparison.bankApr)} con{" "}
-          {formatApr(BANK_ASSUMPTIONS.openingFee * 100)} de apertura ({BANK_ASSUMPTIONS.label}),
-          sobre {formatEuros(comparison.volume)} dispuestos un año:{" "}
-          {comparison.savings >= 0
-            ? `ahorras ${formatEuros(comparison.savings)}`
-            : `Embat sale ${formatEuros(-comparison.savings)} más cara`}{" "}
-          ({formatSigned(comparison.aprGap, 1)} pts de TAE).
-        </p>
-      ) : null}
-      <Button variant="outline" size="sm" className="w-fit" onClick={() => window.print()}>
-        <Printer aria-hidden className="size-3.5" />
-        Imprimir
-      </Button>
-    </div>
-  );
-
-  if (inset) return body;
-
   return (
-    <Panel title="Para llevar al banco" description="Las condiciones de este mes, para negociar.">
-      {body}
+    <Panel title="Para llevar al banco">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap gap-x-6 gap-y-3">
+          <Figure label="Línea" value={formatEuros(decision.limit)} />
+          <Figure label="TAE" value={formatApr(decision.apr)} />
+          <Figure label="Plazo máximo" value={formatDays(decision.maxTenorDays)} />
+        </div>
+
+        <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
+          <li className="flex items-center gap-1.5">
+            <Check aria-hidden className="text-status-healthy-fg size-3.5 shrink-0" />
+            Sin aval de socios
+          </li>
+          <li className="flex items-center gap-1.5">
+            <Check aria-hidden className="text-status-healthy-fg size-3.5 shrink-0" />
+            Recalculada cada mes
+          </li>
+        </ul>
+
+        {comparison ? (
+          <div className="border-t pt-3">
+            <Figure
+              label={`Ahorro vs. banco al ${formatApr(comparison.bankApr)} (${BANK_ASSUMPTIONS.label})`}
+              value={
+                comparison.savings >= 0
+                  ? formatEuros(comparison.savings)
+                  : `−${formatEuros(-comparison.savings)}`
+              }
+              hint={`${formatSigned(comparison.aprGap, 1)} pts de TAE sobre ${formatEuros(comparison.volume)} un año`}
+            />
+          </div>
+        ) : null}
+
+        <Button variant="outline" size="sm" className="w-fit" onClick={() => window.print()}>
+          <Printer aria-hidden className="size-3.5" />
+          Imprimir
+        </Button>
+      </div>
     </Panel>
   );
 }

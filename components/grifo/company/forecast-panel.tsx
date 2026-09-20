@@ -127,6 +127,18 @@ export function ForecastPanel({
                     ? `Dentro de ${String(value).slice(1)}eses`
                     : formatMonthShort(String(value))
                 }
+                formatter={(value, name, item) => (
+                  <div className="flex w-full items-center justify-between gap-2">
+                    <span className="text-muted-foreground">
+                      {config[item.dataKey as keyof typeof config]?.label ?? name}
+                    </span>
+                    <span className="text-foreground font-mono font-medium tabular-nums">
+                      {Array.isArray(value)
+                        ? `${formatScore(Number(value[0]))}–${formatScore(Number(value[1]))}`
+                        : formatScore(Number(value))}
+                    </span>
+                  </div>
+                )}
                 indicator="line"
               />
             }

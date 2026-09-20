@@ -1,7 +1,36 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ArrowDownRight, ArrowUpRight } from "lucide-react";
 
 import { cn } from "@/lib/core/utils";
 import { formatEuros, formatScore, formatSigned } from "@/lib/features/portfolio/format";
+
+/** Flecha + cifra en una píldora de color. El movimiento se lee sin frase. */
+export function TrendPill({
+  value,
+  format,
+  tone,
+  className,
+}: {
+  value: number;
+  format: (value: number) => string;
+  tone: "good" | "bad" | "neutral";
+  className?: string;
+}) {
+  const Icon = value > 0 ? ArrowUpRight : ArrowDownRight;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded-full py-px pr-1.5 pl-1 text-xs font-medium tabular-nums",
+        tone === "good" && "bg-status-healthy-surface text-status-healthy-fg",
+        tone === "bad" && "bg-status-risk-surface text-status-risk-fg",
+        tone === "neutral" && "bg-secondary text-secondary-foreground",
+        className,
+      )}
+    >
+      <Icon aria-hidden className="size-3" strokeWidth={2.25} />
+      {format(value)}
+    </span>
+  );
+}
 
 export function ScoreFigure({
   value,

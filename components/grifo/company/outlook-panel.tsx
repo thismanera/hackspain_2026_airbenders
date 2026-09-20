@@ -38,11 +38,14 @@ function ScoreTrack({
   const hasRange = low !== undefined && high !== undefined && high > low;
 
   return (
-    <div className="relative h-2">
+    <div className="relative h-3">
+      {/* Pista neutra siempre; el rango es un tramo más oscuro del mismo gris,
+          nunca del color de banda. Si tiñe con el color del punto, el punto
+          —lo único que de verdad hay que ver— se funde con lo que tiene detrás. */}
       <div className="bg-muted absolute inset-0 overflow-hidden rounded-full">
         {hasRange ? (
           <div
-            className={cn("absolute inset-y-0 rounded-full opacity-30", BAND_FILL[band])}
+            className="bg-foreground/20 absolute inset-y-0 rounded-full"
             style={{ left: `${clamp(low)}%`, width: `${clamp(high) - clamp(low)}%` }}
           />
         ) : null}
@@ -55,10 +58,12 @@ function ScoreTrack({
           style={{ left: `${edge}%` }}
         />
       ))}
+      {/* Anillo del color de la tarjeta: separa el punto de lo que tenga detrás
+          en vez de fundirse con ello. */}
       <span
         aria-hidden
         className={cn(
-          "absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full",
+          "absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_0_0_3px_var(--card)]",
           BAND_FILL[band],
         )}
         style={{ left: `${clamp(score)}%` }}
