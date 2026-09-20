@@ -1,59 +1,39 @@
 "use client";
 
-import { Check, Lock, Send, ShieldCheck, TrendingDown, TrendingUp, Undo2 } from "lucide-react";
+import { Lock } from "lucide-react";
 
 import { ActionBadge } from "@/components/grifo/action-badge";
 import { OfferTenorPicker } from "@/components/grifo/company/offer-menu";
+import { RequestLineButton } from "@/components/grifo/company/request-line";
 import { Panel } from "@/components/grifo/panel";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/core/utils";
-import { formatEuros, formatMonthLong, formatMonthShort } from "@/lib/features/portfolio/format";
+import { formatEuros, formatMonthShort } from "@/lib/features/portfolio/format";
 import { decisionNarrative } from "@/lib/features/portfolio/narrative";
-import { useOptIn } from "@/lib/features/portfolio/opt-in";
 import type { CompanyFileResponse } from "@/lib/features/portfolio/types";
 
 /**
- * Lo que cambió respecto al mes pasado, en una sola ficha. Sustituye a la tabla
- * de antes/ahora en la cabecera de la oferta: tres filas por dos columnas para
- * decir «has subido 99.000 €» es hacer que el lector calcule la resta.
+ * Cuánto ha cambiado el límite, en las palabras del motor. La referencia es
+ * `decision.previousLimit` —lo que el motor registró el mes pasado— y no la
+ * decisión del snapshot anterior: cuando una empresa deja de ser elegible un mes
+ * las dos cifras no coinciden, y con dos fuentes la tarjeta se contradecía a sí
+ * misma («+137.000 €, antes sin línea» encima de «110.000 € → 137.000 €»).
  */
-function LimitDelta({ file }: { file: CompanyFileResponse }) {
-  const previous = file.previous?.decision ?? null;
+function limitChange(file: CompanyFileResponse): string | null {
+  const { decision } = file.latest;
   const previousMonth = file.previous?.month ?? null;
-  if (!previous || !previousMonth) return null;
+  const delta = decision.limit - decision.previousLimit;
+  const since = previousMonth ? ` desde ${formatMonthShort(previousMonth)}` : "";
 
-  const before = previous.eligible ? previous.limit : 0;
-  const delta = file.latest.decision.limit - before;
-  if (delta === 0) {
-    return (
-      <span className="text-muted-foreground shrink-0 text-xs">
-        Igual que en {formatMonthShort(previousMonth)}
-      </span>
-    );
-  }
-
-  const up = delta > 0;
-  const Icon = up ? TrendingUp : TrendingDown;
-
-  return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium tabular-nums",
-        up
-          ? "bg-status-healthy-surface text-status-healthy-fg"
-          : "bg-status-watch-surface text-status-watch-fg",
-      )}
-    >
-      <Icon aria-hidden className="size-3.5" />
-      {up ? "+" : "−"}
-      {formatEuros(Math.abs(delta))}
-      <span className="font-normal opacity-80">
-        {before === 0 ? "· antes sin línea" : `vs. ${formatMonthShort(previousMonth)}`}
-      </span>
-    </span>
-  );
+  if (decision.previousLimit === 0) return previousMonth ? `nuevos${since}` : null;
+  if (delta === 0) return `sin cambio${since}`;
+  return `${delta > 0 ? "+" : "−"}${formatEuros(Math.abs(delta))}${since}`;
 }
 
+/**
+ * La oferta del mes: el importe, cuánto se mueve y en qué plazos se puede usar.
+ * Nada más. El titular redactado repetía las mismas cifras que ya están en
+ * pantalla y la tabla de antes/ahora vive plegada debajo, donde se consulta si
+ * hace falta en vez de leerse siempre.
+ */
 export function LoanSimulator({
   file,
   className,
@@ -63,10 +43,7 @@ export function LoanSimulator({
 }) {
   const { latest, previous } = file;
   const { decision } = latest;
-  const { requestedMonth, request, withdraw } = useOptIn(file.company.id);
-  const requested = requestedMonth !== null;
   const changed = decision.action !== "mantener";
-  const headline = decisionNarrative(file).headline;
 
   if (!decision.eligible) {
     return (
@@ -78,7 +55,7 @@ export function LoanSimulator({
       >
         <p className="flex items-start gap-2.5 text-sm leading-relaxed text-pretty">
           <Lock aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
-          <span className="max-w-[65ch]">{headline}</span>
+          <span className="max-w-[65ch]">{decisionNarrative(file).headline}</span>
         </p>
         {previous?.decision.eligible ? (
           <p className="text-muted-foreground mt-3 border-t pt-3 text-xs text-pretty">
@@ -90,77 +67,32 @@ export function LoanSimulator({
     );
   }
 
+  const change = limitChange(file);
+
   return (
     <Panel
       title="Tu oferta este mes"
       description="Recalculada cada mes con el score; el partner solo la recibe si la pides."
       aside={<ActionBadge action={decision.action} changed={changed} />}
       className={className}
-      bodyClassName="p-0"
+      bodyClassName="flex flex-col gap-5"
     >
-      {/* El acto, y nada más: cifra, cuánto ha cambiado y el botón. El porqué va
-          debajo en una frase, y el detalle de plazos en su propio bloque. */}
-      <div className="flex flex-col gap-4 px-4 py-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-          <p className="flex items-baseline gap-2">
-            <span className="text-[2rem] leading-none font-semibold tracking-[-0.02em] tabular-nums">
-              {formatEuros(decision.limit)}
-            </span>
-            <span className="text-muted-foreground text-sm">preaprobados</span>
-          </p>
-          <LimitDelta file={file} />
-        </div>
+      {/* Importe y plazos son la misma cosa —la oferta— y van en un solo cuerpo.
+          Separarlos con una línea los convertía en dos cajas dentro de la caja. */}
+      <p className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+        <span className="text-3xl leading-none font-semibold tracking-[-0.02em] tabular-nums">
+          {formatEuros(decision.limit)}
+        </span>
+        <span className="text-muted-foreground text-sm">
+          preaprobados{change ? ` · ${change}` : ""}
+        </span>
+      </p>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="flex shrink-0 items-center gap-2">
-            {requested ? (
-              <>
-                {/* Pedida ya no es un botón apagado: es un estado, y los estados
-                    de este sistema se dicen con palabra además de con color. */}
-                <span className="bg-status-healthy-surface text-status-healthy-fg inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium">
-                  <Check aria-hidden className="size-3.5" strokeWidth={2.5} />
-                  Línea pedida
-                </span>
-                <Button variant="outline" size="lg" onClick={withdraw}>
-                  <Undo2 aria-hidden className="size-3.5" />
-                  Retirar petición
-                </Button>
-              </>
-            ) : (
-              <Button size="lg" onClick={() => request(latest.month)}>
-                <Send aria-hidden className="size-4" />
-                Pedir {formatEuros(decision.limit)}
-              </Button>
-            )}
-          </div>
-          <p
-            aria-live="polite"
-            className="text-muted-foreground flex max-w-[52ch] items-start gap-1.5 text-xs text-pretty"
-          >
-            <ShieldCheck aria-hidden className="mt-px size-3.5 shrink-0" />
-            <span>
-              {requested ? (
-                <>
-                  Pedida en {formatMonthLong(requestedMonth)}. El partner ve score y límite; no ve
-                  movimientos ni facturas.
-                </>
-              ) : (
-                <>Al pedir, el partner verá score y límite. No verá movimientos ni facturas.</>
-              )}
-            </span>
-          </p>
-        </div>
+      {decision.menu.length > 0 ? <OfferTenorPicker options={decision.menu} /> : null}
 
-        <p className="text-muted-foreground max-w-[65ch] border-t pt-3 text-xs leading-relaxed text-pretty">
-          {headline}
-        </p>
-      </div>
-
-      {decision.menu.length > 0 ? (
-        <div className="border-t px-4 py-4">
-          <OfferTenorPicker options={decision.menu} />
-        </div>
-      ) : null}
+      {/* En pantalla ancha el acto vive en la barra lateral, siempre a la vista.
+          Aquí solo aparece cuando esa barra está plegada en un cajón. */}
+      <RequestLineButton file={file} className="lg:hidden" />
     </Panel>
   );
 }

@@ -111,17 +111,17 @@ export const loadCompareSearchParams = createLoader(compareSearchParams);
 
 /**
  * Las pestañas de la vista de empresa. No son las de la ficha del partner: la
- * empresa entra por su oferta, no por la decisión del analista, y no tiene
- * pestaña de puertas porque el «por qué no hay línea» va dentro de la oferta.
+ * oferta no es una de ellas, porque es el titular de la página y vive encima de
+ * todas; lo que queda debajo es la evidencia que la sostiene.
  */
-export const PYME_TABS = ["oferta", "score", "grupo", "pares", "revision"] as const;
+export const PYME_TABS = ["score", "grupo", "pares", "revision"] as const;
 export type PymeTab = (typeof PYME_TABS)[number];
 
 /** La vista pyme mira una sola empresa; la primera de la cartera si no se dice cuál. */
 export const pymeSearchParams = {
   mes: parseAsStringLiteral(CALENDAR).withDefault(LATEST_MONTH),
-  empresa: parseAsString.withDefault("COMP_0357"),
-  pestana: parseAsStringLiteral(PYME_TABS).withDefault("oferta"),
+  empresa: parseAsString.withDefault("COMP_1048"),
+  pestana: parseAsStringLiteral(PYME_TABS).withDefault("score"),
 };
 
 export const loadPymeSearchParams = createLoader(pymeSearchParams);
