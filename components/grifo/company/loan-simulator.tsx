@@ -107,7 +107,10 @@ export function LoanSimulator({
 
         {active ? (
           <>
-            <Figure label="TAE" value={formatApr(active.apr)} />
+            {/* La TAE nombra su plazo: es la del plazo marcado en los pills, no
+                una tarifa fija, y así no choca con la TAE fija de "Qué ha
+                cambiado este mes", que es la de 30 días. */}
+            <Figure label={`TAE ${active.days} días`} value={formatApr(active.apr)} />
             {active.cost > 0 ? <Figure label="Intereses" value={formatEuros(active.cost)} /> : null}
           </>
         ) : null}

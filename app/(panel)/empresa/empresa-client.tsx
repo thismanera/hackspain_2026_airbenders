@@ -91,7 +91,10 @@ function ConditionsSummary({
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Figure label="TAE" value={current.eligible ? formatApr(current.apr) : "—"} />
+          {/* "30 días" en la etiqueta: es la TAE del plazo más corto (la que usa
+              el motor como TAE oficial del mes), no la del plazo marcado en la
+              oferta de arriba, que puede ser mayor si el plazo es más largo. */}
+          <Figure label="TAE 30 días" value={current.eligible ? formatApr(current.apr) : "—"} />
           <Figure
             label="Plazo máximo"
             value={current.eligible ? `${current.maxTenorDays} días` : "—"}
@@ -126,7 +129,7 @@ function TrajectoryPanel({
           : "Score mes a mes desde que hay movimientos."
       }
       className={cn("flex flex-col", className)}
-      bodyClassName="flex-1"
+      bodyClassName="flex-1 lg:row-span-2 lg:grid lg:grid-rows-subgrid"
     >
       {forecast ? <ForecastPanel file={file} inset /> : <ScoreTrend history={file.history} inset />}
     </Panel>
@@ -168,9 +171,21 @@ function CompanyView({
         <ConditionsSummary file={file} className="h-fit" />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <TrajectoryPanel file={file} className="lg:col-span-2" />
-        <BandLadderCard file={file} benchmark={benchmark} month={month} />
+      {/* Tres filas explícitas + subgrid (cabecera / contenido / TellMe): la
+          caja TellMe de cada tarjeta arranca en el mismo punto aunque el
+          contenido de encima tenga alturas distintas (grupo con hermanas vs.
+          sin grupo, gráfico vs. bloques de score). */}
+      <div className="grid gap-4 lg:grid-cols-3 lg:grid-rows-[auto_auto_1fr]">
+        <TrajectoryPanel
+          file={file}
+          className="lg:col-span-2 lg:row-span-3 lg:grid lg:grid-rows-subgrid"
+        />
+        <BandLadderCard
+          file={file}
+          benchmark={benchmark}
+          month={month}
+          className="lg:row-span-3 lg:grid lg:grid-rows-subgrid"
+        />
       </div>
 
       <Tabs

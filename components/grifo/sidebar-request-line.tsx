@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { RequestLineButton } from "@/components/grifo/company/request-line";
 import { cn } from "@/lib/core/utils";
@@ -26,6 +27,14 @@ export function SidebarRequestLine({ className }: { className?: string }) {
   const companyId = searchParams.get("empresa") || DEMO_EMPRESA_ID;
   const month = searchParams.get("mes") || LATEST_MONTH;
 
+  // El layout se comparte entre rutas y puede SSR-earse/cachearse por su
+  // cuenta, sin ver todavía el `pathname` ni el `queryClient` reales de la
+  // petición. Hasta que no estemos montados en cliente no confiamos en
+  // `active`/`data`, o el primer render del servidor (siempre `null`) puede
+  // no coincidir con el del cliente y React descarta e hidrata de nuevo el árbol.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const { data } = useQuery({
     queryKey: portfolioKeys.company(companyId, month),
     queryFn: () => fetchCompanyFile(companyId, month),
@@ -33,7 +42,7 @@ export function SidebarRequestLine({ className }: { className?: string }) {
     staleTime: 60 * 60 * 1000,
   });
 
-  if (!active || !data?.latest.decision.eligible) return null;
+  if (!mounted || !active || !data?.latest.decision.eligible) return null;
 
   return (
     <div className={cn("px-2 pb-2", className)}>

@@ -86,108 +86,112 @@ export function ForecastPanel({
 
   const body = (
     <>
-      <ChartContainer config={config} className="aspect-auto h-56 w-full">
-        <ComposedChart data={data} margin={{ top: 8, right: 28, bottom: 0, left: 0 }}>
-          <CartesianGrid vertical={false} strokeDasharray="3 3" />
-          <XAxis
-            dataKey="month"
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            minTickGap={16}
-            tickFormatter={(value) => tick(String(value))}
-          />
-          <YAxis
-            domain={[0, 100]}
-            ticks={[0, 25, 50, 75, 100]}
-            tickLine={false}
-            axisLine={false}
-            tickMargin={4}
-            width={32}
-          />
-          {BAND_LINES.map((band) => (
-            <ReferenceLine
-              key={band.value}
-              y={band.value}
-              stroke="var(--border)"
-              strokeDasharray="4 4"
-              label={{
-                value: band.label,
-                position: "right",
-                fill: "var(--muted-foreground)",
-                fontSize: 11,
-              }}
+      <div className="flex flex-col">
+        <ChartContainer config={config} className="aspect-auto h-56 w-full">
+          <ComposedChart data={data} margin={{ top: 8, right: 28, bottom: 0, left: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis
+              dataKey="month"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              minTickGap={16}
+              tickFormatter={(value) => tick(String(value))}
             />
-          ))}
-          <ChartTooltip
-            content={
-              <ChartTooltipContent
-                labelFormatter={(value) =>
-                  String(value).startsWith("+")
-                    ? `Dentro de ${String(value).slice(1)}eses`
-                    : formatMonthShort(String(value))
-                }
-                formatter={(value, name, item) => (
-                  <div className="flex w-full items-center justify-between gap-2">
-                    <span className="text-muted-foreground">
-                      {config[item.dataKey as keyof typeof config]?.label ?? name}
-                    </span>
-                    <span className="text-foreground font-mono font-medium tabular-nums">
-                      {Array.isArray(value)
-                        ? `${formatScore(Number(value[0]))}–${formatScore(Number(value[1]))}`
-                        : formatScore(Number(value))}
-                    </span>
-                  </div>
-                )}
-                indicator="line"
+            <YAxis
+              domain={[0, 100]}
+              ticks={[0, 25, 50, 75, 100]}
+              tickLine={false}
+              axisLine={false}
+              tickMargin={4}
+              width={32}
+            />
+            {BAND_LINES.map((band) => (
+              <ReferenceLine
+                key={band.value}
+                y={band.value}
+                stroke="var(--border)"
+                strokeDasharray="4 4"
+                label={{
+                  value: band.label,
+                  position: "right",
+                  fill: "var(--muted-foreground)",
+                  fontSize: 11,
+                }}
               />
-            }
-          />
-          <Area
-            dataKey="range"
-            type="monotone"
-            stroke="none"
-            fill="var(--color-range)"
-            fillOpacity={0.12}
-            isAnimationActive={false}
-            connectNulls
-          />
-          <Line
-            dataKey="score"
-            type="monotone"
-            stroke="var(--color-score)"
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 4 }}
-            isAnimationActive={false}
-          />
-          <Line
-            dataKey="pred"
-            type="monotone"
-            stroke="var(--color-pred)"
-            strokeWidth={2}
-            strokeDasharray="5 4"
-            dot={{ r: 3 }}
-            isAnimationActive={false}
-            connectNulls
-          />
-        </ComposedChart>
-      </ChartContainer>
+            ))}
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  labelFormatter={(value) =>
+                    String(value).startsWith("+")
+                      ? `Dentro de ${String(value).slice(1)}eses`
+                      : formatMonthShort(String(value))
+                  }
+                  formatter={(value, name, item) => (
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <span className="text-muted-foreground">
+                        {config[item.dataKey as keyof typeof config]?.label ?? name}
+                      </span>
+                      <span className="text-foreground font-mono font-medium tabular-nums">
+                        {Array.isArray(value)
+                          ? `${formatScore(Number(value[0]))}–${formatScore(Number(value[1]))}`
+                          : formatScore(Number(value))}
+                      </span>
+                    </div>
+                  )}
+                  indicator="line"
+                />
+              }
+            />
+            <Area
+              dataKey="range"
+              type="monotone"
+              stroke="none"
+              fill="var(--color-range)"
+              fillOpacity={0.12}
+              isAnimationActive={false}
+              connectNulls
+            />
+            <Line
+              dataKey="score"
+              type="monotone"
+              stroke="var(--color-score)"
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 4 }}
+              isAnimationActive={false}
+            />
+            <Line
+              dataKey="pred"
+              type="monotone"
+              stroke="var(--color-pred)"
+              strokeWidth={2}
+              strokeDasharray="5 4"
+              dot={{ r: 3 }}
+              isAnimationActive={false}
+              connectNulls
+            />
+          </ComposedChart>
+        </ChartContainer>
 
-      <p className="text-muted-foreground mt-2 text-xs text-pretty">
-        Hoy {formatScore(latest.score)}; en 3 meses {formatScore(forecast.scoreSoloPred3m)} (rango{" "}
-        {formatScore(forecast.p10Solo3m)}–{formatScore(forecast.p90Solo3m)}); en 6 meses{" "}
-        {formatScore(forecast.scoreSoloPred6m)} (rango {formatScore(forecast.p10Solo6m)}–
-        {formatScore(forecast.p90Solo6m)}).
-      </p>
+        <p className="text-muted-foreground mt-2 text-xs text-pretty">
+          Hoy {formatScore(latest.score)}; en 3 meses {formatScore(forecast.scoreSoloPred3m)} (rango
+          {" "}
+          {formatScore(forecast.p10Solo3m)}–{formatScore(forecast.p90Solo3m)}); en 6 meses{" "}
+          {formatScore(forecast.scoreSoloPred6m)} (rango {formatScore(forecast.p10Solo6m)}–
+          {formatScore(forecast.p90Solo6m)}).
+        </p>
 
-      {forecast.impact ? (
-        <>
+        {forecast.impact ? (
           <div className="mt-4 border-t pt-4">
             <ForecastImpactFigures impact={forecast.impact} />
           </div>
-          <ForecastImpactLine forecast={forecast} showAction className="mt-4 border-t pt-4" />
-        </>
+        ) : null}
+      </div>
+
+      {forecast.impact ? (
+        <ForecastImpactLine forecast={forecast} showAction className="mt-4" />
       ) : null}
     </>
   );

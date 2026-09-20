@@ -1,4 +1,5 @@
 import { Figure } from "@/components/grifo/panel";
+import { TellMeMark } from "@/components/grifo/tellme-mark";
 import { cn } from "@/lib/core/utils";
 import { anticipation, impactSentence } from "@/lib/features/portfolio/forecast-impact";
 import { formatApr, formatEuros, formatSigned } from "@/lib/features/portfolio/format";
@@ -35,22 +36,26 @@ export function ForecastImpactLine({
   const { impact } = forecast;
   const action = showAction ? anticipation(impact) : null;
   return (
-    <div className={cn("flex flex-col gap-1.5 text-sm", className)}>
+    <section
+      aria-label="Lectura de inteligencia artificial"
+      className={cn("ai-panel border-ai-border rounded-xl border px-4 py-3.5", className)}
+    >
+      <p className="text-ai-accent mb-2.5 flex items-center gap-2 text-sm font-medium">
+        <TellMeMark size={64} className="size-8" />
+        <span className="ai-label text-base">TellMe</span>
+        <span className="sr-only">, redactada con plantilla, no decide</span>
+      </p>
       <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-        <p className={cn("max-w-[60ch] text-pretty", IMPACT_TONE[impact.tone])}>
+        <p className="text-ai-fg max-w-[60ch] text-sm text-pretty">
           {impactSentence(impact, voice)}
         </p>
         {action ? (
-          <span className="bg-secondary text-secondary-foreground inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium">
+          <span className="bg-ai-accent/20 text-ai-fg inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium">
             {action}
           </span>
         ) : null}
       </div>
-      <p className="text-muted-foreground text-xs">
-        Previsión en sombra{forecast.sinTendencia ? ", sin tendencia suficiente" : ""}: informa,
-        pero no cambia la decisión de este mes.
-      </p>
-    </div>
+    </section>
   );
 }
 

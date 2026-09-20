@@ -1,4 +1,5 @@
 import { Panel } from "@/components/grifo/panel";
+import { TellMeMark } from "@/components/grifo/tellme-mark";
 import { TrendDelta } from "@/components/grifo/trend";
 import { cn } from "@/lib/core/utils";
 import { formatEuros, formatScore } from "@/lib/features/portfolio/format";
@@ -138,8 +139,6 @@ export function OutlookPanel({ month, inset = false }: { month: MonthScore; inse
   }
 
   const { impact } = forecast;
-  const groupDiffers =
-    month.scoreGrupo !== undefined && Math.abs(month.scoreGrupo - month.score) >= 0.5;
   const money =
     impact && impact.annualDelta !== 0
       ? `${impact.annualDelta > 0 ? "Te ahorrarías" : "Pagarías"} ${formatEuros(Math.abs(impact.annualDelta))} al año en intereses`
@@ -163,23 +162,16 @@ export function OutlookPanel({ month, inset = false }: { month: MonthScore; inse
         />
       </div>
 
-      <div className="flex flex-col gap-1 border-t pt-3">
-        <p className="text-sm text-pretty">{money}.</p>
-        <p className="text-muted-foreground text-xs text-pretty">
-          Previsión en sombra: informa, no cambia la oferta de este mes.
-          {groupDiffers ? (
-            <>
-              {" "}
-              Con tu grupo:{" "}
-              <span className="tabular-nums">
-                {formatScore(month.scoreGrupo ?? month.score)}
-              </span>{" "}
-              hoy y <span className="tabular-nums">{formatScore(forecast.scoreGrupoPred3m)}</span>{" "}
-              en 3 meses.
-            </>
-          ) : null}
+      <section
+        aria-label="Lectura de inteligencia artificial"
+        className="ai-panel border-ai-border rounded-xl border px-4 py-3.5"
+      >
+        <p className="text-ai-accent mb-2.5 flex items-center gap-2 text-sm font-medium">
+          <TellMeMark size={64} className="size-8" />
+          <span className="ai-label text-base">TellMe</span>
         </p>
-      </div>
+        <p className="text-ai-fg text-sm text-pretty">{money}.</p>
+      </section>
     </div>
   );
 
