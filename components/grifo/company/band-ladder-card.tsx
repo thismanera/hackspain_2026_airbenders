@@ -1,12 +1,12 @@
 "use client";
 
-import { ShieldCheck, Target } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { CompanyAvatar } from "@/components/grifo/company-avatar";
 import { StatusBadge } from "@/components/grifo/status-badge";
 import { Sparkline, TrendDelta } from "@/components/grifo/trend";
 import { Panel } from "@/components/grifo/panel";
+import { TellMeMark } from "@/components/grifo/tellme-mark";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/core/utils";
 import { bandFloor, nextBand } from "@/lib/features/portfolio/band-ladder";
@@ -260,67 +260,70 @@ export function BandLadderCard({
       description={[company.country, company.currency].filter(Boolean).join(" · ")}
       aside={<StatusBadge estado={latest.estado} />}
       className={cn("flex flex-col", className)}
-      bodyClassName="flex flex-1 flex-col gap-7"
+      bodyClassName="flex flex-1 flex-col gap-7 lg:row-span-2 lg:grid lg:grid-rows-subgrid"
     >
       {/* Las dos notas se separan por espacio, no por línea: la leyenda y el
           color del círculo ya dicen cuál es cuál, y un borde entre ellas
-          convertía la tarjeta en dos tarjetas metidas dentro de otra. */}
-      <div className="flex flex-col gap-2">
-        <ScoreBlock
-          avatarId={company.id}
-          caption={`Tu score · ${formatMonthShort(month)}`}
-          score={latest.score}
-          aside={<Sparkline values={spark} direction={latest.direction} className="mt-2" />}
-        >
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <TrendDelta trend3m={latest.trend3m} direction={latest.direction} showWindow />
-            <span className="text-muted-foreground text-xs tabular-nums">
-              Mejor que el {formatPercent(benchmark.scorePercentile, 0)} de {benchmark.cohort}
-            </span>
-          </div>
-        </ScoreBlock>
+          convertía la tarjeta en dos tarjetas metidas dentro de otra. Van en
+          su propio contenedor para que TellMe quede como fila hermana del
+          subgrid, no anidada, y arranque a la misma altura que la tarjeta de
+          al lado. */}
+      <div className="flex flex-col gap-7">
+        <div className="flex flex-col gap-2">
+          <ScoreBlock
+            avatarId={company.id}
+            caption={`Tu score · ${formatMonthShort(month)}`}
+            score={latest.score}
+            aside={<Sparkline values={spark} direction={latest.direction} className="mt-2" />}
+          >
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <TrendDelta trend3m={latest.trend3m} direction={latest.direction} showWindow />
+              <span className="text-muted-foreground text-xs tabular-nums">
+                Mejor que el {formatPercent(benchmark.scorePercentile, 0)} de {benchmark.cohort}
+              </span>
+            </div>
+          </ScoreBlock>
 
-        <p className="text-muted-foreground text-xs text-pretty">
-          {step ? (
-            <>
-              <span className="text-foreground font-medium">
-                {formatDecimal(step.pointsMissing)} pts para banda {step.band}.
-              </span>{" "}
-              TAE base {formatApr(step.baseApr)}
-              {step.maxTenor > currentBandInfo.maxTenor
-                ? ` y plazo hasta ${formatDays(step.maxTenor)}`
-                : ""}
-              .
-            </>
-          ) : (
-            "Banda A: el mejor tipo y el plazo más largo que ofrece el modelo."
-          )}
-        </p>
+          <p className="text-muted-foreground text-xs text-pretty">
+            {step ? (
+              <>
+                <span className="text-foreground font-medium">
+                  {formatDecimal(step.pointsMissing)} pts para banda {step.band}.
+                </span>{" "}
+                TAE base {formatApr(step.baseApr)}
+                {step.maxTenor > currentBandInfo.maxTenor
+                  ? ` y plazo hasta ${formatDays(step.maxTenor)}`
+                  : ""}
+                .
+              </>
+            ) : (
+              "Banda A: el mejor tipo y el plazo más largo que ofrece el modelo."
+            )}
+          </p>
+        </div>
+
+        {group && company.groupSize > 1 ? (
+          <GroupScoreBlock
+            groupId={group.groupId}
+            month={month}
+            adjustment={group.adjustment}
+            siblings={group.siblings}
+          />
+        ) : null}
       </div>
 
-      {group && company.groupSize > 1 ? (
-        <GroupScoreBlock
-          groupId={group.groupId}
-          month={month}
-          adjustment={group.adjustment}
-          siblings={group.siblings}
-        />
-      ) : null}
-
-      <div className="border-t pt-3">
+      <section
+        aria-label="Lectura de inteligencia artificial"
+        className="ai-panel border-ai-border rounded-lg border px-3 py-2.5"
+      >
+        <p className="text-ai-accent mb-1.5 flex items-center gap-1.5 text-xs font-medium">
+          <TellMeMark size={40} className="size-5" />
+          <span className="ai-label">TellMe</span>
+        </p>
         {lever && leverMeta ? (
           <>
-            <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
-              <Target aria-hidden className="size-3.5 shrink-0" />
-              Dónde más puedes mejorar
-            </p>
-            <p className="mt-1.5 flex items-baseline justify-between gap-3">
-              <span className="min-w-0 truncate text-sm font-medium">{leverMeta.label}</span>
-              <span className="text-status-healthy-fg shrink-0 text-xs font-medium tabular-nums">
-                +{formatDecimal(lever.points)} pts
-              </span>
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-xs text-pretty">
+            <p className="text-ai-fg min-w-0 truncate text-sm font-medium">{leverMeta.label}</p>
+            <p className="text-ai-fg/75 mt-0.5 text-xs text-pretty">
               Estás en {formatIndicatorValue(lever.row.raw, leverMeta.format)}
               {leverMeta.healthy !== undefined ? (
                 <>
@@ -336,25 +339,19 @@ export function BandLadderCard({
             </p>
           </>
         ) : (
-          <>
-            <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
-              <ShieldCheck aria-hidden className="size-3.5 shrink-0" />
-              Qué defender
-            </p>
-            <p className="text-muted-foreground mt-1.5 text-xs text-pretty">
-              {floor === null ? (
-                <>Ninguna variable te resta lo suficiente como para mover la banda.</>
-              ) : (
-                <>
-                  Ninguna variable te resta puntos de peso. Mantente por encima de{" "}
-                  <span className="text-foreground font-medium tabular-nums">{floor}</span> para no
-                  caer de banda {currentBand}.
-                </>
-              )}
-            </p>
-          </>
+          <p className="text-ai-fg/90 text-xs text-pretty">
+            {floor === null ? (
+              <>Ninguna variable te resta lo suficiente como para mover la banda.</>
+            ) : (
+              <>
+                Ninguna variable te resta puntos de peso. Mantente por encima de{" "}
+                <span className="text-ai-fg font-medium tabular-nums">{floor}</span> para no caer de
+                banda {currentBand}.
+              </>
+            )}
+          </p>
         )}
-      </div>
+      </section>
     </Panel>
   );
 }
