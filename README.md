@@ -56,25 +56,25 @@ sustituye los resultados por datos ficticios.
 
 ## Scripts
 
-| Script                    | Qué hace                                                                                                                                 |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`                | Servidor de desarrollo (Turbopack)                                                                                                       |
-| `pnpm build`              | Build de producción (standalone en Docker; salida nativa en Vercel)                                                                      |
-| `pnpm start`              | Sirve el build de producción                                                                                                             |
-| `pnpm test`               | Tests (`node --test`, sin framework extra)                                                                                               |
-| `pnpm db:setup`           | Aplica Prisma e importa el scoring con los parámetros congelados de `artifacts/inference` (el mismo run que la submission) si hace falta |
-| `pnpm db:setup:force`     | Repite ese scoring e importa aunque ya exista una ejecución                                                                              |
-| `pnpm db:setup:refit`     | Reajusta percentiles desde cero antes de importar (la demo dejará de coincidir con la submission)                                        |
-| `pnpm helmcode:check`     | Comprueba la API key de Helmcode (lista modelos + chat de prueba)                                                                        |
-| `pnpm run lint`           | [oxlint](https://oxc.rs) (no ESLint, ver `AGENTS.md`)                                                                                    |
-| `pnpm run lint:fix`       | oxlint con `--fix`                                                                                                                       |
-| `pnpm run format`         | Prettier (con orden de clases de Tailwind)                                                                                               |
-| `pnpm run typecheck`      | `tsc --noEmit`                                                                                                                           |
-| `pnpm run knip`           | Detecta código y dependencias muertas                                                                                                    |
-| `pnpm export:submission`  | Exporta `submission.csv` y `submission.jsonl` desde un run compatible                                                                    |
-| `pnpm pipeline:eval`      | Ejecuta inferencia congelada completa y genera la submission                                                                             |
-| `pnpm run auth:generate`  | Regenera `prisma/schema/auth.prisma` tras tocar `lib/core/auth.ts`                                                                       |
-| `pnpm run rename-project` | Sustituye el nombre placeholder por el nombre real                                                                                       |
+| Script                    | Qué hace                                                              |
+| ------------------------- | --------------------------------------------------------------------- |
+| `pnpm dev`                | Servidor de desarrollo (Turbopack)                                    |
+| `pnpm build`              | Build de producción (standalone en Docker; salida nativa en Vercel)   |
+| `pnpm start`              | Sirve el build de producción                                          |
+| `pnpm test`               | Tests (`node --test`, sin framework extra)                            |
+| `pnpm db:setup`           | Aplica Prisma contra Neon e importa el scoring si hace falta          |
+| `pnpm db:setup:force`     | Recalcula e importa el scoring aunque ya exista una ejecución         |
+| `pnpm helmcode:check`     | Comprueba la API key de Helmcode (lista modelos + chat de prueba)     |
+| `pnpm run lint`           | [oxlint](https://oxc.rs) (no ESLint, ver `AGENTS.md`)                 |
+| `pnpm run lint:fix`       | oxlint con `--fix`                                                    |
+| `pnpm run format`         | Prettier (con orden de clases de Tailwind)                            |
+| `pnpm run typecheck`      | `tsc --noEmit`                                                        |
+| `pnpm run knip`           | Detecta código y dependencias muertas                                 |
+| `pnpm export:submission`  | Exporta `submission.csv` y `submission.jsonl` desde un run compatible |
+| `pnpm pipeline:eval`      | Ejecuta inferencia congelada completa y genera la submission          |
+| `pnpm prisma:seed`        | Seed de la base de datos (`prisma/seed.ts`)                           |
+| `pnpm run auth:generate`  | Regenera `prisma/schema/auth.prisma` tras tocar `lib/core/auth.ts`    |
+| `pnpm run rename-project` | Sustituye el nombre placeholder por el nombre real                    |
 
 ### Despliegue en Vercel
 
