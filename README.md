@@ -120,7 +120,7 @@ Desde la navegación principal se puede acceder a:
 Los filtros, el mes, las empresas seleccionadas y la pestaña activa viven en
 la URL. Cualquier análisis puede compartirse mediante un enlace reproducible.
 
-## Casos de uso implementados
+## Casos de uso
 
 ### 1. La misma nota no implica la misma decisión
 
@@ -143,9 +143,38 @@ grupo, controles de acceso y techo de exposición compartido.
 
 [Leer el caso completo](./docs/demo/use_cases_implementados/02-holding-absorbe-y-drena.md)
 
-El [catálogo de casos de uso](./docs/demo/README.md) añade escenarios de
-impago con nota alta, datos insuficientes, forecast en sombra, aval
-condicionado, puertas distintas y pignoración de caja.
+### 3. La misma nota puede tener una oferta o ninguna
+
+[`COMP_1228` frente a `COMP_0664`](https://hackspain-2026-airbenders.vercel.app/pares?mes=2026-08&empresas=COMP_1228,COMP_0664)
+
+Las dos empresas terminan agosto con 59 puntos, pero solo `COMP_1228` supera
+todos los mínimos. `COMP_0664` cierra porque su bloque de caja queda por debajo
+de 50. El caso demuestra que el score ordena y las puertas deciden.
+
+[Leer el caso completo](./docs/demo/use_cases_implementados/03-misma-nota-puertas-distintas.md)
+
+### 4. Una nota buena no tapa un impago
+
+[`COMP_0540`](https://hackspain-2026-airbenders.vercel.app/cartera?mes=2026-08&empresa=COMP_0540&pestana=decision)
+
+La empresa presenta una nota favorable y una trayectoria de mejora, pero una
+obligación incumplida mantiene cerrada la puerta de fiabilidad. Una señal
+crítica prevalece sobre el promedio, la tendencia y el forecast.
+
+[Leer el caso completo](./docs/demo/use_cases_implementados/04-impago-nota-buena.md)
+
+### 5. El forecast informa, pero todavía no decide
+
+[`COMP_0558`](https://hackspain-2026-airbenders.vercel.app/cartera?mes=2026-08&empresa=COMP_0558&pestana=prediccion)
+
+La previsión anticipa una mejora clara, pero la caja observada todavía no
+supera el mínimo exigido. Como el forecast está en modo sombra, orienta el
+seguimiento sin modificar el límite, el plazo ni la decisión actual.
+
+[Leer el caso completo](./docs/demo/use_cases_implementados/05-forecast-en-sombra.md)
+
+El [catálogo de casos de uso](./docs/demo/README.md) reúne los cinco recorridos,
+sus cifras de referencia y las reglas para interpretar cada pantalla.
 
 ## Cómo interpretar los resultados
 
