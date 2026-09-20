@@ -47,6 +47,9 @@ scoring-artifacts/
 .impeccable/live/sessions/
 .playwright-mcp/
 
+# tmp files
+tmp/
+
 # vercel
 .vercel
 
