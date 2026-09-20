@@ -67,7 +67,13 @@ const ScoreTrend = dynamic(
  * hacia dónde va sin abrir nada, y es lo único de esta vista que tiene tamaño
  * suficiente para ordenar la mirada.
  */
-function TrajectoryPanel({ file }: { file: Parameters<typeof LoanSimulator>[0]["file"] }) {
+function TrajectoryPanel({
+  file,
+  className,
+}: {
+  file: Parameters<typeof LoanSimulator>[0]["file"];
+  className?: string;
+}) {
   const forecast = file.latest.forecast;
 
   return (
@@ -78,7 +84,7 @@ function TrajectoryPanel({ file }: { file: Parameters<typeof LoanSimulator>[0]["
           ? "Score de los últimos meses y previsión a 3 y 6, con su rango. La oferta de este mes no depende de la previsión."
           : "Score mes a mes desde que hay movimientos."
       }
-      className="flex flex-col"
+      className={cn("flex flex-col", className)}
       bodyClassName="flex-1"
     >
       {forecast ? <ForecastPanel file={file} inset /> : <ScoreTrend history={file.history} inset />}
@@ -108,13 +114,38 @@ function CompanyView({
   const { latest } = file;
   const hasGroup = latest.group !== null && file.peers.length > 0;
   const hasRca = file.rca !== null && file.rca !== undefined;
-  const current =
-    (tab === "grupo" && !hasGroup) || (tab === "revision" && !hasRca) ? "oferta" : tab;
+  const current = (tab === "grupo" && !hasGroup) || (tab === "revision" && !hasRca) ? "score" : tab;
 
   return (
     <div className="flex flex-col gap-4">
+      {/* La oferta es el titular de la página: lo que la empresa viene a ver y
+          lo único sobre lo que puede actuar. Todo lo demás la explica. */}
+      <LoanSimulator file={file} />
+
+      <DetailStack label="Detalle de la oferta">
+        <DetailRow title="Qué ha cambiado este mes" aside="límite, TAE y plazo">
+          <div className="-mx-4 -my-3">
+            <ConditionsTable file={file} />
+          </div>
+        </DetailRow>
+        {latest.decision.eligible ? (
+          <DetailRow title="Para llevar al banco" aside="condiciones de este mes">
+            <NegotiationReport inset file={file} />
+          </DetailRow>
+        ) : (
+          <DetailRow title="Por qué no hay línea" aside={`${latest.decision.gates.length}`}>
+            <GatesPanel inset gates={latest.decision.gates} />
+          </DetailRow>
+        )}
+        {latest.alerts.length > 0 ? (
+          <DetailRow title="Alertas" aside={`${latest.alerts.length}`}>
+            <AlertsTimeline inset alerts={latest.alerts} />
+          </DetailRow>
+        ) : null}
+      </DetailStack>
+
       <div className="grid gap-4 lg:grid-cols-3">
-        <TrajectoryPanel file={file} />
+        <TrajectoryPanel file={file} className="lg:col-span-2" />
         <BandLadderCard file={file} benchmark={benchmark} month={month} />
       </div>
 
@@ -124,9 +155,6 @@ function CompanyView({
         className="gap-0"
       >
         <TabsList variant="line" className="h-9 gap-4 border-b p-0">
-          <TabsTrigger value="oferta" className="px-0 text-sm after:!bottom-[-1px]">
-            Mi oferta
-          </TabsTrigger>
           <TabsTrigger value="score" className="px-0 text-sm after:!bottom-[-1px]">
             Mi score
           </TabsTrigger>
@@ -144,31 +172,6 @@ function CompanyView({
             </TabsTrigger>
           ) : null}
         </TabsList>
-
-        <TabsContent value="oferta" className="flex flex-col gap-4 pt-4">
-          <LoanSimulator file={file} />
-          <DetailStack label="Detalle de la oferta">
-            <DetailRow title="Qué ha cambiado este mes" aside="límite, TAE y plazo">
-              <div className="-mx-4 -my-3">
-                <ConditionsTable file={file} />
-              </div>
-            </DetailRow>
-            {latest.decision.eligible ? (
-              <DetailRow title="Para llevar al banco" aside="condiciones de este mes">
-                <NegotiationReport inset file={file} />
-              </DetailRow>
-            ) : (
-              <DetailRow title="Por qué no hay línea" aside={`${latest.decision.gates.length}`}>
-                <GatesPanel inset gates={latest.decision.gates} />
-              </DetailRow>
-            )}
-            {latest.alerts.length > 0 ? (
-              <DetailRow title="Alertas" aside={`${latest.alerts.length}`}>
-                <AlertsTimeline inset alerts={latest.alerts} />
-              </DetailRow>
-            ) : null}
-          </DetailStack>
-        </TabsContent>
 
         <TabsContent value="score" className="flex flex-col gap-4 pt-4">
           <Cascade bare month={latest} />

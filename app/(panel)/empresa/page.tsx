@@ -61,7 +61,7 @@ export default async function EmpresaPage({
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <PageHeader
-        crumbs={[{ label: "Cartera", href: "/cartera" }, { label: "Mi score" }]}
+        crumbs={[{ label: "Empresa" }, { label: "Mi score" }]}
         actions={
           <Suspense fallback={<Skeleton className="h-8 w-56" />}>
             <GlobalSearch />

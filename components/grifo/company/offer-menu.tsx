@@ -1,6 +1,5 @@
 "use client";
 
-import { CalendarClock, Percent, Wallet } from "lucide-react";
 import { useState } from "react";
 
 import { Panel } from "@/components/grifo/panel";
@@ -33,16 +32,10 @@ export function OfferTenorPicker({
 
   const active = options.find((option) => option.days === days) ?? options[options.length - 1]!;
 
-  const figures = [
-    { icon: Wallet, label: "Puedes disponer de", value: formatEuros(active.maxAmount) },
-    { icon: Percent, label: "TAE", value: formatApr(active.apr) },
-    { icon: CalendarClock, label: "Intereses del periodo", value: formatEuros(active.cost) },
-  ];
-
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-muted-foreground text-xs font-medium">Elige el plazo</legend>
+      <fieldset>
+        <legend className="text-muted-foreground mb-2.5 text-xs font-medium">Elige el plazo</legend>
         <div className="flex flex-wrap gap-1.5">
           {options.map((option) => {
             const isActive = option.days === active.days;
@@ -70,20 +63,17 @@ export function OfferTenorPicker({
         </div>
       </fieldset>
 
-      <dl aria-live="polite" className="grid grid-cols-3 gap-3">
-        {figures.map((figure) => (
-          <div key={figure.label} className="min-w-0">
-            <dt className="text-muted-foreground flex items-center gap-1.5 text-xs">
-              <figure.icon aria-hidden className="size-3.5 shrink-0" />
-              <span className="truncate">{figure.label}</span>
-            </dt>
-            <dd className="mt-1 text-lg leading-none font-semibold tabular-nums">{figure.value}</dd>
-          </div>
-        ))}
-      </dl>
-
-      <p className="text-muted-foreground text-xs text-pretty">
-        A cada plazo, el importe es lo que la caja cubre. Puede ser menor que el límite de la línea.
+      <p aria-live="polite" className="text-sm leading-relaxed text-pretty">
+        Dispones de{" "}
+        <span className="font-semibold tabular-nums">{formatEuros(active.maxAmount)}</span> al{" "}
+        <span className="font-semibold tabular-nums">{formatApr(active.apr)}</span>
+        {active.cost > 0 ? (
+          <>
+            {" "}
+            · <span className="tabular-nums">{formatEuros(active.cost)}</span> de intereses
+          </>
+        ) : null}
+        .
       </p>
     </div>
   );

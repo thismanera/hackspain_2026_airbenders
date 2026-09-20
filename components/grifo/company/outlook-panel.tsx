@@ -1,23 +1,109 @@
-import { ForecastImpactLine, IMPACT_TONE } from "@/components/grifo/company/forecast-impact";
-import { Figure, Panel } from "@/components/grifo/panel";
+import { Panel } from "@/components/grifo/panel";
 import { TrendDelta } from "@/components/grifo/trend";
 import { cn } from "@/lib/core/utils";
 import { formatEuros, formatScore } from "@/lib/features/portfolio/format";
-import type { MonthScore } from "@/lib/features/portfolio/types";
-import { NATURALEZA } from "@/lib/features/portfolio/vocabulary";
+import type { Banda, MonthScore } from "@/lib/features/portfolio/types";
+import { deriveBanda, NATURALEZA } from "@/lib/features/portfolio/vocabulary";
+
+/** Fronteras de banda de SOURCE §2.1, en porcentaje del recorrido 0-100. */
+const BAND_EDGES = [45, 60, 75];
+
+const BAND_FILL = {
+  D: "bg-status-risk",
+  C: "bg-status-watch",
+  B: "bg-status-healthy",
+  A: "bg-primary",
+} satisfies Record<Banda, string>;
+
+function clamp(value: number): number {
+  return Math.min(100, Math.max(0, value));
+}
+
+/**
+ * Una nota sobre el recorrido 0-100, con su rango si lo tiene. El rango dibujado
+ * dice de un vistazo lo que «(rango 65–91)» entre paréntesis obliga a
+ * reconstruir: cuánta horquilla hay detrás de ese 84.
+ */
+function ScoreTrack({
+  score,
+  low,
+  high,
+  band,
+}: {
+  score: number;
+  low?: number;
+  high?: number;
+  band: Banda;
+}) {
+  const hasRange = low !== undefined && high !== undefined && high > low;
+
+  return (
+    <div className="relative h-2">
+      <div className="bg-muted absolute inset-0 overflow-hidden rounded-full">
+        {hasRange ? (
+          <div
+            className={cn("absolute inset-y-0 rounded-full opacity-30", BAND_FILL[band])}
+            style={{ left: `${clamp(low)}%`, width: `${clamp(high) - clamp(low)}%` }}
+          />
+        ) : null}
+      </div>
+      {BAND_EDGES.map((edge) => (
+        <span
+          key={edge}
+          aria-hidden
+          className="bg-card absolute inset-y-0 w-px"
+          style={{ left: `${edge}%` }}
+        />
+      ))}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full",
+          BAND_FILL[band],
+        )}
+        style={{ left: `${clamp(score)}%` }}
+      />
+    </div>
+  );
+}
+
+function Milestone({
+  caption,
+  score,
+  low,
+  high,
+}: {
+  caption: string;
+  score: number;
+  low?: number;
+  high?: number;
+}) {
+  const band = deriveBanda(score);
+  const hasRange = low !== undefined && high !== undefined && high > low;
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <p className="text-muted-foreground text-xs">{caption}</p>
+      <p className="flex items-baseline gap-2">
+        <span className="text-2xl leading-none font-semibold tracking-[-0.02em] tabular-nums">
+          {formatScore(score)}
+        </span>
+        <span className="text-muted-foreground text-xs font-medium">Banda {band}</span>
+      </p>
+      <ScoreTrack score={score} low={low} high={high} band={band} />
+      <p className="text-muted-foreground text-xs tabular-nums">
+        {hasRange ? `Entre ${formatScore(low)} y ${formatScore(high)}` : "Cierre de este mes"}
+      </p>
+    </div>
+  );
+}
 
 /**
  * Anticipación en lenguaje de empresa (PRODUCT §10, prioridad 4): dónde estará
- * el score si nada cambia, y qué significa para la oferta y para el bolsillo.
- * La previsión va en modo sombra (SOURCE parte 2): informa, no decide.
+ * el score si nada cambia, y qué significa para el bolsillo. La previsión va en
+ * modo sombra (SOURCE parte 2): informa, no decide.
  */
-export function OutlookPanel({
-  month,
-  inset = false,
-}: {
-  month: MonthScore;
-  inset?: boolean;
-}) {
+export function OutlookPanel({ month, inset = false }: { month: MonthScore; inset?: boolean }) {
   const { forecast } = month;
 
   if (!forecast) {
@@ -49,53 +135,47 @@ export function OutlookPanel({
   const { impact } = forecast;
   const groupDiffers =
     month.scoreGrupo !== undefined && Math.abs(month.scoreGrupo - month.score) >= 0.5;
+  const money =
+    impact && impact.annualDelta !== 0
+      ? `${impact.annualDelta > 0 ? "Te ahorrarías" : "Pagarías"} ${formatEuros(Math.abs(impact.annualDelta))} al año en intereses`
+      : "Mismo coste en intereses que hoy";
 
   const body = (
-    <>
-      <dl className="grid grid-cols-3 gap-4">
-        <Figure
-          label="En 3 meses"
-          value={formatScore(forecast.scoreSoloPred3m)}
-          hint={`Rango ${formatScore(forecast.p10Solo3m)}–${formatScore(forecast.p90Solo3m)}`}
+    <div className="flex flex-col gap-4">
+      <div className="grid gap-5 sm:grid-cols-3">
+        <Milestone caption="Hoy" score={month.score} />
+        <Milestone
+          caption="En 3 meses"
+          score={forecast.scoreSoloPred3m}
+          low={forecast.p10Solo3m}
+          high={forecast.p90Solo3m}
         />
-        <Figure
-          label="En 6 meses"
-          value={formatScore(forecast.scoreSoloPred6m)}
-          hint={`Hoy ${formatScore(month.score)}`}
+        <Milestone
+          caption="En 6 meses"
+          score={forecast.scoreSoloPred6m}
+          low={forecast.p10Solo6m}
+          high={forecast.p90Solo6m}
         />
-        <Figure
-          label="Intereses al año"
-          value={
-            impact ? (
-              <span className={cn(impact.annualDelta !== 0 && IMPACT_TONE[impact.tone])}>
-                {impact.annualDelta === 0
-                  ? "0 €"
-                  : `${impact.annualDelta > 0 ? "+" : "−"}${formatEuros(Math.abs(impact.annualDelta))}`}
-              </span>
-            ) : (
-              "—"
-            )
-          }
-          hint={
-            !impact
-              ? "Si nada cambia"
-              : impact.annualDelta > 0
-                ? "Te ahorrarías"
-                : impact.annualDelta < 0
-                  ? "Pagarías de más"
-                  : "Mismo coste que hoy"
-          }
-        />
-      </dl>
-      <ForecastImpactLine forecast={forecast} voice="tu" className="mt-3" />
-      {groupDiffers ? (
-        <p className="text-muted-foreground mt-3 border-t pt-3 text-xs text-pretty">
-          Con el efecto de tu grupo: {formatScore(month.scoreGrupo ?? month.score)} hoy,{" "}
-          {formatScore(forecast.scoreGrupoPred3m)} en 3 meses (rango{" "}
-          {formatScore(forecast.p10Grupo3m)}–{formatScore(forecast.p90Grupo3m)}).
+      </div>
+
+      <div className="flex flex-col gap-1 border-t pt-3">
+        <p className="text-sm text-pretty">{money}.</p>
+        <p className="text-muted-foreground text-xs text-pretty">
+          Previsión en sombra: informa, no cambia la oferta de este mes.
+          {groupDiffers ? (
+            <>
+              {" "}
+              Con tu grupo:{" "}
+              <span className="tabular-nums">
+                {formatScore(month.scoreGrupo ?? month.score)}
+              </span>{" "}
+              hoy y <span className="tabular-nums">{formatScore(forecast.scoreGrupoPred3m)}</span>{" "}
+              en 3 meses.
+            </>
+          ) : null}
         </p>
-      ) : null}
-    </>
+      </div>
+    </div>
   );
 
   return inset ? (
