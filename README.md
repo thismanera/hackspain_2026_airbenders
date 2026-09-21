@@ -100,6 +100,19 @@ el hash de parámetros y la huella del dataset impiden mezclar ejecuciones
 incompatibles. Ningún LLM decide la elegibilidad, el límite, el plazo o el
 precio.
 
+## Capturas
+
+|                                                                     |                                                                        |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **El problema**<br>Pagar hasta 90 días antes de cobrar, con el banco decidiendo sobre cuentas desactualizadas. | **La nota mensual**<br>Cada empresa recibe un score de 0 a 100, siempre explicado. |
+| ![El problema: pagar antes de cobrar](./docs/assets/readme/intro-90-dias.png) | ![Score mensual explicado](./docs/assets/readme/intro-score-mensual.png) |
+| **Vista empresa**<br>Su score, su oferta y qué ha cambiado este mes. | **Ficha de empresa**<br>Score, puertas de acceso y oferta calculada con explicación (`TellMe`). |
+| ![Vista de empresa con score y oferta](./docs/assets/readme/vista-empresa-score.png) | ![Ficha de empresa con oferta](./docs/assets/readme/ficha-empresa-oferta.png) |
+| **Cartera (vista partner)**<br>Empresas priorizadas por estado, tendencia y movimientos del mes. | **Flujo de caja del holding**<br>Cómo el grupo sostiene o drena a cada sociedad, en puntos de score. |
+| ![Cartera del partner](./docs/assets/readme/cartera-partner.png)    | ![Flujo de caja entre empresas del holding](./docs/assets/readme/holding-flujo-caja.png) |
+| **Grupos y techo conjunto**<br>Holdings ordenados por exposición, interdependencia y cross-default. | **Comparativa de pares**<br>Dos empresas, misma nota, evidencia y trayectoria distintas. |
+| ![Listado de grupos](./docs/assets/readme/grupos-holdings.png) | ![Comparar empresas](./docs/assets/readme/comparar-pares.png) |
+
 ## Explorar la aplicación
 
 La entrada recomendada es la cartera de agosto de 2026:
